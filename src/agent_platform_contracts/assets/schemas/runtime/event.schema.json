@@ -1,0 +1,429 @@
+{
+  "$defs": {
+    "ActorRef": {
+      "additionalProperties": false,
+      "properties": {
+        "actor_id": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Actor Id",
+          "type": "string"
+        },
+        "actor_type": {
+          "$ref": "#/$defs/ActorType"
+        },
+        "tenant_id": {
+          "anyOf": [
+            {
+              "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tenant Id"
+        }
+      },
+      "required": [
+        "actor_type",
+        "actor_id"
+      ],
+      "title": "ActorRef",
+      "type": "object"
+    },
+    "ActorType": {
+      "enum": [
+        "user",
+        "agent",
+        "service",
+        "system"
+      ],
+      "title": "ActorType",
+      "type": "string"
+    },
+    "EventSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "data": {
+          "additionalProperties": true,
+          "title": "Data",
+          "type": "object"
+        },
+        "datacontenttype": {
+          "const": "application/json",
+          "default": "application/json",
+          "title": "Datacontenttype",
+          "type": "string"
+        },
+        "dataschema": {
+          "pattern": "^https://[^\\s]{1,2040}$",
+          "title": "Dataschema",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "schema_ref": {
+          "$ref": "#/$defs/SchemaRef"
+        },
+        "sequence": {
+          "minimum": 1,
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "source": {
+          "pattern": "^(?:/|https?://)[^\\s]{1,510}$",
+          "title": "Source",
+          "type": "string"
+        },
+        "specversion": {
+          "const": "1.0",
+          "default": "1.0",
+          "title": "Specversion",
+          "type": "string"
+        },
+        "subject": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subject"
+        },
+        "subject_ref": {
+          "$ref": "#/$defs/ObjectRef"
+        },
+        "time": {
+          "format": "date-time",
+          "title": "Time",
+          "type": "string"
+        },
+        "trace": {
+          "$ref": "#/$defs/TraceContext"
+        },
+        "type": {
+          "pattern": "^[a-z][a-z0-9_.:-]{2,255}$",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "source",
+        "type",
+        "time",
+        "dataschema",
+        "subject_ref",
+        "sequence",
+        "trace",
+        "schema_ref",
+        "data"
+      ],
+      "title": "EventSpec",
+      "type": "object"
+    },
+    "EventStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "phase": {
+          "const": "recorded",
+          "default": "recorded",
+          "title": "Phase",
+          "type": "string"
+        }
+      },
+      "title": "EventStatus",
+      "type": "object"
+    },
+    "ObjectRef": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/ResourceKind"
+        }
+      },
+      "required": [
+        "kind",
+        "id"
+      ],
+      "title": "ObjectRef",
+      "type": "object"
+    },
+    "ResourceKind": {
+      "enum": [
+        "AgentSpec",
+        "SkillManifest",
+        "ToolManifest",
+        "PromptPackage",
+        "ModelPolicy",
+        "ContextPolicy",
+        "LoopProfile",
+        "PermissionProfile",
+        "Task",
+        "AgentRun",
+        "Checkpoint",
+        "ToolCall",
+        "Approval",
+        "Artifact",
+        "Event"
+      ],
+      "title": "ResourceKind",
+      "type": "string"
+    },
+    "RuntimeMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "annotations": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Annotations",
+          "type": "object"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "created_by": {
+          "$ref": "#/$defs/ActorRef"
+        },
+        "id": {
+          "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Labels",
+          "type": "object"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Updated At"
+        }
+      },
+      "required": [
+        "id",
+        "revision",
+        "scope",
+        "created_at",
+        "created_by"
+      ],
+      "title": "RuntimeMetadata",
+      "type": "object"
+    },
+    "SchemaRef": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^sch_[a-z0-9][a-z0-9._-]{2,127}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "version": {
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "digest"
+      ],
+      "title": "SchemaRef",
+      "type": "object"
+    },
+    "Scope": {
+      "additionalProperties": false,
+      "properties": {
+        "project_id": {
+          "anyOf": [
+            {
+              "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Project Id"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "pattern": "^ses_[A-Za-z0-9._:-]{3,128}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "tenant_id": {
+          "anyOf": [
+            {
+              "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tenant Id"
+        },
+        "type": {
+          "$ref": "#/$defs/ScopeType"
+        },
+        "user_id": {
+          "anyOf": [
+            {
+              "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "User Id"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "Scope",
+      "type": "object"
+    },
+    "ScopeType": {
+      "enum": [
+        "system",
+        "tenant",
+        "user",
+        "project",
+        "session"
+      ],
+      "title": "ScopeType",
+      "type": "string"
+    },
+    "TraceContext": {
+      "additionalProperties": false,
+      "properties": {
+        "correlation_id": {
+          "pattern": "^corr_[A-Za-z0-9._:-]{3,128}$",
+          "title": "Correlation Id",
+          "type": "string"
+        },
+        "parent_span_id": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{16}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Parent Span Id"
+        },
+        "span_id": {
+          "pattern": "^[0-9a-f]{16}$",
+          "title": "Span Id",
+          "type": "string"
+        },
+        "trace_id": {
+          "pattern": "^[0-9a-f]{32}$",
+          "title": "Trace Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "trace_id",
+        "span_id",
+        "correlation_id"
+      ],
+      "title": "TraceContext",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.agent-platform.local/v1alpha1/event.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "api_version": {
+      "const": "agent-platform/v1alpha1",
+      "default": "agent-platform/v1alpha1",
+      "title": "Api Version",
+      "type": "string"
+    },
+    "kind": {
+      "const": "Event",
+      "default": "Event",
+      "title": "Kind",
+      "type": "string"
+    },
+    "metadata": {
+      "$ref": "#/$defs/RuntimeMetadata"
+    },
+    "spec": {
+      "$ref": "#/$defs/EventSpec"
+    },
+    "status": {
+      "$ref": "#/$defs/EventStatus"
+    }
+  },
+  "required": [
+    "metadata",
+    "spec",
+    "status"
+  ],
+  "title": "EventResource",
+  "type": "object",
+  "x-contract-version": "0.2.0",
+  "x-source-model": "agent_platform_contracts.models.EventResource"
+}

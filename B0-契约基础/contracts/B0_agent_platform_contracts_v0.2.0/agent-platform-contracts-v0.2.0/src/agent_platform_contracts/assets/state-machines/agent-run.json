@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "initial_state": "created",
+  "machine": "agent-run",
+  "terminal_states": [
+    "cancelled",
+    "failed",
+    "succeeded",
+    "timed_out"
+  ],
+  "transition_event_required": true,
+  "transitions": {
+    "cancelled": [],
+    "checkpointed": [
+      "running",
+      "suspended",
+      "succeeded",
+      "failed",
+      "cancelled",
+      "timed_out"
+    ],
+    "created": [
+      "resolving",
+      "cancelled"
+    ],
+    "failed": [],
+    "ready": [
+      "running",
+      "cancelled",
+      "timed_out"
+    ],
+    "resolving": [
+      "ready",
+      "failed",
+      "cancelled",
+      "timed_out"
+    ],
+    "running": [
+      "waiting_tool",
+      "waiting_approval",
+      "waiting_input",
+      "checkpointed",
+      "suspended",
+      "succeeded",
+      "failed",
+      "cancelled",
+      "timed_out"
+    ],
+    "succeeded": [],
+    "suspended": [
+      "ready",
+      "running",
+      "cancelled",
+      "timed_out"
+    ],
+    "timed_out": [],
+    "waiting_approval": [
+      "running",
+      "checkpointed",
+      "failed",
+      "cancelled",
+      "timed_out"
+    ],
+    "waiting_input": [
+      "running",
+      "checkpointed",
+      "failed",
+      "cancelled",
+      "timed_out"
+    ],
+    "waiting_tool": [
+      "running",
+      "checkpointed",
+      "failed",
+      "cancelled",
+      "timed_out"
+    ]
+  }
+}

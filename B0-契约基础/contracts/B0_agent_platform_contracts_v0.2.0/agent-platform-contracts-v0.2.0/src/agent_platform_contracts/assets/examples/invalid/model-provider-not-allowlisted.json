@@ -1,0 +1,121 @@
+{
+  "expected_error_code": "MODEL_PROVIDER_NOT_ALLOWED",
+  "payload": {
+    "api_version": "agent-platform/v1alpha1",
+    "kind": "ModelPolicy",
+    "metadata": {
+      "annotations": {},
+      "content_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000005",
+      "created_at": "2026-08-28T00:00:00Z",
+      "created_by": {
+        "actor_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f402",
+        "actor_type": "user",
+        "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401"
+      },
+      "id": "mpo_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f415",
+      "key": "programming-models",
+      "labels": {
+        "domain": "development"
+      },
+      "namespace": "personal",
+      "revision": 1,
+      "scope": {
+        "project_id": "prj_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f403",
+        "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401",
+        "type": "project",
+        "user_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f402"
+      },
+      "version": "1.0.0"
+    },
+    "spec": {
+      "budget_limits": {
+        "max_cost_usd": "20.00",
+        "max_iterations": 20,
+        "max_model_input_tokens": 300000,
+        "max_model_output_tokens": 100000,
+        "max_model_tokens": 400000,
+        "max_tool_calls": 100,
+        "max_wall_time_seconds": 3600
+      },
+      "circuit_breaker": {
+        "failure_threshold": 5,
+        "open_seconds": 120,
+        "window_seconds": 60
+      },
+      "data_classification_rules": [
+        {
+          "allowed_providers": [
+            "openai"
+          ],
+          "classification": "public",
+          "require_local": false
+        },
+        {
+          "allowed_providers": [],
+          "classification": "restricted",
+          "require_local": true
+        }
+      ],
+      "fallback_chain": [
+        {
+          "on_error_codes": [
+            "MODEL_UNAVAILABLE",
+            "RATE_LIMITED"
+          ],
+          "route_id": "fallback-model"
+        }
+      ],
+      "local_model_rules": {
+        "required_for": [
+          "restricted"
+        ]
+      },
+      "provider_allowlist": [
+        "openai"
+      ],
+      "quality_floor": "high",
+      "region_constraints": [
+        "JP"
+      ],
+      "required_capabilities": [
+        "tool_calling",
+        "structured_output"
+      ],
+      "routes": [
+        {
+          "conditions": {
+            "risk": [
+              "low",
+              "medium"
+            ]
+          },
+          "model": "gpt-frontier",
+          "priority": 100,
+          "provider": "unapproved-provider",
+          "required_capabilities": [
+            "tool_calling",
+            "structured_output"
+          ],
+          "route_id": "primary-model"
+        },
+        {
+          "conditions": {},
+          "model": "gpt-balanced",
+          "priority": 50,
+          "provider": "openai",
+          "required_capabilities": [
+            "tool_calling",
+            "structured_output"
+          ],
+          "route_id": "fallback-model"
+        }
+      ]
+    },
+    "status": {
+      "activated_at": "2026-08-28T01:00:00Z",
+      "observed_revision": 1,
+      "phase": "active"
+    }
+  },
+  "target_model": "model-policy"
+}

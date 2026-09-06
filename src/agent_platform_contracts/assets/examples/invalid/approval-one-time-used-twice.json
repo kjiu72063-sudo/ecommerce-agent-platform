@@ -1,0 +1,80 @@
+{
+  "expected_error_code": "APPROVAL_ALREADY_CONSUMED",
+  "payload": {
+    "api_version": "agent-platform/v1alpha1",
+    "kind": "Approval",
+    "metadata": {
+      "annotations": {},
+      "created_at": "2026-08-28T00:00:00Z",
+      "created_by": {
+        "actor_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f402",
+        "actor_type": "user",
+        "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401"
+      },
+      "id": "apr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f425",
+      "labels": {
+        "domain": "development"
+      },
+      "revision": 1,
+      "scope": {
+        "project_id": "prj_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f403",
+        "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401",
+        "type": "project",
+        "user_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f402"
+      },
+      "updated_at": "2026-08-28T01:00:00Z"
+    },
+    "spec": {
+      "approval_type": "tool_execution",
+      "decisions": [
+        {
+          "approver": {
+            "actor_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f402",
+            "actor_type": "user",
+            "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401"
+          },
+          "comment": "Approved for development branch.",
+          "decided_at": "2026-08-28T01:00:00Z",
+          "decision": "approve"
+        }
+      ],
+      "expires_at": "2026-08-29T00:00:00Z",
+      "input_digest": "sha256:00000000000000000000000000000000000000000000000000000000000000d6",
+      "one_time": true,
+      "policy_snapshot": {
+        "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000008",
+        "id": "pep_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f418",
+        "kind": "PermissionProfile",
+        "version": "1.0.0"
+      },
+      "requested_actions": [
+        {
+          "action": "repository.write",
+          "resource": "project:current/repository:repo_demo"
+        }
+      ],
+      "requester": {
+        "actor_id": "agt_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+        "actor_type": "agent",
+        "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401"
+      },
+      "required_approvers": [
+        {
+          "count": 1,
+          "role": "project-owner",
+          "separation_of_duties": false
+        }
+      ],
+      "risk_summary": "Write operation changes an authorized development repository.",
+      "subject_ref": {
+        "id": "tcl_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f424",
+        "kind": "ToolCall"
+      },
+      "usage_count": 2
+    },
+    "status": {
+      "phase": "approved"
+    }
+  },
+  "target_model": "approval"
+}

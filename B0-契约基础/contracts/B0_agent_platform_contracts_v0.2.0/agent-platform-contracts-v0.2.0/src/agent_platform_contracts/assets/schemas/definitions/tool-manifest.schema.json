@@ -1,0 +1,729 @@
+{
+  "$defs": {
+    "ActorRef": {
+      "additionalProperties": false,
+      "properties": {
+        "actor_id": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Actor Id",
+          "type": "string"
+        },
+        "actor_type": {
+          "$ref": "#/$defs/ActorType"
+        },
+        "tenant_id": {
+          "anyOf": [
+            {
+              "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tenant Id"
+        }
+      },
+      "required": [
+        "actor_type",
+        "actor_id"
+      ],
+      "title": "ActorRef",
+      "type": "object"
+    },
+    "ActorType": {
+      "enum": [
+        "user",
+        "agent",
+        "service",
+        "system"
+      ],
+      "title": "ActorType",
+      "type": "string"
+    },
+    "ApprovalRequirement": {
+      "additionalProperties": false,
+      "properties": {
+        "conditions": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Conditions",
+          "type": "array"
+        },
+        "mode": {
+          "enum": [
+            "none",
+            "conditional",
+            "always"
+          ],
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "title": "ApprovalRequirement",
+      "type": "object"
+    },
+    "DefinitionMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "annotations": {
+          "additionalProperties": {
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "propertyNames": {
+            "maxLength": 128
+          },
+          "title": "Annotations",
+          "type": "object"
+        },
+        "content_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Content Digest",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "created_by": {
+          "$ref": "#/$defs/ActorRef"
+        },
+        "id": {
+          "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "key": {
+          "maxLength": 128,
+          "minLength": 3,
+          "pattern": "^[a-z0-9][a-z0-9-]{1,126}[a-z0-9]$",
+          "title": "Key",
+          "type": "string"
+        },
+        "labels": {
+          "patternProperties": {
+            "^[a-z0-9][a-z0-9._/-]{0,62}$": {
+              "maxLength": 256,
+              "type": "string"
+            }
+          },
+          "title": "Labels",
+          "type": "object"
+        },
+        "namespace": {
+          "maxLength": 128,
+          "minLength": 2,
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,126}[a-z0-9]$",
+          "title": "Namespace",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "version": {
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "key",
+        "namespace",
+        "version",
+        "revision",
+        "scope",
+        "content_digest",
+        "created_at",
+        "created_by"
+      ],
+      "title": "DefinitionMetadata",
+      "type": "object"
+    },
+    "DefinitionPhase": {
+      "enum": [
+        "proposed",
+        "draft",
+        "testing",
+        "awaiting_approval",
+        "approved",
+        "active",
+        "deprecated",
+        "blocked",
+        "archived"
+      ],
+      "title": "DefinitionPhase",
+      "type": "string"
+    },
+    "DefinitionStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "activated_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Activated At"
+        },
+        "observed_revision": {
+          "minimum": 1,
+          "title": "Observed Revision",
+          "type": "integer"
+        },
+        "phase": {
+          "$ref": "#/$defs/DefinitionPhase"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 2048,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "phase",
+        "observed_revision"
+      ],
+      "title": "DefinitionStatus",
+      "type": "object"
+    },
+    "EndpointRef": {
+      "additionalProperties": false,
+      "properties": {
+        "endpoint_key": {
+          "pattern": "^[a-z][a-z0-9_.:/-]{1,255}$",
+          "title": "Endpoint Key",
+          "type": "string"
+        },
+        "service_id": {
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "title": "Service Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "service_id",
+        "endpoint_key"
+      ],
+      "title": "EndpointRef",
+      "type": "object"
+    },
+    "ExecutionLocation": {
+      "enum": [
+        "cloud",
+        "local",
+        "sandbox",
+        "device",
+        "gpu"
+      ],
+      "title": "ExecutionLocation",
+      "type": "string"
+    },
+    "HealthContract": {
+      "additionalProperties": false,
+      "properties": {
+        "healthcheck_key": {
+          "maxLength": 256,
+          "minLength": 1,
+          "title": "Healthcheck Key",
+          "type": "string"
+        },
+        "interval_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Interval Seconds",
+          "type": "integer"
+        },
+        "unhealthy_after_failures": {
+          "exclusiveMinimum": 0,
+          "title": "Unhealthy After Failures",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "healthcheck_key",
+        "interval_seconds",
+        "unhealthy_after_failures"
+      ],
+      "title": "HealthContract",
+      "type": "object"
+    },
+    "IdempotencyPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "duplicate_semantics": {
+          "enum": [
+            "reject",
+            "return_original",
+            "reconcile",
+            "not_applicable"
+          ],
+          "title": "Duplicate Semantics",
+          "type": "string"
+        },
+        "key_scope": {
+          "enum": [
+            "none",
+            "tool_target",
+            "tenant_tool_target"
+          ],
+          "title": "Key Scope",
+          "type": "string"
+        },
+        "supported": {
+          "title": "Supported",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "supported",
+        "key_scope",
+        "duplicate_semantics"
+      ],
+      "title": "IdempotencyPolicy",
+      "type": "object"
+    },
+    "RateLimit": {
+      "additionalProperties": false,
+      "properties": {
+        "per_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Per Seconds",
+          "type": "integer"
+        },
+        "requests": {
+          "exclusiveMinimum": 0,
+          "title": "Requests",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "requests",
+        "per_seconds"
+      ],
+      "title": "RateLimit",
+      "type": "object"
+    },
+    "RetryPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "backoff": {
+          "enum": [
+            "none",
+            "fixed",
+            "exponential"
+          ],
+          "title": "Backoff",
+          "type": "string"
+        },
+        "base_delay_seconds": {
+          "minimum": 0,
+          "title": "Base Delay Seconds",
+          "type": "number"
+        },
+        "max_attempts": {
+          "minimum": 1,
+          "title": "Max Attempts",
+          "type": "integer"
+        },
+        "requires_safe_to_retry": {
+          "const": true,
+          "default": true,
+          "title": "Requires Safe To Retry",
+          "type": "boolean"
+        },
+        "retryable_error_codes": {
+          "items": {
+            "pattern": "^[A-Z][A-Z0-9_]{2,127}$",
+            "type": "string"
+          },
+          "title": "Retryable Error Codes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "max_attempts",
+        "retryable_error_codes",
+        "backoff",
+        "base_delay_seconds"
+      ],
+      "title": "RetryPolicy",
+      "type": "object"
+    },
+    "RiskLevel": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "title": "RiskLevel",
+      "type": "string"
+    },
+    "SchemaRef": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^sch_[a-z0-9][a-z0-9._-]{2,127}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "version": {
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "digest"
+      ],
+      "title": "SchemaRef",
+      "type": "object"
+    },
+    "Scope": {
+      "additionalProperties": false,
+      "properties": {
+        "project_id": {
+          "anyOf": [
+            {
+              "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Project Id"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "pattern": "^ses_[A-Za-z0-9._:-]{3,128}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "tenant_id": {
+          "anyOf": [
+            {
+              "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tenant Id"
+        },
+        "type": {
+          "$ref": "#/$defs/ScopeType"
+        },
+        "user_id": {
+          "anyOf": [
+            {
+              "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "User Id"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "Scope",
+      "type": "object"
+    },
+    "ScopeType": {
+      "enum": [
+        "system",
+        "tenant",
+        "user",
+        "project",
+        "session"
+      ],
+      "title": "ScopeType",
+      "type": "string"
+    },
+    "SecretRef": {
+      "additionalProperties": false,
+      "properties": {
+        "field": {
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,127}$",
+          "title": "Field",
+          "type": "string"
+        },
+        "key": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Key",
+          "type": "string"
+        },
+        "provider": {
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "title": "Provider",
+          "type": "string"
+        },
+        "version": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Version"
+        }
+      },
+      "required": [
+        "provider",
+        "key",
+        "version",
+        "field"
+      ],
+      "title": "SecretRef",
+      "type": "object"
+    },
+    "SideEffect": {
+      "enum": [
+        "read_only",
+        "local_write",
+        "external_write",
+        "external_send",
+        "destructive",
+        "privileged"
+      ],
+      "title": "SideEffect",
+      "type": "string"
+    },
+    "TimeoutPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "connect_timeout_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Connect Timeout Seconds",
+          "type": "number"
+        },
+        "execution_timeout_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Execution Timeout Seconds",
+          "type": "number"
+        }
+      },
+      "required": [
+        "connect_timeout_seconds",
+        "execution_timeout_seconds"
+      ],
+      "title": "TimeoutPolicy",
+      "type": "object"
+    },
+    "ToolManifestSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "approval_requirement": {
+          "$ref": "#/$defs/ApprovalRequirement"
+        },
+        "auth_profile_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SecretRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "capability": {
+          "pattern": "^[a-z][a-z0-9_.:-]{2,127}$",
+          "title": "Capability",
+          "type": "string"
+        },
+        "domain": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Domain",
+          "type": "array"
+        },
+        "endpoint_ref": {
+          "$ref": "#/$defs/EndpointRef"
+        },
+        "execution_location": {
+          "$ref": "#/$defs/ExecutionLocation"
+        },
+        "health_contract": {
+          "$ref": "#/$defs/HealthContract"
+        },
+        "idempotency": {
+          "$ref": "#/$defs/IdempotencyPolicy"
+        },
+        "input_schema_ref": {
+          "$ref": "#/$defs/SchemaRef"
+        },
+        "output_schema_ref": {
+          "$ref": "#/$defs/SchemaRef"
+        },
+        "provider": {
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "title": "Provider",
+          "type": "string"
+        },
+        "rate_limit": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RateLimit"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "retry_policy": {
+          "$ref": "#/$defs/RetryPolicy"
+        },
+        "risk_level": {
+          "$ref": "#/$defs/RiskLevel"
+        },
+        "sandbox_profile": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sandbox Profile"
+        },
+        "side_effect": {
+          "$ref": "#/$defs/SideEffect"
+        },
+        "timeout_policy": {
+          "$ref": "#/$defs/TimeoutPolicy"
+        },
+        "transport": {
+          "$ref": "#/$defs/ToolTransport"
+        }
+      },
+      "required": [
+        "provider",
+        "capability",
+        "domain",
+        "transport",
+        "endpoint_ref",
+        "input_schema_ref",
+        "output_schema_ref",
+        "side_effect",
+        "risk_level",
+        "idempotency",
+        "timeout_policy",
+        "retry_policy",
+        "execution_location",
+        "approval_requirement",
+        "health_contract"
+      ],
+      "title": "ToolManifestSpec",
+      "type": "object"
+    },
+    "ToolTransport": {
+      "enum": [
+        "local",
+        "http",
+        "grpc",
+        "mcp",
+        "openclaw"
+      ],
+      "title": "ToolTransport",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.agent-platform.local/v1alpha1/tool-manifest.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "api_version": {
+      "const": "agent-platform/v1alpha1",
+      "default": "agent-platform/v1alpha1",
+      "title": "Api Version",
+      "type": "string"
+    },
+    "kind": {
+      "const": "ToolManifest",
+      "default": "ToolManifest",
+      "title": "Kind",
+      "type": "string"
+    },
+    "metadata": {
+      "$ref": "#/$defs/DefinitionMetadata"
+    },
+    "spec": {
+      "$ref": "#/$defs/ToolManifestSpec"
+    },
+    "status": {
+      "$ref": "#/$defs/DefinitionStatus"
+    }
+  },
+  "required": [
+    "metadata",
+    "spec",
+    "status"
+  ],
+  "title": "ToolManifestResource",
+  "type": "object",
+  "x-contract-version": "0.2.0",
+  "x-source-model": "agent_platform_contracts.models.ToolManifestResource"
+}

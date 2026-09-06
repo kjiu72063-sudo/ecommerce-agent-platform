@@ -1,0 +1,775 @@
+{
+  "$defs": {
+    "ActorRef": {
+      "additionalProperties": false,
+      "properties": {
+        "actor_id": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Actor Id",
+          "type": "string"
+        },
+        "actor_type": {
+          "$ref": "#/$defs/ActorType"
+        },
+        "tenant_id": {
+          "anyOf": [
+            {
+              "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tenant Id"
+        }
+      },
+      "required": [
+        "actor_type",
+        "actor_id"
+      ],
+      "title": "ActorRef",
+      "type": "object"
+    },
+    "ActorType": {
+      "enum": [
+        "user",
+        "agent",
+        "service",
+        "system"
+      ],
+      "title": "ActorType",
+      "type": "string"
+    },
+    "AgentSpecSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "approval_defaults": {
+          "$ref": "#/$defs/ApprovalDefaults"
+        },
+        "budget_defaults": {
+          "$ref": "#/$defs/Budget"
+        },
+        "concurrency_policy": {
+          "$ref": "#/$defs/ConcurrencyPolicy"
+        },
+        "context_policy_ref": {
+          "$ref": "#/$defs/ResourceRef"
+        },
+        "domain": {
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "title": "Domain",
+          "type": "string"
+        },
+        "eval_suite_refs": {
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "minItems": 1,
+          "title": "Eval Suite Refs",
+          "type": "array"
+        },
+        "goals": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Goals",
+          "type": "array"
+        },
+        "input_schema_ref": {
+          "$ref": "#/$defs/SchemaRef"
+        },
+        "loop_profile_ref": {
+          "$ref": "#/$defs/ResourceRef"
+        },
+        "memory_policy": {
+          "$ref": "#/$defs/MemoryPolicy"
+        },
+        "model_policy_ref": {
+          "$ref": "#/$defs/ResourceRef"
+        },
+        "non_goals": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Non Goals",
+          "type": "array"
+        },
+        "output_schema_ref": {
+          "$ref": "#/$defs/SchemaRef"
+        },
+        "permission_profile_ref": {
+          "$ref": "#/$defs/ResourceRef"
+        },
+        "prompt_package_ref": {
+          "$ref": "#/$defs/ResourceRef"
+        },
+        "purpose": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Purpose",
+          "type": "string"
+        },
+        "skill_bindings": {
+          "items": {
+            "$ref": "#/$defs/Binding"
+          },
+          "title": "Skill Bindings",
+          "type": "array"
+        },
+        "tool_bindings": {
+          "items": {
+            "$ref": "#/$defs/Binding"
+          },
+          "title": "Tool Bindings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "purpose",
+        "domain",
+        "goals",
+        "non_goals",
+        "input_schema_ref",
+        "output_schema_ref",
+        "prompt_package_ref",
+        "context_policy_ref",
+        "model_policy_ref",
+        "loop_profile_ref",
+        "permission_profile_ref",
+        "memory_policy",
+        "budget_defaults",
+        "approval_defaults",
+        "concurrency_policy",
+        "eval_suite_refs"
+      ],
+      "title": "AgentSpecSpec",
+      "type": "object"
+    },
+    "ApprovalDefaults": {
+      "additionalProperties": false,
+      "properties": {
+        "approval_ttl_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Approval Ttl Seconds",
+          "type": "integer"
+        },
+        "destructive": {
+          "const": true,
+          "default": true,
+          "title": "Destructive",
+          "type": "boolean"
+        },
+        "external_send": {
+          "default": true,
+          "title": "External Send",
+          "type": "boolean"
+        },
+        "privileged": {
+          "const": true,
+          "default": true,
+          "title": "Privileged",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "approval_ttl_seconds"
+      ],
+      "title": "ApprovalDefaults",
+      "type": "object"
+    },
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "Artifact",
+          "default": "Artifact",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "digest"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "Binding": {
+      "additionalProperties": false,
+      "properties": {
+        "max_candidates": {
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Max Candidates",
+          "type": "integer"
+        },
+        "selector": {
+          "$ref": "#/$defs/BindingSelector"
+        }
+      },
+      "required": [
+        "selector",
+        "max_candidates"
+      ],
+      "title": "Binding",
+      "type": "object"
+    },
+    "BindingSelector": {
+      "additionalProperties": false,
+      "properties": {
+        "domain": {
+          "anyOf": [
+            {
+              "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Domain"
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Labels",
+          "type": "object"
+        },
+        "namespace": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 2,
+              "pattern": "^[a-z0-9][a-z0-9._-]{0,126}[a-z0-9]$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Namespace"
+        },
+        "status": {
+          "const": "active",
+          "default": "active",
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "title": "BindingSelector",
+      "type": "object"
+    },
+    "Budget": {
+      "additionalProperties": false,
+      "properties": {
+        "max_cost_usd": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Max Cost Usd"
+        },
+        "max_iterations": {
+          "exclusiveMinimum": 0,
+          "title": "Max Iterations",
+          "type": "integer"
+        },
+        "max_model_input_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Model Input Tokens"
+        },
+        "max_model_output_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Model Output Tokens"
+        },
+        "max_model_tokens": {
+          "exclusiveMinimum": 0,
+          "title": "Max Model Tokens",
+          "type": "integer"
+        },
+        "max_tool_calls": {
+          "minimum": 0,
+          "title": "Max Tool Calls",
+          "type": "integer"
+        },
+        "max_wall_time_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Max Wall Time Seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "max_wall_time_seconds",
+        "max_model_tokens",
+        "max_cost_usd",
+        "max_tool_calls",
+        "max_iterations"
+      ],
+      "title": "Budget",
+      "type": "object"
+    },
+    "ConcurrencyPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "max_parallel_runs_per_task": {
+          "exclusiveMinimum": 0,
+          "title": "Max Parallel Runs Per Task",
+          "type": "integer"
+        },
+        "max_parallel_tasks": {
+          "exclusiveMinimum": 0,
+          "title": "Max Parallel Tasks",
+          "type": "integer"
+        },
+        "serialization_key_template": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Serialization Key Template"
+        }
+      },
+      "required": [
+        "max_parallel_tasks",
+        "max_parallel_runs_per_task"
+      ],
+      "title": "ConcurrencyPolicy",
+      "type": "object"
+    },
+    "DefinitionMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "annotations": {
+          "additionalProperties": {
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "propertyNames": {
+            "maxLength": 128
+          },
+          "title": "Annotations",
+          "type": "object"
+        },
+        "content_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Content Digest",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "created_by": {
+          "$ref": "#/$defs/ActorRef"
+        },
+        "id": {
+          "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "key": {
+          "maxLength": 128,
+          "minLength": 3,
+          "pattern": "^[a-z0-9][a-z0-9-]{1,126}[a-z0-9]$",
+          "title": "Key",
+          "type": "string"
+        },
+        "labels": {
+          "patternProperties": {
+            "^[a-z0-9][a-z0-9._/-]{0,62}$": {
+              "maxLength": 256,
+              "type": "string"
+            }
+          },
+          "title": "Labels",
+          "type": "object"
+        },
+        "namespace": {
+          "maxLength": 128,
+          "minLength": 2,
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,126}[a-z0-9]$",
+          "title": "Namespace",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "version": {
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "key",
+        "namespace",
+        "version",
+        "revision",
+        "scope",
+        "content_digest",
+        "created_at",
+        "created_by"
+      ],
+      "title": "DefinitionMetadata",
+      "type": "object"
+    },
+    "DefinitionPhase": {
+      "enum": [
+        "proposed",
+        "draft",
+        "testing",
+        "awaiting_approval",
+        "approved",
+        "active",
+        "deprecated",
+        "blocked",
+        "archived"
+      ],
+      "title": "DefinitionPhase",
+      "type": "string"
+    },
+    "DefinitionStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "activated_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Activated At"
+        },
+        "observed_revision": {
+          "minimum": 1,
+          "title": "Observed Revision",
+          "type": "integer"
+        },
+        "phase": {
+          "$ref": "#/$defs/DefinitionPhase"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 2048,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "phase",
+        "observed_revision"
+      ],
+      "title": "DefinitionStatus",
+      "type": "object"
+    },
+    "MemoryPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "allow_cross_tenant": {
+          "const": false,
+          "default": false,
+          "title": "Allow Cross Tenant",
+          "type": "boolean"
+        },
+        "allow_cross_user": {
+          "const": false,
+          "default": false,
+          "title": "Allow Cross User",
+          "type": "boolean"
+        },
+        "max_retention_days": {
+          "minimum": 1,
+          "title": "Max Retention Days",
+          "type": "integer"
+        },
+        "readable_scopes": {
+          "items": {
+            "$ref": "#/$defs/ScopeType"
+          },
+          "title": "Readable Scopes",
+          "type": "array"
+        },
+        "writable_scopes": {
+          "items": {
+            "$ref": "#/$defs/ScopeType"
+          },
+          "title": "Writable Scopes",
+          "type": "array"
+        },
+        "write_requires_approval": {
+          "title": "Write Requires Approval",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "readable_scopes",
+        "writable_scopes",
+        "write_requires_approval",
+        "max_retention_days"
+      ],
+      "title": "MemoryPolicy",
+      "type": "object"
+    },
+    "ResourceKind": {
+      "enum": [
+        "AgentSpec",
+        "SkillManifest",
+        "ToolManifest",
+        "PromptPackage",
+        "ModelPolicy",
+        "ContextPolicy",
+        "LoopProfile",
+        "PermissionProfile",
+        "Task",
+        "AgentRun",
+        "Checkpoint",
+        "ToolCall",
+        "Approval",
+        "Artifact",
+        "Event"
+      ],
+      "title": "ResourceKind",
+      "type": "string"
+    },
+    "ResourceRef": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/ResourceKind"
+        },
+        "version": {
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "version",
+        "digest"
+      ],
+      "title": "ResourceRef",
+      "type": "object"
+    },
+    "SchemaRef": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^sch_[a-z0-9][a-z0-9._-]{2,127}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "version": {
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "digest"
+      ],
+      "title": "SchemaRef",
+      "type": "object"
+    },
+    "Scope": {
+      "additionalProperties": false,
+      "properties": {
+        "project_id": {
+          "anyOf": [
+            {
+              "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Project Id"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "pattern": "^ses_[A-Za-z0-9._:-]{3,128}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "tenant_id": {
+          "anyOf": [
+            {
+              "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tenant Id"
+        },
+        "type": {
+          "$ref": "#/$defs/ScopeType"
+        },
+        "user_id": {
+          "anyOf": [
+            {
+              "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "User Id"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "Scope",
+      "type": "object"
+    },
+    "ScopeType": {
+      "enum": [
+        "system",
+        "tenant",
+        "user",
+        "project",
+        "session"
+      ],
+      "title": "ScopeType",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.agent-platform.local/v1alpha1/agent-spec.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "api_version": {
+      "const": "agent-platform/v1alpha1",
+      "default": "agent-platform/v1alpha1",
+      "title": "Api Version",
+      "type": "string"
+    },
+    "kind": {
+      "const": "AgentSpec",
+      "default": "AgentSpec",
+      "title": "Kind",
+      "type": "string"
+    },
+    "metadata": {
+      "$ref": "#/$defs/DefinitionMetadata"
+    },
+    "spec": {
+      "$ref": "#/$defs/AgentSpecSpec"
+    },
+    "status": {
+      "$ref": "#/$defs/DefinitionStatus"
+    }
+  },
+  "required": [
+    "metadata",
+    "spec",
+    "status"
+  ],
+  "title": "AgentSpecResource",
+  "type": "object",
+  "x-contract-version": "0.2.0",
+  "x-source-model": "agent_platform_contracts.models.AgentSpecResource"
+}

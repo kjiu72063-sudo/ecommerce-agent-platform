@@ -1,0 +1,1070 @@
+{
+  "$defs": {
+    "ActorRef": {
+      "additionalProperties": false,
+      "properties": {
+        "actor_id": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Actor Id",
+          "type": "string"
+        },
+        "actor_type": {
+          "$ref": "#/$defs/ActorType"
+        },
+        "tenant_id": {
+          "anyOf": [
+            {
+              "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tenant Id"
+        }
+      },
+      "required": [
+        "actor_type",
+        "actor_id"
+      ],
+      "title": "ActorRef",
+      "type": "object"
+    },
+    "ActorType": {
+      "enum": [
+        "user",
+        "agent",
+        "service",
+        "system"
+      ],
+      "title": "ActorType",
+      "type": "string"
+    },
+    "AgentRunPhase": {
+      "enum": [
+        "created",
+        "resolving",
+        "ready",
+        "running",
+        "waiting_tool",
+        "waiting_approval",
+        "waiting_input",
+        "checkpointed",
+        "suspended",
+        "succeeded",
+        "failed",
+        "cancelled",
+        "timed_out"
+      ],
+      "title": "AgentRunPhase",
+      "type": "string"
+    },
+    "AgentRunSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "agent_snapshot": {
+          "$ref": "#/$defs/ResourceRef"
+        },
+        "attempt": {
+          "minimum": 1,
+          "title": "Attempt",
+          "type": "integer"
+        },
+        "budget": {
+          "$ref": "#/$defs/Budget"
+        },
+        "context_snapshot_refs": {
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "title": "Context Snapshot Refs",
+          "type": "array"
+        },
+        "current_checkpoint_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ObjectRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "current_model_selection": {
+          "$ref": "#/$defs/ModelSelectionRecord"
+        },
+        "dynamic_dependency_activations": {
+          "items": {
+            "$ref": "#/$defs/DynamicDependencyActivation"
+          },
+          "title": "Dynamic Dependency Activations",
+          "type": "array"
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/StandardError"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "graph_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GraphRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "lease": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Lease"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "model_selection_history": {
+          "items": {
+            "$ref": "#/$defs/ModelSelectionRecord"
+          },
+          "minItems": 1,
+          "title": "Model Selection History",
+          "type": "array"
+        },
+        "output_artifact_refs": {
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "title": "Output Artifact Refs",
+          "type": "array"
+        },
+        "resolved_dependencies": {
+          "$ref": "#/$defs/ResolvedDependencies"
+        },
+        "task_ref": {
+          "$ref": "#/$defs/ObjectRef"
+        },
+        "thread_ref": {
+          "anyOf": [
+            {
+              "pattern": "^thr_[A-Za-z0-9._:-]{3,128}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Thread Ref"
+        },
+        "usage": {
+          "$ref": "#/$defs/Usage"
+        },
+        "worker_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WorkerRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "task_ref",
+        "attempt",
+        "agent_snapshot",
+        "resolved_dependencies",
+        "current_model_selection",
+        "model_selection_history",
+        "budget",
+        "usage"
+      ],
+      "title": "AgentRunSpec",
+      "type": "object"
+    },
+    "AgentRunStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "phase": {
+          "$ref": "#/$defs/AgentRunPhase"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 2048,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "phase"
+      ],
+      "title": "AgentRunStatus",
+      "type": "object"
+    },
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "Artifact",
+          "default": "Artifact",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "digest"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "Budget": {
+      "additionalProperties": false,
+      "properties": {
+        "max_cost_usd": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Max Cost Usd"
+        },
+        "max_iterations": {
+          "exclusiveMinimum": 0,
+          "title": "Max Iterations",
+          "type": "integer"
+        },
+        "max_model_input_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Model Input Tokens"
+        },
+        "max_model_output_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Model Output Tokens"
+        },
+        "max_model_tokens": {
+          "exclusiveMinimum": 0,
+          "title": "Max Model Tokens",
+          "type": "integer"
+        },
+        "max_tool_calls": {
+          "minimum": 0,
+          "title": "Max Tool Calls",
+          "type": "integer"
+        },
+        "max_wall_time_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Max Wall Time Seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "max_wall_time_seconds",
+        "max_model_tokens",
+        "max_cost_usd",
+        "max_tool_calls",
+        "max_iterations"
+      ],
+      "title": "Budget",
+      "type": "object"
+    },
+    "DynamicDependencyActivation": {
+      "additionalProperties": false,
+      "properties": {
+        "activated_at": {
+          "format": "date-time",
+          "title": "Activated At",
+          "type": "string"
+        },
+        "activation_reason": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Activation Reason",
+          "type": "string"
+        },
+        "checkpoint_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ObjectRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "event_ref": {
+          "$ref": "#/$defs/ObjectRef"
+        },
+        "permission_decision_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Permission Decision Digest",
+          "type": "string"
+        },
+        "resource_ref": {
+          "$ref": "#/$defs/ResourceRef"
+        },
+        "sequence": {
+          "minimum": 1,
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "source_skill_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResourceRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "sequence",
+        "resource_ref",
+        "activated_at",
+        "activation_reason",
+        "permission_decision_digest",
+        "event_ref"
+      ],
+      "title": "DynamicDependencyActivation",
+      "type": "object"
+    },
+    "ErrorCategory": {
+      "enum": [
+        "validation",
+        "authentication",
+        "authorization",
+        "approval",
+        "budget",
+        "model",
+        "tool",
+        "dependency",
+        "conflict",
+        "cancelled",
+        "timeout",
+        "internal"
+      ],
+      "title": "ErrorCategory",
+      "type": "string"
+    },
+    "ErrorSeverity": {
+      "enum": [
+        "info",
+        "warning",
+        "error",
+        "critical"
+      ],
+      "title": "ErrorSeverity",
+      "type": "string"
+    },
+    "GraphRef": {
+      "additionalProperties": false,
+      "properties": {
+        "graph_id": {
+          "pattern": "^grf_[A-Za-z0-9._:-]{3,128}$",
+          "title": "Graph Id",
+          "type": "string"
+        },
+        "node_id": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Node Id"
+        },
+        "version": {
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "graph_id",
+        "version"
+      ],
+      "title": "GraphRef",
+      "type": "object"
+    },
+    "Lease": {
+      "additionalProperties": false,
+      "properties": {
+        "acquired_at": {
+          "format": "date-time",
+          "title": "Acquired At",
+          "type": "string"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
+        },
+        "fencing_token": {
+          "minimum": 1,
+          "title": "Fencing Token",
+          "type": "integer"
+        },
+        "heartbeat_at": {
+          "format": "date-time",
+          "title": "Heartbeat At",
+          "type": "string"
+        },
+        "lease_id": {
+          "pattern": "^lease_[A-Za-z0-9._:-]{3,128}$",
+          "title": "Lease Id",
+          "type": "string"
+        },
+        "worker_ref": {
+          "$ref": "#/$defs/WorkerRef"
+        }
+      },
+      "required": [
+        "lease_id",
+        "worker_ref",
+        "acquired_at",
+        "heartbeat_at",
+        "expires_at",
+        "fencing_token"
+      ],
+      "title": "Lease",
+      "type": "object"
+    },
+    "ModelSelectionReason": {
+      "enum": [
+        "initial",
+        "fallback"
+      ],
+      "title": "ModelSelectionReason",
+      "type": "string"
+    },
+    "ModelSelectionRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "event_ref": {
+          "$ref": "#/$defs/ObjectRef"
+        },
+        "model": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Model",
+          "type": "string"
+        },
+        "price_snapshot_ref": {
+          "$ref": "#/$defs/PriceSnapshotRef"
+        },
+        "provider": {
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "title": "Provider",
+          "type": "string"
+        },
+        "route_id": {
+          "maxLength": 128,
+          "minLength": 3,
+          "pattern": "^[a-z0-9][a-z0-9-]{1,126}[a-z0-9]$",
+          "title": "Route Id",
+          "type": "string"
+        },
+        "selected_at": {
+          "format": "date-time",
+          "title": "Selected At",
+          "type": "string"
+        },
+        "selection_reason": {
+          "$ref": "#/$defs/ModelSelectionReason"
+        },
+        "sequence": {
+          "minimum": 1,
+          "title": "Sequence",
+          "type": "integer"
+        },
+        "trigger_error_code": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Z][A-Z0-9_]{2,127}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Trigger Error Code"
+        }
+      },
+      "required": [
+        "sequence",
+        "route_id",
+        "provider",
+        "model",
+        "selected_at",
+        "selection_reason",
+        "price_snapshot_ref",
+        "event_ref"
+      ],
+      "title": "ModelSelectionRecord",
+      "type": "object"
+    },
+    "ObjectRef": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/ResourceKind"
+        }
+      },
+      "required": [
+        "kind",
+        "id"
+      ],
+      "title": "ObjectRef",
+      "type": "object"
+    },
+    "PriceSnapshotRef": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "effective_at": {
+          "format": "date-time",
+          "title": "Effective At",
+          "type": "string"
+        },
+        "snapshot_id": {
+          "pattern": "^price_[A-Za-z0-9._:-]{3,128}$",
+          "title": "Snapshot Id",
+          "type": "string"
+        },
+        "version": {
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "snapshot_id",
+        "version",
+        "effective_at",
+        "digest"
+      ],
+      "title": "PriceSnapshotRef",
+      "type": "object"
+    },
+    "ResolvedDependencies": {
+      "additionalProperties": false,
+      "properties": {
+        "context_policy_ref": {
+          "$ref": "#/$defs/ResourceRef"
+        },
+        "loop_profile_ref": {
+          "$ref": "#/$defs/ResourceRef"
+        },
+        "model_policy_ref": {
+          "$ref": "#/$defs/ResourceRef"
+        },
+        "permission_profile_ref": {
+          "$ref": "#/$defs/ResourceRef"
+        },
+        "price_snapshot_ref": {
+          "$ref": "#/$defs/PriceSnapshotRef"
+        },
+        "prompt_package_ref": {
+          "$ref": "#/$defs/ResourceRef"
+        },
+        "runtime_version": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Runtime Version",
+          "type": "string"
+        },
+        "schema_version": {
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "startup_skill_refs": {
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          },
+          "title": "Startup Skill Refs",
+          "type": "array"
+        },
+        "startup_tool_refs": {
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          },
+          "title": "Startup Tool Refs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "prompt_package_ref",
+        "context_policy_ref",
+        "model_policy_ref",
+        "loop_profile_ref",
+        "permission_profile_ref",
+        "startup_skill_refs",
+        "startup_tool_refs",
+        "price_snapshot_ref",
+        "schema_version",
+        "runtime_version"
+      ],
+      "title": "ResolvedDependencies",
+      "type": "object"
+    },
+    "ResourceKind": {
+      "enum": [
+        "AgentSpec",
+        "SkillManifest",
+        "ToolManifest",
+        "PromptPackage",
+        "ModelPolicy",
+        "ContextPolicy",
+        "LoopProfile",
+        "PermissionProfile",
+        "Task",
+        "AgentRun",
+        "Checkpoint",
+        "ToolCall",
+        "Approval",
+        "Artifact",
+        "Event"
+      ],
+      "title": "ResourceKind",
+      "type": "string"
+    },
+    "ResourceRef": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/ResourceKind"
+        },
+        "version": {
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "version",
+        "digest"
+      ],
+      "title": "ResourceRef",
+      "type": "object"
+    },
+    "RuntimeMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "annotations": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Annotations",
+          "type": "object"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "created_by": {
+          "$ref": "#/$defs/ActorRef"
+        },
+        "id": {
+          "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "labels": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Labels",
+          "type": "object"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Updated At"
+        }
+      },
+      "required": [
+        "id",
+        "revision",
+        "scope",
+        "created_at",
+        "created_by"
+      ],
+      "title": "RuntimeMetadata",
+      "type": "object"
+    },
+    "Scope": {
+      "additionalProperties": false,
+      "properties": {
+        "project_id": {
+          "anyOf": [
+            {
+              "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Project Id"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "pattern": "^ses_[A-Za-z0-9._:-]{3,128}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "tenant_id": {
+          "anyOf": [
+            {
+              "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tenant Id"
+        },
+        "type": {
+          "$ref": "#/$defs/ScopeType"
+        },
+        "user_id": {
+          "anyOf": [
+            {
+              "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "User Id"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "Scope",
+      "type": "object"
+    },
+    "ScopeType": {
+      "enum": [
+        "system",
+        "tenant",
+        "user",
+        "project",
+        "session"
+      ],
+      "title": "ScopeType",
+      "type": "string"
+    },
+    "StandardError": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/ErrorCategory"
+        },
+        "cause_ref": {
+          "anyOf": [
+            {
+              "pattern": "^evt_[0-9a-f-]{36}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cause Ref"
+        },
+        "code": {
+          "pattern": "^[A-Z][A-Z0-9_]{2,127}$",
+          "title": "Code",
+          "type": "string"
+        },
+        "details": {
+          "additionalProperties": true,
+          "title": "Details",
+          "type": "object"
+        },
+        "message": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "occurred_at": {
+          "format": "date-time",
+          "title": "Occurred At",
+          "type": "string"
+        },
+        "retryable": {
+          "title": "Retryable",
+          "type": "boolean"
+        },
+        "safe_to_retry": {
+          "title": "Safe To Retry",
+          "type": "boolean"
+        },
+        "severity": {
+          "$ref": "#/$defs/ErrorSeverity"
+        }
+      },
+      "required": [
+        "code",
+        "category",
+        "message",
+        "retryable",
+        "safe_to_retry",
+        "severity",
+        "occurred_at"
+      ],
+      "title": "StandardError",
+      "type": "object"
+    },
+    "Usage": {
+      "additionalProperties": false,
+      "properties": {
+        "cost_usd": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "default": "0",
+          "title": "Cost Usd"
+        },
+        "iterations": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Iterations",
+          "type": "integer"
+        },
+        "model_input_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Model Input Tokens",
+          "type": "integer"
+        },
+        "model_output_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Model Output Tokens",
+          "type": "integer"
+        },
+        "model_tokens": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Model Tokens",
+          "type": "integer"
+        },
+        "price_snapshot_ref": {
+          "$ref": "#/$defs/PriceSnapshotRef"
+        },
+        "tool_calls": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Tool Calls",
+          "type": "integer"
+        },
+        "wall_time_seconds": {
+          "default": 0,
+          "minimum": 0,
+          "title": "Wall Time Seconds",
+          "type": "number"
+        }
+      },
+      "required": [
+        "price_snapshot_ref"
+      ],
+      "title": "Usage",
+      "type": "object"
+    },
+    "WorkerRef": {
+      "additionalProperties": false,
+      "properties": {
+        "instance": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Instance",
+          "type": "string"
+        },
+        "service": {
+          "maxLength": 128,
+          "minLength": 3,
+          "pattern": "^[a-z0-9][a-z0-9-]{1,126}[a-z0-9]$",
+          "title": "Service",
+          "type": "string"
+        },
+        "worker_id": {
+          "pattern": "^wrk_[A-Za-z0-9._:-]{3,128}$",
+          "title": "Worker Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "worker_id",
+        "service",
+        "instance"
+      ],
+      "title": "WorkerRef",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.agent-platform.local/v1alpha1/agent-run.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "api_version": {
+      "const": "agent-platform/v1alpha1",
+      "default": "agent-platform/v1alpha1",
+      "title": "Api Version",
+      "type": "string"
+    },
+    "kind": {
+      "const": "AgentRun",
+      "default": "AgentRun",
+      "title": "Kind",
+      "type": "string"
+    },
+    "metadata": {
+      "$ref": "#/$defs/RuntimeMetadata"
+    },
+    "spec": {
+      "$ref": "#/$defs/AgentRunSpec"
+    },
+    "status": {
+      "$ref": "#/$defs/AgentRunStatus"
+    }
+  },
+  "required": [
+    "metadata",
+    "spec",
+    "status"
+  ],
+  "title": "AgentRunResource",
+  "type": "object",
+  "x-contract-version": "0.2.0",
+  "x-source-model": "agent_platform_contracts.models.AgentRunResource"
+}

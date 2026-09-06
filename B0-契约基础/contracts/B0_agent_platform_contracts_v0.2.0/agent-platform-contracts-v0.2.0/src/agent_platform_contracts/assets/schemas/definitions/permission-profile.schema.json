@@ -1,0 +1,404 @@
+{
+  "$defs": {
+    "ActorRef": {
+      "additionalProperties": false,
+      "properties": {
+        "actor_id": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Actor Id",
+          "type": "string"
+        },
+        "actor_type": {
+          "$ref": "#/$defs/ActorType"
+        },
+        "tenant_id": {
+          "anyOf": [
+            {
+              "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tenant Id"
+        }
+      },
+      "required": [
+        "actor_type",
+        "actor_id"
+      ],
+      "title": "ActorRef",
+      "type": "object"
+    },
+    "ActorType": {
+      "enum": [
+        "user",
+        "agent",
+        "service",
+        "system"
+      ],
+      "title": "ActorType",
+      "type": "string"
+    },
+    "DefinitionMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "annotations": {
+          "additionalProperties": {
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "propertyNames": {
+            "maxLength": 128
+          },
+          "title": "Annotations",
+          "type": "object"
+        },
+        "content_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Content Digest",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "created_by": {
+          "$ref": "#/$defs/ActorRef"
+        },
+        "id": {
+          "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "key": {
+          "maxLength": 128,
+          "minLength": 3,
+          "pattern": "^[a-z0-9][a-z0-9-]{1,126}[a-z0-9]$",
+          "title": "Key",
+          "type": "string"
+        },
+        "labels": {
+          "patternProperties": {
+            "^[a-z0-9][a-z0-9._/-]{0,62}$": {
+              "maxLength": 256,
+              "type": "string"
+            }
+          },
+          "title": "Labels",
+          "type": "object"
+        },
+        "namespace": {
+          "maxLength": 128,
+          "minLength": 2,
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,126}[a-z0-9]$",
+          "title": "Namespace",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "version": {
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "key",
+        "namespace",
+        "version",
+        "revision",
+        "scope",
+        "content_digest",
+        "created_at",
+        "created_by"
+      ],
+      "title": "DefinitionMetadata",
+      "type": "object"
+    },
+    "DefinitionPhase": {
+      "enum": [
+        "proposed",
+        "draft",
+        "testing",
+        "awaiting_approval",
+        "approved",
+        "active",
+        "deprecated",
+        "blocked",
+        "archived"
+      ],
+      "title": "DefinitionPhase",
+      "type": "string"
+    },
+    "DefinitionStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "activated_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Activated At"
+        },
+        "observed_revision": {
+          "minimum": 1,
+          "title": "Observed Revision",
+          "type": "integer"
+        },
+        "phase": {
+          "$ref": "#/$defs/DefinitionPhase"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 2048,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "phase",
+        "observed_revision"
+      ],
+      "title": "DefinitionStatus",
+      "type": "object"
+    },
+    "PermissionEffect": {
+      "enum": [
+        "allow",
+        "deny",
+        "require_approval"
+      ],
+      "title": "PermissionEffect",
+      "type": "string"
+    },
+    "PermissionProfileSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "capabilities": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_.:-]{2,127}$",
+            "type": "string"
+          },
+          "title": "Capabilities",
+          "type": "array"
+        },
+        "cross_tenant_default": {
+          "const": "deny",
+          "default": "deny",
+          "title": "Cross Tenant Default",
+          "type": "string"
+        },
+        "default_decision": {
+          "const": "deny",
+          "default": "deny",
+          "title": "Default Decision",
+          "type": "string"
+        },
+        "deny_precedence": {
+          "const": true,
+          "default": true,
+          "title": "Deny Precedence",
+          "type": "boolean"
+        },
+        "roles": {
+          "items": {
+            "maxLength": 128,
+            "minLength": 3,
+            "pattern": "^[a-z0-9][a-z0-9-]{1,126}[a-z0-9]$",
+            "type": "string"
+          },
+          "title": "Roles",
+          "type": "array"
+        },
+        "rules": {
+          "items": {
+            "$ref": "#/$defs/PermissionRule"
+          },
+          "minItems": 1,
+          "title": "Rules",
+          "type": "array"
+        }
+      },
+      "required": [
+        "rules"
+      ],
+      "title": "PermissionProfileSpec",
+      "type": "object"
+    },
+    "PermissionRule": {
+      "additionalProperties": false,
+      "properties": {
+        "actions": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_.:-]{2,127}$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Actions",
+          "type": "array"
+        },
+        "conditions": {
+          "additionalProperties": true,
+          "title": "Conditions",
+          "type": "object"
+        },
+        "effect": {
+          "$ref": "#/$defs/PermissionEffect"
+        },
+        "resources": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Resources",
+          "type": "array"
+        }
+      },
+      "required": [
+        "effect",
+        "actions",
+        "resources"
+      ],
+      "title": "PermissionRule",
+      "type": "object"
+    },
+    "Scope": {
+      "additionalProperties": false,
+      "properties": {
+        "project_id": {
+          "anyOf": [
+            {
+              "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Project Id"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "pattern": "^ses_[A-Za-z0-9._:-]{3,128}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "tenant_id": {
+          "anyOf": [
+            {
+              "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tenant Id"
+        },
+        "type": {
+          "$ref": "#/$defs/ScopeType"
+        },
+        "user_id": {
+          "anyOf": [
+            {
+              "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "User Id"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "Scope",
+      "type": "object"
+    },
+    "ScopeType": {
+      "enum": [
+        "system",
+        "tenant",
+        "user",
+        "project",
+        "session"
+      ],
+      "title": "ScopeType",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.agent-platform.local/v1alpha1/permission-profile.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "api_version": {
+      "const": "agent-platform/v1alpha1",
+      "default": "agent-platform/v1alpha1",
+      "title": "Api Version",
+      "type": "string"
+    },
+    "kind": {
+      "const": "PermissionProfile",
+      "default": "PermissionProfile",
+      "title": "Kind",
+      "type": "string"
+    },
+    "metadata": {
+      "$ref": "#/$defs/DefinitionMetadata"
+    },
+    "spec": {
+      "$ref": "#/$defs/PermissionProfileSpec"
+    },
+    "status": {
+      "$ref": "#/$defs/DefinitionStatus"
+    }
+  },
+  "required": [
+    "metadata",
+    "spec",
+    "status"
+  ],
+  "title": "PermissionProfileResource",
+  "type": "object",
+  "x-contract-version": "0.2.0",
+  "x-source-model": "agent_platform_contracts.models.PermissionProfileResource"
+}

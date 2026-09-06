@@ -1,0 +1,858 @@
+{
+  "$defs": {
+    "ActorRef": {
+      "additionalProperties": false,
+      "properties": {
+        "actor_id": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Actor Id",
+          "type": "string"
+        },
+        "actor_type": {
+          "$ref": "#/$defs/ActorType"
+        },
+        "tenant_id": {
+          "anyOf": [
+            {
+              "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tenant Id"
+        }
+      },
+      "required": [
+        "actor_type",
+        "actor_id"
+      ],
+      "title": "ActorRef",
+      "type": "object"
+    },
+    "ActorType": {
+      "enum": [
+        "user",
+        "agent",
+        "service",
+        "system"
+      ],
+      "title": "ActorType",
+      "type": "string"
+    },
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "const": "Artifact",
+          "default": "Artifact",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "digest"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "ContextBudget": {
+      "additionalProperties": false,
+      "properties": {
+        "max_reference_tokens": {
+          "minimum": 0,
+          "title": "Max Reference Tokens",
+          "type": "integer"
+        },
+        "max_skill_tokens": {
+          "exclusiveMinimum": 0,
+          "title": "Max Skill Tokens",
+          "type": "integer"
+        },
+        "max_total_tokens": {
+          "exclusiveMinimum": 0,
+          "title": "Max Total Tokens",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "max_skill_tokens",
+        "max_reference_tokens",
+        "max_total_tokens"
+      ],
+      "title": "ContextBudget",
+      "type": "object"
+    },
+    "DefinitionMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "annotations": {
+          "additionalProperties": {
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "propertyNames": {
+            "maxLength": 128
+          },
+          "title": "Annotations",
+          "type": "object"
+        },
+        "content_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Content Digest",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "created_by": {
+          "$ref": "#/$defs/ActorRef"
+        },
+        "id": {
+          "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "key": {
+          "maxLength": 128,
+          "minLength": 3,
+          "pattern": "^[a-z0-9][a-z0-9-]{1,126}[a-z0-9]$",
+          "title": "Key",
+          "type": "string"
+        },
+        "labels": {
+          "patternProperties": {
+            "^[a-z0-9][a-z0-9._/-]{0,62}$": {
+              "maxLength": 256,
+              "type": "string"
+            }
+          },
+          "title": "Labels",
+          "type": "object"
+        },
+        "namespace": {
+          "maxLength": 128,
+          "minLength": 2,
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,126}[a-z0-9]$",
+          "title": "Namespace",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "version": {
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "key",
+        "namespace",
+        "version",
+        "revision",
+        "scope",
+        "content_digest",
+        "created_at",
+        "created_by"
+      ],
+      "title": "DefinitionMetadata",
+      "type": "object"
+    },
+    "DefinitionPhase": {
+      "enum": [
+        "proposed",
+        "draft",
+        "testing",
+        "awaiting_approval",
+        "approved",
+        "active",
+        "deprecated",
+        "blocked",
+        "archived"
+      ],
+      "title": "DefinitionPhase",
+      "type": "string"
+    },
+    "DefinitionProvenance": {
+      "additionalProperties": false,
+      "properties": {
+        "actor": {
+          "$ref": "#/$defs/ActorRef"
+        },
+        "source_ref": {
+          "anyOf": [
+            {
+              "maxLength": 4096,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Ref"
+        },
+        "type": {
+          "$ref": "#/$defs/ProvenanceType"
+        }
+      },
+      "required": [
+        "type",
+        "actor"
+      ],
+      "title": "DefinitionProvenance",
+      "type": "object"
+    },
+    "DefinitionStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "activated_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Activated At"
+        },
+        "observed_revision": {
+          "minimum": 1,
+          "title": "Observed Revision",
+          "type": "integer"
+        },
+        "phase": {
+          "$ref": "#/$defs/DefinitionPhase"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 2048,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "phase",
+        "observed_revision"
+      ],
+      "title": "DefinitionStatus",
+      "type": "object"
+    },
+    "EvalSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "evaluated_at": {
+          "format": "date-time",
+          "title": "Evaluated At",
+          "type": "string"
+        },
+        "evaluated_cases": {
+          "exclusiveMinimum": 0,
+          "title": "Evaluated Cases",
+          "type": "integer"
+        },
+        "output_pass_rate": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Output Pass Rate",
+          "type": "number"
+        },
+        "regression_passed": {
+          "title": "Regression Passed",
+          "type": "boolean"
+        },
+        "security_passed": {
+          "title": "Security Passed",
+          "type": "boolean"
+        },
+        "trigger_precision": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Trigger Precision",
+          "type": "number"
+        },
+        "trigger_recall": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Trigger Recall",
+          "type": "number"
+        }
+      },
+      "required": [
+        "trigger_precision",
+        "trigger_recall",
+        "output_pass_rate",
+        "security_passed",
+        "regression_passed",
+        "evaluated_cases",
+        "evaluated_at"
+      ],
+      "title": "EvalSummary",
+      "type": "object"
+    },
+    "PermissionRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "actions": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_.:-]{2,127}$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Actions",
+          "type": "array"
+        },
+        "conditions": {
+          "additionalProperties": true,
+          "title": "Conditions",
+          "type": "object"
+        },
+        "resources": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Resources",
+          "type": "array"
+        }
+      },
+      "required": [
+        "actions",
+        "resources"
+      ],
+      "title": "PermissionRequest",
+      "type": "object"
+    },
+    "ProvenanceType": {
+      "enum": [
+        "human",
+        "hermes_proposal",
+        "external",
+        "imported"
+      ],
+      "title": "ProvenanceType",
+      "type": "string"
+    },
+    "ResourceKind": {
+      "enum": [
+        "AgentSpec",
+        "SkillManifest",
+        "ToolManifest",
+        "PromptPackage",
+        "ModelPolicy",
+        "ContextPolicy",
+        "LoopProfile",
+        "PermissionProfile",
+        "Task",
+        "AgentRun",
+        "Checkpoint",
+        "ToolCall",
+        "Approval",
+        "Artifact",
+        "Event"
+      ],
+      "title": "ResourceKind",
+      "type": "string"
+    },
+    "ResourceRef": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/ResourceKind"
+        },
+        "version": {
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "version",
+        "digest"
+      ],
+      "title": "ResourceRef",
+      "type": "object"
+    },
+    "RiskLevel": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "title": "RiskLevel",
+      "type": "string"
+    },
+    "RuntimeRequirements": {
+      "additionalProperties": false,
+      "properties": {
+        "binaries": {
+          "items": {
+            "pattern": "^[A-Za-z0-9_.+-]{1,128}$",
+            "type": "string"
+          },
+          "title": "Binaries",
+          "type": "array"
+        },
+        "has_scripts": {
+          "title": "Has Scripts",
+          "type": "boolean"
+        },
+        "network_domains": {
+          "items": {
+            "pattern": "^(?:[a-z0-9-]+\\.)+[a-z]{2,63}$",
+            "type": "string"
+          },
+          "title": "Network Domains",
+          "type": "array"
+        },
+        "operating_systems": {
+          "items": {
+            "enum": [
+              "linux",
+              "windows",
+              "macos",
+              "any"
+            ],
+            "type": "string"
+          },
+          "title": "Operating Systems",
+          "type": "array"
+        },
+        "sandbox_profile": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sandbox Profile"
+        },
+        "sandbox_required": {
+          "title": "Sandbox Required",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "operating_systems",
+        "has_scripts",
+        "sandbox_required"
+      ],
+      "title": "RuntimeRequirements",
+      "type": "object"
+    },
+    "SchemaRef": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^sch_[a-z0-9][a-z0-9._-]{2,127}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "version": {
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "digest"
+      ],
+      "title": "SchemaRef",
+      "type": "object"
+    },
+    "Scope": {
+      "additionalProperties": false,
+      "properties": {
+        "project_id": {
+          "anyOf": [
+            {
+              "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Project Id"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "pattern": "^ses_[A-Za-z0-9._:-]{3,128}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "tenant_id": {
+          "anyOf": [
+            {
+              "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tenant Id"
+        },
+        "type": {
+          "$ref": "#/$defs/ScopeType"
+        },
+        "user_id": {
+          "anyOf": [
+            {
+              "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "User Id"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "Scope",
+      "type": "object"
+    },
+    "ScopeType": {
+      "enum": [
+        "system",
+        "tenant",
+        "user",
+        "project",
+        "session"
+      ],
+      "title": "ScopeType",
+      "type": "string"
+    },
+    "SkillManifestSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "bundle_artifact_ref": {
+          "$ref": "#/$defs/ArtifactRef"
+        },
+        "conflicts_with": {
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          },
+          "title": "Conflicts With",
+          "type": "array"
+        },
+        "context_budget": {
+          "$ref": "#/$defs/ContextBudget"
+        },
+        "description": {
+          "maxLength": 2048,
+          "minLength": 20,
+          "title": "Description",
+          "type": "string"
+        },
+        "domain": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Domain",
+          "type": "array"
+        },
+        "eval_summary": {
+          "$ref": "#/$defs/EvalSummary"
+        },
+        "input_schema_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SchemaRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "output_schema_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SchemaRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "permission_requirements": {
+          "items": {
+            "$ref": "#/$defs/PermissionRequest"
+          },
+          "title": "Permission Requirements",
+          "type": "array"
+        },
+        "portable_name": {
+          "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$",
+          "title": "Portable Name",
+          "type": "string"
+        },
+        "provenance": {
+          "$ref": "#/$defs/DefinitionProvenance"
+        },
+        "required_skills": {
+          "items": {
+            "$ref": "#/$defs/SkillRequirement"
+          },
+          "title": "Required Skills",
+          "type": "array"
+        },
+        "required_tools": {
+          "items": {
+            "$ref": "#/$defs/ToolRequirement"
+          },
+          "title": "Required Tools",
+          "type": "array"
+        },
+        "risk_level": {
+          "$ref": "#/$defs/RiskLevel"
+        },
+        "runtime_requirements": {
+          "$ref": "#/$defs/RuntimeRequirements"
+        },
+        "source_repository": {
+          "$ref": "#/$defs/SourceRepository"
+        },
+        "tags": {
+          "items": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "trigger_examples": {
+          "$ref": "#/$defs/TriggerExamples"
+        }
+      },
+      "required": [
+        "portable_name",
+        "description",
+        "domain",
+        "trigger_examples",
+        "risk_level",
+        "runtime_requirements",
+        "context_budget",
+        "bundle_artifact_ref",
+        "source_repository",
+        "eval_summary",
+        "provenance"
+      ],
+      "title": "SkillManifestSpec",
+      "type": "object"
+    },
+    "SkillRequirement": {
+      "additionalProperties": false,
+      "properties": {
+        "optional": {
+          "default": false,
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "skill_ref": {
+          "$ref": "#/$defs/ResourceRef"
+        }
+      },
+      "required": [
+        "skill_ref"
+      ],
+      "title": "SkillRequirement",
+      "type": "object"
+    },
+    "SourceRepository": {
+      "additionalProperties": false,
+      "properties": {
+        "commit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Commit",
+          "type": "string"
+        },
+        "path": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "repository": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Repository",
+          "type": "string"
+        }
+      },
+      "required": [
+        "repository",
+        "commit",
+        "path"
+      ],
+      "title": "SourceRepository",
+      "type": "object"
+    },
+    "ToolRequirement": {
+      "additionalProperties": false,
+      "properties": {
+        "required_capabilities": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Required Capabilities",
+          "type": "array"
+        },
+        "tool_ref": {
+          "$ref": "#/$defs/ResourceRef"
+        }
+      },
+      "required": [
+        "tool_ref"
+      ],
+      "title": "ToolRequirement",
+      "type": "object"
+    },
+    "TriggerExamples": {
+      "additionalProperties": false,
+      "properties": {
+        "negative": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Negative",
+          "type": "array"
+        },
+        "positive": {
+          "items": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Positive",
+          "type": "array"
+        }
+      },
+      "required": [
+        "positive",
+        "negative"
+      ],
+      "title": "TriggerExamples",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.agent-platform.local/v1alpha1/skill-manifest.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "api_version": {
+      "const": "agent-platform/v1alpha1",
+      "default": "agent-platform/v1alpha1",
+      "title": "Api Version",
+      "type": "string"
+    },
+    "kind": {
+      "const": "SkillManifest",
+      "default": "SkillManifest",
+      "title": "Kind",
+      "type": "string"
+    },
+    "metadata": {
+      "$ref": "#/$defs/DefinitionMetadata"
+    },
+    "spec": {
+      "$ref": "#/$defs/SkillManifestSpec"
+    },
+    "status": {
+      "$ref": "#/$defs/DefinitionStatus"
+    }
+  },
+  "required": [
+    "metadata",
+    "spec",
+    "status"
+  ],
+  "title": "SkillManifestResource",
+  "type": "object",
+  "x-contract-version": "0.2.0",
+  "x-source-model": "agent_platform_contracts.models.SkillManifestResource"
+}

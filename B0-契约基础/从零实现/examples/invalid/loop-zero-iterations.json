@@ -1,0 +1,69 @@
+{
+  "target_model": "loop-profile",
+  "expected_error_code": "VALIDATION_ERROR",
+  "description": "max_iterations 为 0，违反 exclusiveMinimum: 0 约束",
+  "payload": {
+    "api_version": "agent-platform/v1alpha1",
+    "kind": "LoopProfile",
+    "metadata": {
+      "id": "lop_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f412",
+      "key": "test-loop",
+      "namespace": "test",
+      "version": "1.0.0",
+      "revision": 1,
+      "scope": {
+        "type": "tenant",
+        "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411"
+      },
+      "content_digest": "sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+      "created_at": "2026-09-01T00:00:00Z",
+      "created_by": {
+        "actor_type": "user",
+        "actor_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411"
+      }
+    },
+    "spec": {
+      "strategy": "react",
+      "max_iterations": 0,
+      "max_wall_time_seconds": 3600,
+      "max_model_tokens": 100000,
+      "max_cost_usd": "10.00",
+      "stop_conditions": [
+        {
+          "condition_type": "success",
+          "expression": "task.completed == true"
+        }
+      ],
+      "evaluator_refs": [
+        {
+          "kind": "SkillManifest",
+          "id": "skl_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+          "version": "1.0.0",
+          "digest": "sha256:b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3"
+        }
+      ],
+      "checkpoint_policy": {
+        "interval_iterations": 5,
+        "on_tool_side_effect": true,
+        "on_human_interrupt": true,
+        "on_node_end": true
+      },
+      "retry_policy": {
+        "max_model_retries": 3,
+        "max_node_retries": 2,
+        "backoff": "exponential"
+      },
+      "progress_policy": {
+        "emit_every_iterations": 5,
+        "persist_summary": true
+      },
+      "rollback_policy": {
+        "strategy": "none"
+      }
+    },
+    "status": {
+      "phase": "draft",
+      "observed_revision": 1
+    }
+  }
+}

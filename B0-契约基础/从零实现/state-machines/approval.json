@@ -1,0 +1,15 @@
+{
+  "name": "approval",
+  "description": "Approval 状态机 - 审批生命周期管理",
+  "transitions": {
+    "requested": ["pending", "expired", "revoked"],
+    "pending": ["approved", "rejected", "expired", "revoked"],
+    "approved": ["consumed", "expired", "revoked"],
+    "rejected": [],
+    "expired": [],
+    "revoked": [],
+    "consumed": []
+  },
+  "terminal_states": ["rejected", "expired", "revoked", "consumed"],
+  "initial_state": "requested"
+}

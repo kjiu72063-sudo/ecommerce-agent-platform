@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "standard-error.schema.json",
+  "title": "StandardError",
+  "description": "B0 标准错误对象 - 统一的错误表示格式",
+  "x-contract-version": "0.2.0",
+  "$defs": {
+    "ErrorCategory": {
+      "type": "string",
+      "enum": [
+        "validation",
+        "authentication",
+        "authorization",
+        "approval",
+        "budget",
+        "model",
+        "tool",
+        "dependency",
+        "conflict",
+        "cancelled",
+        "timeout",
+        "internal"
+      ],
+      "description": "错误分类"
+    },
+    "ErrorSeverity": {
+      "type": "string",
+      "enum": ["info", "warning", "error", "critical"],
+      "description": "错误严重程度"
+    }
+  },
+  "type": "object",
+  "properties": {
+    "code": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]{2,127}$",
+      "description": "错误码，如 TOOL_TIMEOUT, PERMISSION_DENIED"
+    },
+    "category": {
+      "$ref": "#/$defs/ErrorCategory"
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096,
+      "description": "人类可读的错误消息"
+    },
+    "retryable": {
+      "type": "boolean",
+      "description": "错误是否可能重试成功"
+    },
+    "safe_to_retry": {
+      "type": "boolean",
+      "description": "重试是否安全（不会产生重复副作用）"
+    },
+    "severity": {
+      "$ref": "#/$defs/ErrorSeverity"
+    },
+    "details": {
+      "type": "object",
+      "description": "错误详细信息"
+    },
+    "cause_ref": {
+      "type": "string",
+      "pattern": "^evt_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+      "description": "原因事件的 ID"
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "错误发生时间（RFC 3339 格式）"
+    }
+  },
+  "required": ["code", "category", "message", "retryable", "safe_to_retry", "severity", "occurred_at"],
+  "additionalProperties": false
+}

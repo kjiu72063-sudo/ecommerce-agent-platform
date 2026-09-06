@@ -1,0 +1,239 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "agent-run.schema.json",
+  "title": "AgentRun",
+  "description": "Agent 运行 - AgentSpec 针对某个 Task 的一次任务级执行实例",
+  "x-contract-version": "0.2.0",
+  "$ref": "#/$defs/AgentRunResource",
+  "$defs": {
+    "AgentRunResource": {
+      "type": "object",
+      "properties": {
+        "api_version": { "const": "agent-platform/v1alpha1" },
+        "kind": { "const": "AgentRun" },
+        "metadata": { "$ref": "#/$defs/RuntimeMetadata" },
+        "spec": { "$ref": "#/$defs/AgentRunSpec" },
+        "status": { "$ref": "#/$defs/AgentRunStatus" }
+      },
+      "required": ["api_version", "kind", "metadata", "spec", "status"],
+      "additionalProperties": false
+    },
+    "RuntimeMetadata": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^run_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "revision": { "type": "integer", "minimum": 1 },
+        "scope": { "$ref": "#/$defs/Scope" },
+        "labels": { "type": "object", "additionalProperties": { "type": "string" } },
+        "annotations": { "type": "object", "additionalProperties": { "type": "string" } },
+        "created_at": { "type": "string", "format": "date-time" },
+        "created_by": { "$ref": "#/$defs/ActorRef" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "revision", "scope", "created_at", "created_by"],
+      "additionalProperties": false
+    },
+    "AgentRunSpec": {
+      "type": "object",
+      "properties": {
+        "task_ref": {
+          "$ref": "#/$defs/ObjectRef",
+          "description": "所属 Task"
+        },
+        "attempt": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "第几次 Run"
+        },
+        "agent_snapshot": {
+          "$ref": "#/$defs/ResourceRef",
+          "description": "AgentSpec 精确版本与摘要"
+        },
+        "resolved_dependencies": {
+          "$ref": "#/$defs/ResolvedDependencies",
+          "description": "启动绑定依赖的精确不可变快照"
+        },
+        "dynamic_dependency_activations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/DynamicDependencyActivation" },
+          "description": "运行时 Skill/Tool 首次使用前冻结的追加式激活记录"
+        },
+        "current_model_selection": {
+          "$ref": "#/$defs/ModelSelectionRecord",
+          "description": "当前实际使用的模型路由快照"
+        },
+        "model_selection_history": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ModelSelectionRecord" },
+          "minItems": 1,
+          "description": "Run 内模型选择与 Fallback 的追加式历史"
+        },
+        "worker_ref": {
+          "$ref": "#/$defs/WorkerRef",
+          "description": "当前执行 Worker"
+        },
+        "thread_ref": {
+          "type": "string",
+          "pattern": "^thr_[A-Za-z0-9._:-]{3,128}$",
+          "description": "短期会话线程"
+        },
+        "graph_ref": {
+          "$ref": "#/$defs/GraphRef",
+          "description": "可选 Graph 与节点信息"
+        },
+        "current_checkpoint_ref": {
+          "$ref": "#/$defs/ObjectRef",
+          "description": "最新 Checkpoint"
+        },
+        "budget": {
+          "$ref": "#/$defs/Budget",
+          "description": "Run 可用预算"
+        },
+        "usage": {
+          "$ref": "#/$defs/Usage",
+          "description": "Token、费用、时间、工具调用统计"
+        },
+        "context_snapshot_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ArtifactRef" },
+          "description": "Context Package 摘要或 Artifact"
+        },
+        "output_artifact_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ArtifactRef" },
+          "description": "运行产物"
+        },
+        "error": {
+          "$ref": "#/$defs/StandardError",
+          "description": "标准错误对象"
+        },
+        "lease": {
+          "$ref": "#/$defs/Lease",
+          "description": "Worker 租约与心跳"
+        }
+      },
+      "required": [
+        "task_ref", "attempt", "agent_snapshot", "resolved_dependencies",
+        "current_model_selection", "model_selection_history", "budget", "usage"
+      ],
+      "additionalProperties": false
+    },
+    "ResolvedDependencies": {
+      "type": "object",
+      "properties": {
+        "prompt_package_ref": { "$ref": "#/$defs/ResourceRef" },
+        "context_policy_ref": { "$ref": "#/$defs/ResourceRef" },
+        "model_policy_ref": { "$ref": "#/$defs/ResourceRef" },
+        "loop_profile_ref": { "$ref": "#/$defs/ResourceRef" },
+        "permission_profile_ref": { "$ref": "#/$defs/ResourceRef" },
+        "startup_skill_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ResourceRef" }
+        },
+        "startup_tool_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ResourceRef" }
+        },
+        "price_snapshot_ref": { "$ref": "#/$defs/PriceSnapshotRef" },
+        "schema_version": { "type": "string", "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$" },
+        "runtime_version": { "type": "string", "minLength": 1, "maxLength": 4096 }
+      },
+      "required": [
+        "prompt_package_ref", "context_policy_ref", "model_policy_ref",
+        "loop_profile_ref", "permission_profile_ref", "startup_skill_refs",
+        "startup_tool_refs", "price_snapshot_ref", "schema_version", "runtime_version"
+      ],
+      "additionalProperties": false
+    },
+    "DynamicDependencyActivation": {
+      "type": "object",
+      "properties": {
+        "sequence": { "type": "integer", "minimum": 1 },
+        "resource_ref": { "$ref": "#/$defs/ResourceRef" },
+        "activated_at": { "type": "string", "format": "date-time" },
+        "activation_reason": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "source_skill_ref": { "$ref": "#/$defs/ResourceRef" },
+        "permission_decision_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "event_ref": { "$ref": "#/$defs/ObjectRef" },
+        "checkpoint_ref": { "$ref": "#/$defs/ObjectRef" }
+      },
+      "required": ["sequence", "resource_ref", "activated_at", "activation_reason", "permission_decision_digest", "event_ref"],
+      "additionalProperties": false
+    },
+    "ModelSelectionRecord": {
+      "type": "object",
+      "properties": {
+        "sequence": { "type": "integer", "minimum": 1 },
+        "route_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,126}[a-z0-9]$", "minLength": 3, "maxLength": 128 },
+        "provider": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{1,63}$" },
+        "model": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "selected_at": { "type": "string", "format": "date-time" },
+        "selection_reason": { "type": "string", "enum": ["initial", "fallback"] },
+        "trigger_error_code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,127}$" },
+        "price_snapshot_ref": { "$ref": "#/$defs/PriceSnapshotRef" },
+        "event_ref": { "$ref": "#/$defs/ObjectRef" }
+      },
+      "required": ["sequence", "route_id", "provider", "model", "selected_at", "selection_reason", "price_snapshot_ref", "event_ref"],
+      "additionalProperties": false
+    },
+    "WorkerRef": {
+      "type": "object",
+      "properties": {
+        "worker_id": { "type": "string", "pattern": "^wrk_[A-Za-z0-9._:-]{3,128}$" },
+        "service": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,126}[a-z0-9]$", "minLength": 3, "maxLength": 128 },
+        "instance": { "type": "string", "minLength": 1, "maxLength": 4096 }
+      },
+      "required": ["worker_id", "service", "instance"],
+      "additionalProperties": false
+    },
+    "Lease": {
+      "type": "object",
+      "properties": {
+        "lease_id": { "type": "string", "pattern": "^lease_[A-Za-z0-9._:-]{3,128}$" },
+        "worker_ref": { "$ref": "#/$defs/WorkerRef" },
+        "acquired_at": { "type": "string", "format": "date-time" },
+        "heartbeat_at": { "type": "string", "format": "date-time" },
+        "expires_at": { "type": "string", "format": "date-time" },
+        "fencing_token": { "type": "integer", "minimum": 1 }
+      },
+      "required": ["lease_id", "worker_ref", "acquired_at", "heartbeat_at", "expires_at", "fencing_token"],
+      "additionalProperties": false
+    },
+    "GraphRef": {
+      "type": "object",
+      "properties": {
+        "graph_id": { "type": "string", "pattern": "^grf_[A-Za-z0-9._:-]{3,128}$" },
+        "version": { "type": "string", "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$" },
+        "node_id": { "type": "string", "minLength": 1, "maxLength": 256 }
+      },
+      "required": ["graph_id", "version"],
+      "additionalProperties": false
+    },
+    "AgentRunStatus": {
+      "type": "object",
+      "properties": {
+        "phase": { "$ref": "#/$defs/AgentRunPhase" },
+        "reason": { "type": "string", "maxLength": 2048 }
+      },
+      "required": ["phase"],
+      "additionalProperties": false
+    },
+    "AgentRunPhase": {
+      "type": "string",
+      "enum": ["created", "resolving", "ready", "running", "waiting_tool", "waiting_approval", "waiting_input", "checkpointed", "suspended", "succeeded", "failed", "cancelled", "timed_out"],
+      "description": "AgentRun 生命周期状态"
+    },
+    "Scope": { "$ref": "common-types.schema.json#/$defs/Scope" },
+    "ActorRef": { "$ref": "common-types.schema.json#/$defs/ActorRef" },
+    "ResourceRef": { "$ref": "common-types.schema.json#/$defs/ResourceRef" },
+    "ObjectRef": { "$ref": "common-types.schema.json#/$defs/ObjectRef" },
+    "ArtifactRef": { "$ref": "common-types.schema.json#/$defs/ArtifactRef" },
+    "Budget": { "$ref": "common-types.schema.json#/$defs/Budget" },
+    "Usage": { "$ref": "common-types.schema.json#/$defs/Usage" },
+    "PriceSnapshotRef": { "$ref": "common-types.schema.json#/$defs/PriceSnapshotRef" },
+    "StandardError": { "$ref": "standard-error.schema.json" }
+  }
+}

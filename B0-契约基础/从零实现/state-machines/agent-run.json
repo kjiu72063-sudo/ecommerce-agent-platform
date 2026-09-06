@@ -1,0 +1,21 @@
+{
+  "name": "agent-run",
+  "description": "AgentRun 状态机 - Agent 运行实例生命周期管理",
+  "transitions": {
+    "created": ["resolving", "cancelled"],
+    "resolving": ["ready", "failed", "cancelled", "timed_out"],
+    "ready": ["running", "cancelled", "timed_out"],
+    "running": ["waiting_tool", "waiting_approval", "waiting_input", "checkpointed", "suspended", "succeeded", "failed", "cancelled", "timed_out"],
+    "waiting_tool": ["running", "checkpointed", "failed", "cancelled", "timed_out"],
+    "waiting_approval": ["running", "checkpointed", "failed", "cancelled", "timed_out"],
+    "waiting_input": ["running", "checkpointed", "failed", "cancelled", "timed_out"],
+    "checkpointed": ["running", "suspended", "succeeded", "failed", "cancelled", "timed_out"],
+    "suspended": ["ready", "running", "cancelled", "timed_out"],
+    "succeeded": [],
+    "failed": [],
+    "cancelled": [],
+    "timed_out": []
+  },
+  "terminal_states": ["succeeded", "failed", "cancelled", "timed_out"],
+  "initial_state": "created"
+}

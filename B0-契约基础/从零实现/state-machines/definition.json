@@ -1,0 +1,17 @@
+{
+  "name": "definition",
+  "description": "定义对象状态机 - 适用于 AgentSpec, SkillManifest, ToolManifest, PromptPackage, ModelPolicy, ContextPolicy, LoopProfile, PermissionProfile",
+  "transitions": {
+    "proposed": ["draft"],
+    "draft": ["testing"],
+    "testing": ["awaiting_approval", "draft"],
+    "awaiting_approval": ["approved", "draft"],
+    "approved": ["active"],
+    "active": ["deprecated", "blocked"],
+    "deprecated": ["archived"],
+    "blocked": ["active"],
+    "archived": []
+  },
+  "terminal_states": ["archived"],
+  "initial_state": "proposed"
+}

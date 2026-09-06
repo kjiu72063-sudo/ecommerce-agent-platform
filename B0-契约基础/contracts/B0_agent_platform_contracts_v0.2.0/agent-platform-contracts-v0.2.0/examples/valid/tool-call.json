@@ -1,0 +1,87 @@
+{
+  "api_version": "agent-platform/v1alpha1",
+  "kind": "ToolCall",
+  "metadata": {
+    "annotations": {},
+    "created_at": "2026-08-28T00:00:00Z",
+    "created_by": {
+      "actor_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f402",
+      "actor_type": "user",
+      "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401"
+    },
+    "id": "tcl_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f424",
+    "labels": {
+      "domain": "development"
+    },
+    "revision": 1,
+    "scope": {
+      "project_id": "prj_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f403",
+      "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401",
+      "type": "project",
+      "user_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f402"
+    },
+    "updated_at": "2026-08-28T01:00:00Z"
+  },
+  "spec": {
+    "attempt": 1,
+    "execution_target": "sandbox",
+    "input": {
+      "path": ".",
+      "repository": "repo_demo"
+    },
+    "input_digest": "sha256:00000000000000000000000000000000000000000000000000000000000000d3",
+    "output": {
+      "entries": [
+        "src",
+        "tests"
+      ]
+    },
+    "permission_decision": {
+      "constraints": {
+        "allowed_paths": [
+          "**"
+        ]
+      },
+      "decision": "allow",
+      "decision_digest": "sha256:00000000000000000000000000000000000000000000000000000000000000d5",
+      "policy_refs": [
+        {
+          "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000008",
+          "id": "pep_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f418",
+          "kind": "PermissionProfile",
+          "version": "1.0.0"
+        }
+      ],
+      "reason_codes": [
+        "RESOURCE_IN_PROJECT_SCOPE"
+      ],
+      "request_digest": "sha256:00000000000000000000000000000000000000000000000000000000000000d4"
+    },
+    "requested_by": {
+      "actor_id": "agt_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+      "actor_type": "agent",
+      "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401"
+    },
+    "run_ref": {
+      "id": "run_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f422",
+      "kind": "AgentRun"
+    },
+    "tool_snapshot": {
+      "risk_level": "low",
+      "side_effect": "read_only",
+      "tool_ref": {
+        "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000003",
+        "id": "tol_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f413",
+        "kind": "ToolManifest",
+        "version": "1.0.0"
+      }
+    },
+    "usage": {
+      "network_bytes": 0,
+      "wall_time_seconds": 0.25
+    }
+  },
+  "status": {
+    "phase": "succeeded"
+  }
+}

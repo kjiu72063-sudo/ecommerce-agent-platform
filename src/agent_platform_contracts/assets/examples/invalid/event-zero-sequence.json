@@ -1,0 +1,65 @@
+{
+  "expected_error_code": "EVENT_SEQUENCE_INVALID",
+  "payload": {
+    "api_version": "agent-platform/v1alpha1",
+    "kind": "Event",
+    "metadata": {
+      "annotations": {},
+      "created_at": "2026-08-28T00:00:00Z",
+      "created_by": {
+        "actor_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f402",
+        "actor_type": "user",
+        "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401"
+      },
+      "id": "evt_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f428",
+      "labels": {
+        "domain": "development"
+      },
+      "revision": 1,
+      "scope": {
+        "project_id": "prj_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f403",
+        "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401",
+        "type": "project",
+        "user_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f402"
+      },
+      "updated_at": "2026-08-28T01:00:00Z"
+    },
+    "spec": {
+      "data": {
+        "skill_ref": {
+          "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000002",
+          "id": "skl_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f412",
+          "kind": "SkillManifest",
+          "version": "1.0.0"
+        }
+      },
+      "datacontenttype": "application/json",
+      "dataschema": "https://schemas.agent-platform.local/events/skill-activated/1.0.0",
+      "id": "evt_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f428",
+      "schema_ref": {
+        "digest": "sha256:00000000000000000000000000000000000000000000000000000000000000c8",
+        "id": "sch_event-skill-activated",
+        "version": "1.0.0"
+      },
+      "sequence": 0,
+      "source": "/services/agent-runtime",
+      "specversion": "1.0",
+      "subject": "run_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f422",
+      "subject_ref": {
+        "id": "run_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f422",
+        "kind": "AgentRun"
+      },
+      "time": "2026-08-28T00:00:00Z",
+      "trace": {
+        "correlation_id": "corr_task-001",
+        "span_id": "0123456789abcdef",
+        "trace_id": "0123456789abcdef0123456789abcdef"
+      },
+      "type": "agent_run.skill_activated"
+    },
+    "status": {
+      "phase": "recorded"
+    }
+  },
+  "target_model": "event"
+}

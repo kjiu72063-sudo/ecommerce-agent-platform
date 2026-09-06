@@ -1,0 +1,88 @@
+{
+  "api_version": "agent-platform/v1alpha1",
+  "kind": "PromptPackage",
+  "metadata": {
+    "id": "prm_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+    "key": "programming-prompt",
+    "namespace": "development",
+    "version": "1.0.0",
+    "revision": 1,
+    "scope": {
+      "type": "tenant",
+      "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411"
+    },
+    "labels": {
+      "domain": "development"
+    },
+    "annotations": {},
+    "content_digest": "sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+    "created_at": "2026-09-01T00:00:00Z",
+    "created_by": {
+      "actor_type": "user",
+      "actor_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+      "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411"
+    }
+  },
+  "spec": {
+    "fragments": [
+      {
+        "name": "safety-rules",
+        "layer": "safety",
+        "order": 0,
+        "content": "## 安全规则\n\n1. 不得执行任何破坏性操作（删除、覆盖）未经用户明确确认\n2. 不得访问任务授权范围外的仓库或文件\n3. 不得在生产环境执行任何写入操作\n4. 敏感信息（密码、密钥）不得出现在日志或输出中\n5. 所有外部 API 调用必须经过审批"
+      },
+      {
+        "name": "identity",
+        "layer": "identity",
+        "order": 1,
+        "content": "## 身份\n\n你是一个专业的编程助手，专门帮助开发者完成代码开发任务。你具备丰富的编程经验，能够分析代码库、编写高质量代码、运行测试并提供技术建议。"
+      },
+      {
+        "name": "domain-rules",
+        "layer": "domain",
+        "order": 2,
+        "content": "## 领域规则\n\n1. 遵循项目现有的代码风格和规范\n2. 编写清晰的注释和文档\n3. 确保代码的可测试性\n4. 优先使用项目已有的依赖\n5. 遵循 SOLID 原则和设计模式"
+      },
+      {
+        "name": "behavior",
+        "layer": "behavior",
+        "order": 3,
+        "content": "## 行为规范\n\n1. 先分析代码库结构，理解现有架构\n2. 制定实现计划，获得用户确认后再执行\n3. 每次修改后运行相关测试\n4. 提供清晰的变更说明\n5. 遇到不确定的情况时，主动询问用户"
+      },
+      {
+        "name": "output-contract",
+        "layer": "output_contract",
+        "order": 4,
+        "content": "## 输出格式\n\n返回 JSON 格式：\n```json\n{\n  \"status\": \"success|failed\",\n  \"changes\": [{\"file\": \"path\", \"description\": \"...\"}],\n  \"tests_passed\": true|false,\n  \"summary\": \"变更摘要\"\n}\n```"
+      }
+    ],
+    "variables_schema_ref": {
+      "id": "sch_prompt_variables",
+      "version": "1.0.0",
+      "digest": "sha256:b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3"
+    },
+    "model_compatibility": {
+      "required_capabilities": ["tool_calling", "structured_output", "reasoning"],
+      "provider_allowlist": ["openai", "anthropic", "qwen"]
+    },
+    "output_schema_ref": {
+      "id": "sch_programming_output",
+      "version": "1.0.0",
+      "digest": "sha256:c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4"
+    },
+    "max_static_tokens": 2000,
+    "eval_suite_refs": [
+      {
+        "kind": "Artifact",
+        "id": "art_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+        "digest": "sha256:d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5"
+      }
+    ],
+    "change_summary": "v1.0.0: 初始版本，包含安全规则、身份定义、领域规则、行为规范和输出格式"
+  },
+  "status": {
+    "phase": "active",
+    "observed_revision": 1,
+    "activated_at": "2026-09-01T00:00:00Z"
+  }
+}

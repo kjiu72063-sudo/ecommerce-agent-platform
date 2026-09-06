@@ -1,0 +1,87 @@
+{
+  "expected_error_code": "PROMPT_ORDER_DUPLICATE",
+  "payload": {
+    "api_version": "agent-platform/v1alpha1",
+    "kind": "PromptPackage",
+    "metadata": {
+      "annotations": {},
+      "content_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000004",
+      "created_at": "2026-08-28T00:00:00Z",
+      "created_by": {
+        "actor_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f402",
+        "actor_type": "user",
+        "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401"
+      },
+      "id": "prm_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f414",
+      "key": "programming-base",
+      "labels": {
+        "domain": "development"
+      },
+      "namespace": "personal",
+      "revision": 1,
+      "scope": {
+        "project_id": "prj_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f403",
+        "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401",
+        "type": "project",
+        "user_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f402"
+      },
+      "version": "1.0.0"
+    },
+    "spec": {
+      "change_summary": "Initial approved programming prompt package.",
+      "eval_suite_refs": [
+        {
+          "digest": "sha256:00000000000000000000000000000000000000000000000000000000000000ca",
+          "id": "art_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f427",
+          "kind": "Artifact"
+        }
+      ],
+      "fragments": [
+        {
+          "content": "Respect permissions, approvals, and task scope.",
+          "layer": "safety",
+          "name": "global-safety",
+          "order": 0
+        },
+        {
+          "content": "You are a bounded programming agent.",
+          "layer": "identity",
+          "name": "programming-identity",
+          "order": 0
+        },
+        {
+          "content": "Return an object matching the declared output schema.",
+          "layer": "output_contract",
+          "name": "structured-output",
+          "order": 20
+        }
+      ],
+      "max_static_tokens": 8000,
+      "model_compatibility": {
+        "provider_allowlist": [
+          "openai"
+        ],
+        "required_capabilities": [
+          "tool_calling",
+          "structured_output"
+        ]
+      },
+      "output_schema_ref": {
+        "digest": "sha256:00000000000000000000000000000000000000000000000000000000000000c8",
+        "id": "sch_programming-result",
+        "version": "1.0.0"
+      },
+      "variables_schema_ref": {
+        "digest": "sha256:00000000000000000000000000000000000000000000000000000000000000c8",
+        "id": "sch_prompt-variables",
+        "version": "1.0.0"
+      }
+    },
+    "status": {
+      "activated_at": "2026-08-28T01:00:00Z",
+      "observed_revision": 1,
+      "phase": "active"
+    }
+  },
+  "target_model": "prompt-package"
+}

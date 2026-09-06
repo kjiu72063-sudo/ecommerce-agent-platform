@@ -1,0 +1,287 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "task.schema.json",
+  "title": "Task",
+  "description": "任务 - 平台接收的可调度工作单元",
+  "x-contract-version": "0.2.0",
+  "$ref": "#/$defs/TaskResource",
+  "$defs": {
+    "TaskResource": {
+      "type": "object",
+      "properties": {
+        "api_version": { "const": "agent-platform/v1alpha1" },
+        "kind": { "const": "Task" },
+        "metadata": { "$ref": "#/$defs/RuntimeMetadata" },
+        "spec": { "$ref": "#/$defs/TaskSpec" },
+        "status": { "$ref": "#/$defs/TaskStatus" }
+      },
+      "required": ["api_version", "kind", "metadata", "spec", "status"],
+      "additionalProperties": false
+    },
+    "RuntimeMetadata": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^tsk_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "revision": { "type": "integer", "minimum": 1 },
+        "scope": { "$ref": "#/$defs/Scope" },
+        "labels": { "type": "object", "additionalProperties": { "type": "string" } },
+        "annotations": { "type": "object", "additionalProperties": { "type": "string" } },
+        "created_at": { "type": "string", "format": "date-time" },
+        "created_by": { "$ref": "#/$defs/ActorRef" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "revision", "scope", "created_at", "created_by"],
+      "additionalProperties": false
+    },
+    "TaskSpec": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "人类可读标题"
+        },
+        "intent": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.:-]{2,127}$",
+          "description": "结构化意图，如 development.implement_feature"
+        },
+        "domain": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "业务领域"
+        },
+        "requested_by": {
+          "$ref": "#/$defs/ActorRef",
+          "description": "请求者"
+        },
+        "source": {
+          "$ref": "#/$defs/TaskSource",
+          "description": "任务来源"
+        },
+        "payload": {
+          "description": "经过 Schema 校验的输入"
+        },
+        "input_schema_ref": {
+          "$ref": "#/$defs/SchemaRef",
+          "description": "输入契约"
+        },
+        "expected_output_schema_ref": {
+          "$ref": "#/$defs/SchemaRef",
+          "description": "期望输出契约"
+        },
+        "input_artifact_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ArtifactRef" },
+          "description": "输入文件和资料"
+        },
+        "requested_agent_ref": {
+          "$ref": "#/$defs/ResourceRef",
+          "description": "显式指定的 Agent"
+        },
+        "routing_constraints": {
+          "$ref": "#/$defs/RoutingConstraints",
+          "description": "路由约束"
+        },
+        "priority": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "调度优先级"
+        },
+        "schedule": {
+          "$ref": "#/$defs/Schedule",
+          "description": "调度配置"
+        },
+        "dependencies": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ObjectRef" },
+          "description": "前置任务"
+        },
+        "budget": {
+          "$ref": "#/$defs/Budget",
+          "description": "任务总预算"
+        },
+        "permission_grant": {
+          "$ref": "#/$defs/PermissionGrant",
+          "description": "本任务授权范围"
+        },
+        "approval_policy_ref": {
+          "$ref": "#/$defs/ResourceRef",
+          "description": "任务级审批规则"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 512,
+          "description": "防止重复创建的幂等键"
+        },
+        "deadline_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "截止时间"
+        },
+        "retention_policy": {
+          "$ref": "#/$defs/RetentionPolicy",
+          "description": "数据保存策略"
+        }
+      },
+      "required": [
+        "title", "intent", "domain", "requested_by", "source", "payload",
+        "input_schema_ref", "expected_output_schema_ref", "routing_constraints",
+        "priority", "budget", "permission_grant", "idempotency_key", "retention_policy"
+      ],
+      "additionalProperties": false
+    },
+    "TaskSource": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["openclaw", "api", "cron", "webhook", "ui", "system"],
+          "description": "来源类型"
+        },
+        "channel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "渠道"
+        },
+        "source_message_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "来源消息 ID"
+        }
+      },
+      "required": ["type"],
+      "additionalProperties": false
+    },
+    "RoutingConstraints": {
+      "type": "object",
+      "properties": {
+        "allowed_agent_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ResourceRef" },
+          "description": "允许的 Agent"
+        },
+        "allowed_domains": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 4096 },
+          "description": "允许的领域"
+        },
+        "required_model_capabilities": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 4096 },
+          "description": "必需的模型能力"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Schedule": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["immediate", "at", "delayed"],
+          "description": "调度模式"
+        },
+        "execute_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "定时执行时间"
+        },
+        "delay_seconds": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "延迟秒数"
+        }
+      },
+      "required": ["mode"],
+      "additionalProperties": false
+    },
+    "PermissionGrant": {
+      "type": "object",
+      "properties": {
+        "actions": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 4096 },
+          "description": "授权动作"
+        },
+        "resources": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 4096 },
+          "description": "授权资源"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "过期时间"
+        }
+      },
+      "required": ["actions", "resources"],
+      "additionalProperties": false
+    },
+    "RetentionPolicy": {
+      "type": "object",
+      "properties": {
+        "retain_days": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "保留天数"
+        },
+        "delete_after": {
+          "type": "string",
+          "format": "date-time",
+          "description": "删除时间"
+        },
+        "legal_hold": {
+          "type": "boolean",
+          "default": false,
+          "description": "法律保留"
+        }
+      },
+      "required": ["retain_days"],
+      "additionalProperties": false
+    },
+    "TaskStatus": {
+      "type": "object",
+      "properties": {
+        "phase": {
+          "$ref": "#/$defs/TaskPhase"
+        },
+        "active_run_ref": {
+          "$ref": "#/$defs/ObjectRef",
+          "description": "当前活跃的 AgentRun"
+        },
+        "final_artifact_ref": {
+          "$ref": "#/$defs/ArtifactRef",
+          "description": "最终产物"
+        },
+        "error": {
+          "$ref": "#/$defs/StandardError",
+          "description": "错误信息"
+        }
+      },
+      "required": ["phase"],
+      "additionalProperties": false
+    },
+    "TaskPhase": {
+      "type": "string",
+      "enum": ["created", "validated", "queued", "running", "waiting_input", "waiting_approval", "suspended", "succeeded", "failed", "cancelled", "expired"],
+      "description": "任务生命周期状态"
+    },
+    "Scope": { "$ref": "common-types.schema.json#/$defs/Scope" },
+    "ActorRef": { "$ref": "common-types.schema.json#/$defs/ActorRef" },
+    "SchemaRef": { "$ref": "common-types.schema.json#/$defs/SchemaRef" },
+    "ResourceRef": { "$ref": "common-types.schema.json#/$defs/ResourceRef" },
+    "ObjectRef": { "$ref": "common-types.schema.json#/$defs/ObjectRef" },
+    "ArtifactRef": { "$ref": "common-types.schema.json#/$defs/ArtifactRef" },
+    "Budget": { "$ref": "common-types.schema.json#/$defs/Budget" },
+    "StandardError": { "$ref": "standard-error.schema.json" }
+  }
+}

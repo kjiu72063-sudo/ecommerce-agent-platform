@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "api_version": "agent-platform/v1alpha1",
+  "description": "B0 平台错误码词汇表 - 定义所有标准错误码及其分类",
+  "codes": [
+    {
+      "code": "EXTRA_FIELD_FORBIDDEN",
+      "category": "validation",
+      "http_status": 422,
+      "description": "包含未声明的额外字段"
+    },
+    {
+      "code": "HERMES_PROPOSAL_NOT_ACTIVATABLE",
+      "category": "validation",
+      "http_status": 409,
+      "description": "Hermes 提案不能直接激活"
+    },
+    {
+      "code": "IDEMPOTENCY_REQUIRED",
+      "category": "validation",
+      "http_status": 422,
+      "description": "有副作用操作必须支持幂等"
+    },
+    {
+      "code": "PROMPT_ORDER_DUPLICATE",
+      "category": "validation",
+      "http_status": 422,
+      "description": "Prompt 片段顺序重复"
+    },
+    {
+      "code": "MODEL_PROVIDER_NOT_ALLOWED",
+      "category": "authorization",
+      "http_status": 403,
+      "description": "模型供应商不在白名单"
+    },
+    {
+      "code": "CONTEXT_BUDGET_EXCEEDED",
+      "category": "budget",
+      "http_status": 422,
+      "description": "Context Token 预算超限"
+    },
+    {
+      "code": "LOOP_HARD_LIMIT_REQUIRED",
+      "category": "validation",
+      "http_status": 422,
+      "description": "Loop 必须有硬停止条件"
+    },
+    {
+      "code": "DEFAULT_DENY_REQUIRED",
+      "category": "authorization",
+      "http_status": 422,
+      "description": "默认决策必须是 deny"
+    },
+    {
+      "code": "TASK_IDEMPOTENCY_REQUIRED",
+      "category": "validation",
+      "http_status": 422,
+      "description": "Task 必须有幂等键"
+    },
+    {
+      "code": "EXACT_VERSION_REQUIRED",
+      "category": "validation",
+      "http_status": 422,
+      "description": "必须使用精确版本，不能使用 latest"
+    },
+    {
+      "code": "DYNAMIC_ACTIVATION_SEQUENCE_INVALID",
+      "category": "conflict",
+      "http_status": 409,
+      "description": "动态激活序号不连续"
+    },
+    {
+      "code": "DYNAMIC_DEPENDENCY_DUPLICATE",
+      "category": "conflict",
+      "http_status": 409,
+      "description": "动态依赖重复激活"
+    },
+    {
+      "code": "MODEL_SELECTION_CURRENT_MISMATCH",
+      "category": "conflict",
+      "http_status": 409,
+      "description": "当前模型选择与历史不匹配"
+    },
+    {
+      "code": "MODEL_FALLBACK_TRIGGER_REQUIRED",
+      "category": "validation",
+      "http_status": 422,
+      "description": "模型回退必须有触发错误码"
+    },
+    {
+      "code": "CHECKPOINT_SEQUENCE_INVALID",
+      "category": "conflict",
+      "http_status": 409,
+      "description": "Checkpoint 序号无效"
+    },
+    {
+      "code": "TOOL_CALL_IDEMPOTENCY_REQUIRED",
+      "category": "validation",
+      "http_status": 422,
+      "description": "有副作用 ToolCall 必须有幂等键"
+    },
+    {
+      "code": "APPROVAL_ALREADY_CONSUMED",
+      "category": "approval",
+      "http_status": 409,
+      "description": "一次性审批已被消费"
+    },
+    {
+      "code": "ARTIFACT_LOCATOR_SECRET",
+      "category": "validation",
+      "http_status": 422,
+      "description": "Artifact 位置包含凭证"
+    },
+    {
+      "code": "EVENT_SEQUENCE_INVALID",
+      "category": "conflict",
+      "http_status": 409,
+      "description": "Event 序号无效"
+    },
+    {
+      "code": "STATE_TRANSITION_NOT_ALLOWED",
+      "category": "conflict",
+      "http_status": 409,
+      "description": "状态迁移不允许"
+    },
+    {
+      "code": "LEASE_EXPIRED",
+      "category": "conflict",
+      "http_status": 409,
+      "description": "Worker 租约已过期"
+    },
+    {
+      "code": "FENCING_TOKEN_STALE",
+      "category": "conflict",
+      "http_status": 409,
+      "description": "Fencing Token 已过期"
+    },
+    {
+      "code": "PERMISSION_DENIED",
+      "category": "authorization",
+      "http_status": 403,
+      "description": "权限拒绝"
+    },
+    {
+      "code": "APPROVAL_REQUIRED",
+      "category": "approval",
+      "http_status": 409,
+      "description": "需要审批"
+    }
+  ]
+}

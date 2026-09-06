@@ -1,0 +1,223 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "context-policy.schema.json",
+  "title": "ContextPolicy",
+  "description": "Context 策略 - 定义一次模型调用可以看到哪些信息、如何筛选、排序、压缩、脱敏和控制 Token",
+  "x-contract-version": "0.2.0",
+  "$ref": "#/$defs/ContextPolicyResource",
+  "$defs": {
+    "ContextPolicyResource": {
+      "type": "object",
+      "properties": {
+        "api_version": { "const": "agent-platform/v1alpha1" },
+        "kind": { "const": "ContextPolicy" },
+        "metadata": { "$ref": "#/$defs/DefinitionMetadata" },
+        "spec": { "$ref": "#/$defs/ContextPolicySpec" },
+        "status": { "$ref": "#/$defs/DefinitionStatus" }
+      },
+      "required": ["api_version", "kind", "metadata", "spec", "status"],
+      "additionalProperties": false
+    },
+    "DefinitionMetadata": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "pattern": "^cpo_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+        "key": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,126}[a-z0-9]$", "minLength": 3, "maxLength": 128 },
+        "namespace": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,126}[a-z0-9]$", "minLength": 2, "maxLength": 128 },
+        "version": { "type": "string", "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "scope": { "$ref": "#/$defs/Scope" },
+        "labels": { "type": "object", "additionalProperties": { "type": "string", "maxLength": 256 } },
+        "annotations": { "type": "object", "additionalProperties": { "type": "string", "maxLength": 2048 } },
+        "content_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "created_by": { "$ref": "#/$defs/ActorRef" }
+      },
+      "required": ["id", "key", "namespace", "version", "revision", "scope", "content_digest", "created_at", "created_by"],
+      "additionalProperties": false
+    },
+    "ContextPolicySpec": {
+      "type": "object",
+      "properties": {
+        "source_rules": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/SourceRule" },
+          "minItems": 1,
+          "description": "来源规则"
+        },
+        "token_budget": {
+          "$ref": "#/$defs/ContextTokenBudget",
+          "description": "Token 预算"
+        },
+        "skill_selection": {
+          "$ref": "#/$defs/SkillSelection",
+          "description": "技能选择策略"
+        },
+        "tool_selection": {
+          "$ref": "#/$defs/ToolSelection",
+          "description": "工具选择策略"
+        },
+        "memory_scope": {
+          "$ref": "#/$defs/ContextMemoryScope",
+          "description": "记忆作用域"
+        },
+        "freshness": {
+          "$ref": "#/$defs/FreshnessPolicy",
+          "description": "新鲜度策略"
+        },
+        "deduplication": {
+          "$ref": "#/$defs/DeduplicationPolicy",
+          "description": "去重策略"
+        },
+        "compaction": {
+          "$ref": "#/$defs/CompactionPolicy",
+          "description": "压缩策略"
+        },
+        "redaction": {
+          "$ref": "#/$defs/RedactionPolicy",
+          "description": "脱敏策略"
+        },
+        "provenance_requirement": {
+          "type": "boolean",
+          "description": "是否必须保留来源"
+        },
+        "snapshot_policy": {
+          "$ref": "#/$defs/SnapshotPolicy",
+          "description": "快照策略"
+        }
+      },
+      "required": [
+        "source_rules", "token_budget", "skill_selection", "tool_selection",
+        "memory_scope", "freshness", "deduplication", "compaction",
+        "redaction", "provenance_requirement", "snapshot_policy"
+      ],
+      "additionalProperties": false
+    },
+    "ContextSourceType": {
+      "type": "string",
+      "enum": ["task", "agent_spec", "prompt", "thread", "memory", "project_state", "skill", "tool_schema", "knowledge", "artifact", "tool_result", "graph_state", "approval"],
+      "description": "Context 来源类型"
+    },
+    "SourceRule": {
+      "type": "object",
+      "properties": {
+        "source": { "$ref": "#/$defs/ContextSourceType" },
+        "effect": { "type": "string", "enum": ["allow", "deny"] },
+        "priority": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "filters": { "type": "object" }
+      },
+      "required": ["source", "effect", "priority"],
+      "additionalProperties": false
+    },
+    "ContextTokenBudget": {
+      "type": "object",
+      "properties": {
+        "total_tokens": { "type": "integer", "exclusiveMinimum": 0 },
+        "reserved_output_tokens": { "type": "integer", "minimum": 0 },
+        "per_source": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "required": ["total_tokens", "reserved_output_tokens", "per_source"],
+      "additionalProperties": false
+    },
+    "SkillSelection": {
+      "type": "object",
+      "properties": {
+        "top_k": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "similarity_threshold": { "type": "number", "minimum": 0, "maximum": 1 },
+        "metadata_token_limit": { "type": "integer", "exclusiveMinimum": 0 }
+      },
+      "required": ["top_k", "similarity_threshold", "metadata_token_limit"],
+      "additionalProperties": false
+    },
+    "ToolSelection": {
+      "type": "object",
+      "properties": {
+        "max_visible_tools": { "type": "integer", "minimum": 1, "maximum": 256 },
+        "schema_token_limit": { "type": "integer", "exclusiveMinimum": 0 }
+      },
+      "required": ["max_visible_tools", "schema_token_limit"],
+      "additionalProperties": false
+    },
+    "ContextMemoryScope": {
+      "type": "object",
+      "properties": {
+        "allowed_scopes": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["system", "tenant", "user", "project", "session"] }
+        },
+        "allow_cross_user": { "const": false },
+        "allow_cross_tenant": { "const": false }
+      },
+      "required": ["allowed_scopes"],
+      "additionalProperties": false
+    },
+    "FreshnessPolicy": {
+      "type": "object",
+      "properties": {
+        "default_ttl_seconds": { "type": "integer", "minimum": 0 },
+        "source_ttl_seconds": {
+          "type": "object",
+          "additionalProperties": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "required": ["default_ttl_seconds"],
+      "additionalProperties": false
+    },
+    "DeduplicationPolicy": {
+      "type": "object",
+      "properties": {
+        "strategy": { "type": "string", "enum": ["digest", "semantic", "hybrid"] },
+        "similarity_threshold": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "required": ["strategy"],
+      "additionalProperties": false
+    },
+    "CompactionPolicy": {
+      "type": "object",
+      "properties": {
+        "strategy": { "type": "string", "enum": ["extractive", "abstractive", "hybrid"] },
+        "target_ratio": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "preserve_provenance": { "const": true }
+      },
+      "required": ["strategy", "target_ratio", "preserve_provenance"],
+      "additionalProperties": false
+    },
+    "RedactionPolicy": {
+      "type": "object",
+      "properties": {
+        "redact_secrets": { "const": true },
+        "pii_mode": { "type": "string", "enum": ["none", "mask", "remove"] },
+        "restricted_data_mode": { "type": "string", "enum": ["deny", "local_only", "mask"] }
+      },
+      "required": ["redact_secrets", "pii_mode", "restricted_data_mode"],
+      "additionalProperties": false
+    },
+    "SnapshotPolicy": {
+      "type": "object",
+      "properties": {
+        "persist": { "type": "boolean" },
+        "store_content": { "type": "boolean" },
+        "retention_days": { "type": "integer", "minimum": 1 },
+        "require_digest": { "const": true }
+      },
+      "required": ["persist", "store_content", "retention_days", "require_digest"],
+      "additionalProperties": false
+    },
+    "DefinitionStatus": {
+      "type": "object",
+      "properties": {
+        "phase": { "type": "string", "enum": ["proposed", "draft", "testing", "awaiting_approval", "approved", "active", "deprecated", "blocked", "archived"] },
+        "observed_revision": { "type": "integer", "minimum": 1 },
+        "reason": { "type": "string", "maxLength": 2048 },
+        "activated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["phase", "observed_revision"],
+      "additionalProperties": false
+    },
+    "Scope": { "$ref": "common-types.schema.json#/$defs/Scope" },
+    "ActorRef": { "$ref": "common-types.schema.json#/$defs/ActorRef" }
+  }
+}

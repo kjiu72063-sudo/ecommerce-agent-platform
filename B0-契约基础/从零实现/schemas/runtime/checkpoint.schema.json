@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "checkpoint.schema.json",
+  "title": "Checkpoint",
+  "description": "检查点 - 保存 AgentRun 或 LangGraph 在可恢复边界上的一致状态",
+  "x-contract-version": "0.2.0",
+  "$ref": "#/$defs/CheckpointResource",
+  "$defs": {
+    "CheckpointResource": {
+      "type": "object",
+      "properties": {
+        "api_version": { "const": "agent-platform/v1alpha1" },
+        "kind": { "const": "Checkpoint" },
+        "metadata": { "$ref": "#/$defs/RuntimeMetadata" },
+        "spec": { "$ref": "#/$defs/CheckpointSpec" },
+        "status": { "$ref": "#/$defs/CheckpointStatus" }
+      },
+      "required": ["api_version", "kind", "metadata", "spec", "status"],
+      "additionalProperties": false
+    },
+    "RuntimeMetadata": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "pattern": "^ckp_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "scope": { "$ref": "#/$defs/Scope" },
+        "labels": { "type": "object", "additionalProperties": { "type": "string" } },
+        "annotations": { "type": "object", "additionalProperties": { "type": "string" } },
+        "created_at": { "type": "string", "format": "date-time" },
+        "created_by": { "$ref": "#/$defs/ActorRef" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "revision", "scope", "created_at", "created_by"],
+      "additionalProperties": false
+    },
+    "CheckpointSpec": {
+      "type": "object",
+      "properties": {
+        "run_ref": { "$ref": "#/$defs/ObjectRef", "description": "所属 AgentRun" },
+        "sequence": { "type": "integer", "minimum": 1, "description": "Run 内严格递增序号" },
+        "graph_state": { "description": "小型状态或 ArtifactRef" },
+        "node_state": { "$ref": "#/$defs/NodeState", "description": "当前节点与下一步" },
+        "context_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$", "description": "Context 快照摘要" },
+        "side_effect_ledger": { "type": "array", "items": { "$ref": "#/$defs/ObjectRef" }, "description": "已提交副作用调用 ID" },
+        "pending_approvals": { "type": "array", "items": { "$ref": "#/$defs/ObjectRef" }, "description": "尚未完成审批" },
+        "pending_tool_calls": { "type": "array", "items": { "$ref": "#/$defs/ObjectRef" }, "description": "未完成 ToolCall" },
+        "resume_token_ref": { "$ref": "#/$defs/SecretRef", "description": "防篡改恢复令牌引用" },
+        "created_reason": { "type": "string", "enum": ["periodic", "node_end", "approval", "interrupt", "error", "manual"], "description": "创建原因" },
+        "parent_checkpoint_ref": { "$ref": "#/$defs/ObjectRef", "description": "前一 Checkpoint" }
+      },
+      "required": ["run_ref", "sequence", "graph_state", "node_state", "context_digest", "side_effect_ledger", "pending_approvals", "pending_tool_calls", "resume_token_ref", "created_reason"],
+      "additionalProperties": false
+    },
+    "NodeState": {
+      "type": "object",
+      "properties": {
+        "current_node": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "next_node": { "type": "string", "minLength": 1, "maxLength": 4096 }
+      },
+      "required": ["current_node"],
+      "additionalProperties": false
+    },
+    "CheckpointStatus": {
+      "type": "object",
+      "properties": {
+        "phase": { "const": "committed" }
+      },
+      "required": ["phase"],
+      "additionalProperties": false
+    },
+    "Scope": { "$ref": "common-types.schema.json#/$defs/Scope" },
+    "ActorRef": { "$ref": "common-types.schema.json#/$defs/ActorRef" },
+    "ObjectRef": { "$ref": "common-types.schema.json#/$defs/ObjectRef" },
+    "SecretRef": { "$ref": "common-types.schema.json#/$defs/SecretRef" }
+  }
+}

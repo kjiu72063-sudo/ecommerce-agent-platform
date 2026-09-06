@@ -1,0 +1,615 @@
+{
+  "$defs": {
+    "ActorRef": {
+      "additionalProperties": false,
+      "properties": {
+        "actor_id": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Actor Id",
+          "type": "string"
+        },
+        "actor_type": {
+          "$ref": "#/$defs/ActorType"
+        },
+        "tenant_id": {
+          "anyOf": [
+            {
+              "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tenant Id"
+        }
+      },
+      "required": [
+        "actor_type",
+        "actor_id"
+      ],
+      "title": "ActorRef",
+      "type": "object"
+    },
+    "ActorType": {
+      "enum": [
+        "user",
+        "agent",
+        "service",
+        "system"
+      ],
+      "title": "ActorType",
+      "type": "string"
+    },
+    "CheckpointPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "interval_iterations": {
+          "exclusiveMinimum": 0,
+          "title": "Interval Iterations",
+          "type": "integer"
+        },
+        "on_human_interrupt": {
+          "const": true,
+          "default": true,
+          "title": "On Human Interrupt",
+          "type": "boolean"
+        },
+        "on_node_end": {
+          "title": "On Node End",
+          "type": "boolean"
+        },
+        "on_tool_side_effect": {
+          "title": "On Tool Side Effect",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "interval_iterations",
+        "on_tool_side_effect",
+        "on_node_end"
+      ],
+      "title": "CheckpointPolicy",
+      "type": "object"
+    },
+    "DefinitionMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "annotations": {
+          "additionalProperties": {
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "propertyNames": {
+            "maxLength": 128
+          },
+          "title": "Annotations",
+          "type": "object"
+        },
+        "content_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Content Digest",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "created_by": {
+          "$ref": "#/$defs/ActorRef"
+        },
+        "id": {
+          "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "key": {
+          "maxLength": 128,
+          "minLength": 3,
+          "pattern": "^[a-z0-9][a-z0-9-]{1,126}[a-z0-9]$",
+          "title": "Key",
+          "type": "string"
+        },
+        "labels": {
+          "patternProperties": {
+            "^[a-z0-9][a-z0-9._/-]{0,62}$": {
+              "maxLength": 256,
+              "type": "string"
+            }
+          },
+          "title": "Labels",
+          "type": "object"
+        },
+        "namespace": {
+          "maxLength": 128,
+          "minLength": 2,
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,126}[a-z0-9]$",
+          "title": "Namespace",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "version": {
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "key",
+        "namespace",
+        "version",
+        "revision",
+        "scope",
+        "content_digest",
+        "created_at",
+        "created_by"
+      ],
+      "title": "DefinitionMetadata",
+      "type": "object"
+    },
+    "DefinitionPhase": {
+      "enum": [
+        "proposed",
+        "draft",
+        "testing",
+        "awaiting_approval",
+        "approved",
+        "active",
+        "deprecated",
+        "blocked",
+        "archived"
+      ],
+      "title": "DefinitionPhase",
+      "type": "string"
+    },
+    "DefinitionStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "activated_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Activated At"
+        },
+        "observed_revision": {
+          "minimum": 1,
+          "title": "Observed Revision",
+          "type": "integer"
+        },
+        "phase": {
+          "$ref": "#/$defs/DefinitionPhase"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 2048,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "phase",
+        "observed_revision"
+      ],
+      "title": "DefinitionStatus",
+      "type": "object"
+    },
+    "HumanInterrupt": {
+      "additionalProperties": false,
+      "properties": {
+        "reason": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        },
+        "required": {
+          "title": "Required",
+          "type": "boolean"
+        },
+        "stage": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Stage",
+          "type": "string"
+        }
+      },
+      "required": [
+        "stage",
+        "reason",
+        "required"
+      ],
+      "title": "HumanInterrupt",
+      "type": "object"
+    },
+    "LoopProfileSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "checkpoint_policy": {
+          "$ref": "#/$defs/CheckpointPolicy"
+        },
+        "evaluator_refs": {
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          },
+          "minItems": 1,
+          "title": "Evaluator Refs",
+          "type": "array"
+        },
+        "human_interrupts": {
+          "items": {
+            "$ref": "#/$defs/HumanInterrupt"
+          },
+          "title": "Human Interrupts",
+          "type": "array"
+        },
+        "max_cost_usd": {
+          "anyOf": [
+            {
+              "minimum": 0.0,
+              "type": "number"
+            },
+            {
+              "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+              "type": "string"
+            }
+          ],
+          "title": "Max Cost Usd"
+        },
+        "max_iterations": {
+          "exclusiveMinimum": 0,
+          "title": "Max Iterations",
+          "type": "integer"
+        },
+        "max_model_tokens": {
+          "exclusiveMinimum": 0,
+          "title": "Max Model Tokens",
+          "type": "integer"
+        },
+        "max_wall_time_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Max Wall Time Seconds",
+          "type": "integer"
+        },
+        "progress_policy": {
+          "$ref": "#/$defs/ProgressPolicy"
+        },
+        "retry_policy": {
+          "$ref": "#/$defs/LoopRetryPolicy"
+        },
+        "rollback_policy": {
+          "$ref": "#/$defs/RollbackPolicy"
+        },
+        "stop_conditions": {
+          "items": {
+            "$ref": "#/$defs/StopCondition"
+          },
+          "minItems": 1,
+          "title": "Stop Conditions",
+          "type": "array"
+        },
+        "strategy": {
+          "$ref": "#/$defs/LoopStrategy"
+        }
+      },
+      "required": [
+        "strategy",
+        "max_iterations",
+        "max_wall_time_seconds",
+        "max_model_tokens",
+        "max_cost_usd",
+        "stop_conditions",
+        "evaluator_refs",
+        "checkpoint_policy",
+        "retry_policy",
+        "progress_policy",
+        "rollback_policy"
+      ],
+      "title": "LoopProfileSpec",
+      "type": "object"
+    },
+    "LoopRetryPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "backoff": {
+          "enum": [
+            "none",
+            "fixed",
+            "exponential"
+          ],
+          "title": "Backoff",
+          "type": "string"
+        },
+        "max_model_retries": {
+          "minimum": 0,
+          "title": "Max Model Retries",
+          "type": "integer"
+        },
+        "max_node_retries": {
+          "minimum": 0,
+          "title": "Max Node Retries",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "max_model_retries",
+        "max_node_retries",
+        "backoff"
+      ],
+      "title": "LoopRetryPolicy",
+      "type": "object"
+    },
+    "LoopStrategy": {
+      "enum": [
+        "single_pass",
+        "react",
+        "repair",
+        "ralph",
+        "review_refine"
+      ],
+      "title": "LoopStrategy",
+      "type": "string"
+    },
+    "ProgressPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "emit_every_iterations": {
+          "exclusiveMinimum": 0,
+          "title": "Emit Every Iterations",
+          "type": "integer"
+        },
+        "persist_summary": {
+          "title": "Persist Summary",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "emit_every_iterations",
+        "persist_summary"
+      ],
+      "title": "ProgressPolicy",
+      "type": "object"
+    },
+    "ResourceKind": {
+      "enum": [
+        "AgentSpec",
+        "SkillManifest",
+        "ToolManifest",
+        "PromptPackage",
+        "ModelPolicy",
+        "ContextPolicy",
+        "LoopProfile",
+        "PermissionProfile",
+        "Task",
+        "AgentRun",
+        "Checkpoint",
+        "ToolCall",
+        "Approval",
+        "Artifact",
+        "Event"
+      ],
+      "title": "ResourceKind",
+      "type": "string"
+    },
+    "ResourceRef": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Digest",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/ResourceKind"
+        },
+        "version": {
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "version",
+        "digest"
+      ],
+      "title": "ResourceRef",
+      "type": "object"
+    },
+    "RollbackPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "compensation_tool_refs": {
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          },
+          "title": "Compensation Tool Refs",
+          "type": "array"
+        },
+        "strategy": {
+          "enum": [
+            "none",
+            "compensating_action",
+            "manual"
+          ],
+          "title": "Strategy",
+          "type": "string"
+        }
+      },
+      "required": [
+        "strategy"
+      ],
+      "title": "RollbackPolicy",
+      "type": "object"
+    },
+    "Scope": {
+      "additionalProperties": false,
+      "properties": {
+        "project_id": {
+          "anyOf": [
+            {
+              "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Project Id"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "pattern": "^ses_[A-Za-z0-9._:-]{3,128}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "tenant_id": {
+          "anyOf": [
+            {
+              "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tenant Id"
+        },
+        "type": {
+          "$ref": "#/$defs/ScopeType"
+        },
+        "user_id": {
+          "anyOf": [
+            {
+              "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "User Id"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "Scope",
+      "type": "object"
+    },
+    "ScopeType": {
+      "enum": [
+        "system",
+        "tenant",
+        "user",
+        "project",
+        "session"
+      ],
+      "title": "ScopeType",
+      "type": "string"
+    },
+    "StopCondition": {
+      "additionalProperties": false,
+      "properties": {
+        "condition_type": {
+          "enum": [
+            "success",
+            "failure",
+            "budget",
+            "human_stop",
+            "validator"
+          ],
+          "title": "Condition Type",
+          "type": "string"
+        },
+        "expression": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Expression",
+          "type": "string"
+        }
+      },
+      "required": [
+        "condition_type",
+        "expression"
+      ],
+      "title": "StopCondition",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.agent-platform.local/v1alpha1/loop-profile.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "api_version": {
+      "const": "agent-platform/v1alpha1",
+      "default": "agent-platform/v1alpha1",
+      "title": "Api Version",
+      "type": "string"
+    },
+    "kind": {
+      "const": "LoopProfile",
+      "default": "LoopProfile",
+      "title": "Kind",
+      "type": "string"
+    },
+    "metadata": {
+      "$ref": "#/$defs/DefinitionMetadata"
+    },
+    "spec": {
+      "$ref": "#/$defs/LoopProfileSpec"
+    },
+    "status": {
+      "$ref": "#/$defs/DefinitionStatus"
+    }
+  },
+  "required": [
+    "metadata",
+    "spec",
+    "status"
+  ],
+  "title": "LoopProfileResource",
+  "type": "object",
+  "x-contract-version": "0.2.0",
+  "x-source-model": "agent_platform_contracts.models.LoopProfileResource"
+}

@@ -1,0 +1,21 @@
+default_language_version:
+  python: python3.12
+
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check-src
+        name: ruff check src
+        entry: uv run ruff check src
+        language: system
+        pass_filenames: false
+      - id: ruff-format-src
+        name: ruff format src
+        entry: uv run ruff format --check src
+        language: system
+        pass_filenames: false
+      - id: pytest
+        name: pytest
+        entry: uv run pytest -q
+        language: system
+        pass_filenames: false

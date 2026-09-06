@@ -1,0 +1,343 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "agent-spec.schema.json",
+  "title": "AgentSpec",
+  "description": "Agent 定义 - 描述一个稳定专业 Agent 的职责、边界和所有运行依赖",
+  "x-contract-version": "0.2.0",
+  "$ref": "#/$defs/AgentSpecResource",
+  "$defs": {
+    "AgentSpecResource": {
+      "type": "object",
+      "properties": {
+        "api_version": {
+          "const": "agent-platform/v1alpha1",
+          "description": "API 版本"
+        },
+        "kind": {
+          "const": "AgentSpec",
+          "description": "资源类型"
+        },
+        "metadata": {
+          "$ref": "#/$defs/DefinitionMetadata"
+        },
+        "spec": {
+          "$ref": "#/$defs/AgentSpecSpec"
+        },
+        "status": {
+          "$ref": "#/$defs/DefinitionStatus"
+        }
+      },
+      "required": ["api_version", "kind", "metadata", "spec", "status"],
+      "additionalProperties": false
+    },
+    "DefinitionMetadata": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^agt_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "description": "AgentSpec ID，必须使用 agt_ 前缀"
+        },
+        "key": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{1,126}[a-z0-9]$",
+          "minLength": 3,
+          "maxLength": 128,
+          "description": "人类可读标识，如 programming-agent"
+        },
+        "namespace": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,126}[a-z0-9]$",
+          "minLength": 2,
+          "maxLength": 128,
+          "description": "命名空间，如 ecommerce"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$",
+          "description": "语义版本，如 1.0.0"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "乐观并发修订号"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 256
+          },
+          "description": "标签，用于查询过滤"
+        },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "description": "注解，用于扩展信息"
+        },
+        "content_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "内容摘要，用于完整性校验"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "创建时间（RFC 3339）"
+        },
+        "created_by": {
+          "$ref": "#/$defs/ActorRef"
+        }
+      },
+      "required": ["id", "key", "namespace", "version", "revision", "scope", "content_digest", "created_at", "created_by"],
+      "additionalProperties": false
+    },
+    "AgentSpecSpec": {
+      "type": "object",
+      "properties": {
+        "purpose": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "description": "Agent 解决的问题"
+        },
+        "domain": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "业务领域，如 development, ecommerce"
+        },
+        "goals": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "minItems": 1,
+          "description": "可执行目标列表"
+        },
+        "non_goals": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "minItems": 1,
+          "description": "明确不负责的内容"
+        },
+        "input_schema_ref": {
+          "$ref": "#/$defs/SchemaRef"
+        },
+        "output_schema_ref": {
+          "$ref": "#/$defs/SchemaRef"
+        },
+        "prompt_package_ref": {
+          "$ref": "#/$defs/ResourceRef"
+        },
+        "context_policy_ref": {
+          "$ref": "#/$defs/ResourceRef"
+        },
+        "model_policy_ref": {
+          "$ref": "#/$defs/ResourceRef"
+        },
+        "loop_profile_ref": {
+          "$ref": "#/$defs/ResourceRef"
+        },
+        "permission_profile_ref": {
+          "$ref": "#/$defs/ResourceRef"
+        },
+        "skill_bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Binding"
+          },
+          "description": "技能绑定"
+        },
+        "tool_bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Binding"
+          },
+          "description": "工具绑定"
+        },
+        "memory_policy": {
+          "$ref": "#/$defs/MemoryPolicy"
+        },
+        "budget_defaults": {
+          "$ref": "#/$defs/Budget"
+        },
+        "approval_defaults": {
+          "$ref": "#/$defs/ApprovalDefaults"
+        },
+        "concurrency_policy": {
+          "$ref": "#/$defs/ConcurrencyPolicy"
+        },
+        "eval_suite_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ArtifactRef"
+          },
+          "minItems": 1,
+          "description": "评估集引用"
+        }
+      },
+      "required": [
+        "purpose", "domain", "goals", "non_goals",
+        "input_schema_ref", "output_schema_ref",
+        "prompt_package_ref", "context_policy_ref", "model_policy_ref",
+        "loop_profile_ref", "permission_profile_ref",
+        "memory_policy", "budget_defaults", "approval_defaults",
+        "concurrency_policy", "eval_suite_refs"
+      ],
+      "additionalProperties": false
+    },
+    "DefinitionStatus": {
+      "type": "object",
+      "properties": {
+        "phase": {
+          "type": "string",
+          "enum": ["proposed", "draft", "testing", "awaiting_approval", "approved", "active", "deprecated", "blocked", "archived"],
+          "description": "生命周期阶段"
+        },
+        "observed_revision": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "观测到的修订号"
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 2048,
+          "description": "状态变更原因"
+        },
+        "activated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "激活时间（active 状态必须）"
+        }
+      },
+      "required": ["phase", "observed_revision"],
+      "additionalProperties": false
+    },
+    "Binding": {
+      "type": "object",
+      "properties": {
+        "selector": {
+          "$ref": "#/$defs/BindingSelector"
+        },
+        "max_candidates": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "description": "最大候选数"
+        }
+      },
+      "required": ["selector", "max_candidates"],
+      "additionalProperties": false
+    },
+    "BindingSelector": {
+      "type": "object",
+      "properties": {
+        "domain": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$"
+        },
+        "namespace": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,126}[a-z0-9]$"
+        },
+        "status": {
+          "const": "active"
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "MemoryPolicy": {
+      "type": "object",
+      "properties": {
+        "readable_scopes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ScopeType" }
+        },
+        "writable_scopes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ScopeType" }
+        },
+        "write_requires_approval": { "type": "boolean" },
+        "max_retention_days": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "allow_cross_user": { "const": false },
+        "allow_cross_tenant": { "const": false }
+      },
+      "required": ["readable_scopes", "writable_scopes", "write_requires_approval", "max_retention_days"],
+      "additionalProperties": false
+    },
+    "ApprovalDefaults": {
+      "type": "object",
+      "properties": {
+        "external_send": { "type": "boolean" },
+        "destructive": { "const": true },
+        "privileged": { "const": true },
+        "approval_ttl_seconds": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": ["external_send", "destructive", "privileged", "approval_ttl_seconds"],
+      "additionalProperties": false
+    },
+    "ConcurrencyPolicy": {
+      "type": "object",
+      "properties": {
+        "max_parallel_tasks": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        "max_parallel_runs_per_task": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        "serialization_key_template": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "required": ["max_parallel_tasks", "max_parallel_runs_per_task"],
+      "additionalProperties": false
+    },
+    "Scope": {
+      "$ref": "common-types.schema.json#/$defs/Scope"
+    },
+    "ScopeType": {
+      "$ref": "common-types.schema.json#/$defs/ScopeType"
+    },
+    "ActorRef": {
+      "$ref": "common-types.schema.json#/$defs/ActorRef"
+    },
+    "SchemaRef": {
+      "$ref": "common-types.schema.json#/$defs/SchemaRef"
+    },
+    "ResourceRef": {
+      "$ref": "common-types.schema.json#/$defs/ResourceRef"
+    },
+    "ArtifactRef": {
+      "$ref": "common-types.schema.json#/$defs/ArtifactRef"
+    },
+    "Budget": {
+      "$ref": "common-types.schema.json#/$defs/Budget"
+    }
+  }
+}

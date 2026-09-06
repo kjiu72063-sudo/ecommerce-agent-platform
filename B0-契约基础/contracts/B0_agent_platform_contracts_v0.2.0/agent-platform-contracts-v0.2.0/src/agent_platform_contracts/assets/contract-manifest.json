@@ -1,0 +1,239 @@
+{
+  "api_version": "agent-platform/v1alpha1",
+  "contract_version": "0.2.0",
+  "generated_files": [
+    {
+      "digest": "sha256:40659db9ec4265333c429abec96e152861833d4bcd80669dd32d05e0b73c5c5c",
+      "path": "examples/index.json"
+    },
+    {
+      "digest": "sha256:dc90b01e1dd8e0e92f0b2e48ecbdec672200c27e606ac1728802ecc11e94653a",
+      "path": "examples/invalid/agent-spec-extra-field.json"
+    },
+    {
+      "digest": "sha256:f74f226c8a944a125406997a202ed94046c3fdb7029292ac2503b0a14d4a49e1",
+      "path": "examples/invalid/approval-one-time-used-twice.json"
+    },
+    {
+      "digest": "sha256:d35e08d35c49cd5207c98f68c5300df3638e5eb62dada5af141ae50d1c233635",
+      "path": "examples/invalid/artifact-signed-locator.json"
+    },
+    {
+      "digest": "sha256:f5b31e4fb2d038f26741e7cb2d5c4a6185b461d1c327fb80cd7345037552c16d",
+      "path": "examples/invalid/checkpoint-zero-sequence.json"
+    },
+    {
+      "digest": "sha256:99a8fa3b541e5e4201ed77b8c8f75a4f87cea4794a7c510be137b2f03d64ecca",
+      "path": "examples/invalid/context-budget-overflow.json"
+    },
+    {
+      "digest": "sha256:1665c1f685defed3918365b851abff674a5b4e6edf452f7d97ab33ae04e1bc02",
+      "path": "examples/invalid/event-zero-sequence.json"
+    },
+    {
+      "digest": "sha256:2bd383d9dfd0cb2ff1a2827f9226278d460f296577210f1426f1da0fadbd45e6",
+      "path": "examples/invalid/loop-zero-iterations.json"
+    },
+    {
+      "digest": "sha256:8ac21b34dc58e351dafc6dac55eeb84a056db24c4de664c8d2160b22e6c339c5",
+      "path": "examples/invalid/model-provider-not-allowlisted.json"
+    },
+    {
+      "digest": "sha256:2a07d891fe4a89b5f4c3c4708c3464bfdc8f7d0f714381c06004a09e9d4a01ff",
+      "path": "examples/invalid/permission-default-allow.json"
+    },
+    {
+      "digest": "sha256:dd11eb4878c5ef0bba0f9f063c704df4d1c8eef3d7afacdabfce292dcf666930",
+      "path": "examples/invalid/prompt-duplicate-order.json"
+    },
+    {
+      "digest": "sha256:62a0deed6ad9877150c1eea15444628dcb3f56059b12057344955b5c7f15d453",
+      "path": "examples/invalid/run-dynamic-activation-duplicate.json"
+    },
+    {
+      "digest": "sha256:0be70e73e4832c42f1f30a74d6ca3767ea24d5ea6523c313fc3fce3f6f4dac59",
+      "path": "examples/invalid/run-dynamic-activation-sequence-gap.json"
+    },
+    {
+      "digest": "sha256:cf7b1e828f918599e21c287653eb461b490d99ef5f56f061f095d8da07237f92",
+      "path": "examples/invalid/run-latest-dependency.json"
+    },
+    {
+      "digest": "sha256:7d9f048aabc90e57a12d4db5c07d96d62d91ee3ac2719591cc5b7bacc22ffd0d",
+      "path": "examples/invalid/run-model-current-mismatch.json"
+    },
+    {
+      "digest": "sha256:328e2845f1aab777938939477dfabe1679e8156275b59cca95312b6862addc05",
+      "path": "examples/invalid/run-model-fallback-missing-trigger.json"
+    },
+    {
+      "digest": "sha256:5c2da1ccb3490a10d14500fb4866a311b28e51e9517a0e43adad952a69a94947",
+      "path": "examples/invalid/skill-hermes-active.json"
+    },
+    {
+      "digest": "sha256:198c533b92fad462e16f0c55622fc96a88fe26d04c523c4ee8289100beff474e",
+      "path": "examples/invalid/task-missing-idempotency-key.json"
+    },
+    {
+      "digest": "sha256:aa0ccf6dd6236ce6dfdc03bb735e2015e1bcfa736653b6e1257d1185b5e4eaaa",
+      "path": "examples/invalid/tool-call-side-effect-without-key.json"
+    },
+    {
+      "digest": "sha256:c4faf391e8f6cd74831b065e01e9c2c7d59947304f2e8336636a531598f7e1cd",
+      "path": "examples/invalid/tool-side-effect-without-idempotency.json"
+    },
+    {
+      "digest": "sha256:bae4acba8eaafd272c5f0e9134eea5275cb244d09da2a7cabbe04909baf5e052",
+      "path": "examples/valid/agent-run.json"
+    },
+    {
+      "digest": "sha256:b8478c911413bb19bc73c14b34d663c8dc461125e95b3f2f2252dd3f9a0f4118",
+      "path": "examples/valid/agent-spec.json"
+    },
+    {
+      "digest": "sha256:9e067944db971c16bd752199796c9234ae7e3868ff5415a11d20d152b69aade4",
+      "path": "examples/valid/approval.json"
+    },
+    {
+      "digest": "sha256:10463a7662c266c8bc370d3d08d90ab65ed9a0f4419b966624a154a3ec332357",
+      "path": "examples/valid/artifact.json"
+    },
+    {
+      "digest": "sha256:13b36c404d4bbb0fdd280b3ee3f69bea4f3266567bc01af1541df286491f09bc",
+      "path": "examples/valid/checkpoint.json"
+    },
+    {
+      "digest": "sha256:8c7f84559520c63607e19fce50227cbd0213b90c0866fe3801e0adab3271a3bc",
+      "path": "examples/valid/context-policy.json"
+    },
+    {
+      "digest": "sha256:02d7efe5851383a6dba47ac5a88da4ceb23a8dbb304ae636b3546ad5fa0dd327",
+      "path": "examples/valid/event.json"
+    },
+    {
+      "digest": "sha256:9448491989f0e2350f7a69a0b5a9611a2dce3993c2418fc48e72632ecf4c28c3",
+      "path": "examples/valid/loop-profile.json"
+    },
+    {
+      "digest": "sha256:54d667288f85be57293766da6c9f9011340f700227241f589ed7bb1245861bfd",
+      "path": "examples/valid/model-policy.json"
+    },
+    {
+      "digest": "sha256:404af16c854c836c405496214a926db6920ed5523974ec9d8f7c694e5bbe3186",
+      "path": "examples/valid/permission-profile.json"
+    },
+    {
+      "digest": "sha256:5c7d08820846078b79642f4572c5e41fda3e93f7b75992bf67d7dbf94a1d2fb3",
+      "path": "examples/valid/prompt-package.json"
+    },
+    {
+      "digest": "sha256:6c6d060ef97c59aad71384029eb0be92b0a001a0219ceee46af05d34a11084a5",
+      "path": "examples/valid/skill-manifest.json"
+    },
+    {
+      "digest": "sha256:5c4e4c6b5cb02ce436447b78949fb27b5777b388c29a385aee66dd415a8536a8",
+      "path": "examples/valid/task.json"
+    },
+    {
+      "digest": "sha256:2374b3079b03f4f795d84af308cac9855d0ffe8ee9f1ae3231d218d7426e2c55",
+      "path": "examples/valid/tool-call.json"
+    },
+    {
+      "digest": "sha256:4a64ccf639d77353b1c3cff043adea0b7e36a87b68182d5df24942b933b3efb8",
+      "path": "examples/valid/tool-manifest.json"
+    },
+    {
+      "digest": "sha256:d3dd08f28ee16e3950e68725ce8bb4d120702f76a7c1831229a0f150c5dcb489",
+      "path": "schemas/common/common-types.schema.json"
+    },
+    {
+      "digest": "sha256:7ed4bf9d3777eeb2b730f9793a631981c8bf9bf21fa59feb9e26d20445fbd7df",
+      "path": "schemas/common/standard-error.schema.json"
+    },
+    {
+      "digest": "sha256:fcdcd1fd2e39c2d70056c2c1ceac9755da066fac356f5c8904d74b4a7c687c71",
+      "path": "schemas/definitions/agent-spec.schema.json"
+    },
+    {
+      "digest": "sha256:af98d17a397b1ba485ff011ee73ffd47d1625b83d15661f83d8f20a090b961d3",
+      "path": "schemas/definitions/context-policy.schema.json"
+    },
+    {
+      "digest": "sha256:71a22065437626dc16d5f672b76738a18e047a30e7fe714103463fc89a44dc62",
+      "path": "schemas/definitions/loop-profile.schema.json"
+    },
+    {
+      "digest": "sha256:5c50ca561a65f653078b447ed3dfdb84c2cbbbbbd2594be4a8437dd4f75d1584",
+      "path": "schemas/definitions/model-policy.schema.json"
+    },
+    {
+      "digest": "sha256:32c5d3b8440e052617044de756d4efbae66ae5746e84609f7a1434b4cb74db2b",
+      "path": "schemas/definitions/permission-profile.schema.json"
+    },
+    {
+      "digest": "sha256:b1d36929ed097ec8d1c47309c6c044209dbfa45c9994ec4954d418305e1826a4",
+      "path": "schemas/definitions/prompt-package.schema.json"
+    },
+    {
+      "digest": "sha256:f8afbaf37f49a411c96dfb72b9e4c4eef01b4d54093cad6715cfd6c16b503d84",
+      "path": "schemas/definitions/skill-manifest.schema.json"
+    },
+    {
+      "digest": "sha256:4d93c2e7195e6d9af7026dca6e4fb32c48d6b137460802aadf6922216698c320",
+      "path": "schemas/definitions/tool-manifest.schema.json"
+    },
+    {
+      "digest": "sha256:415c289a0db02c71744ded681c23fcd9b5e1c64f9fd84ec418a5f8d95bbe7247",
+      "path": "schemas/runtime/agent-run.schema.json"
+    },
+    {
+      "digest": "sha256:70bb7369db62e84270cf082ddcfb79a99e4fc9d96c8d7507c33d5ca047f91c72",
+      "path": "schemas/runtime/approval.schema.json"
+    },
+    {
+      "digest": "sha256:d5cb675e74b94123f5168edd1f7c9b61e6215957698d2b3d60f74091bafdb98a",
+      "path": "schemas/runtime/artifact.schema.json"
+    },
+    {
+      "digest": "sha256:0bdd089f1294f3e1f1c28a0da72b95c30edb65e314d913aa276b55da051733d0",
+      "path": "schemas/runtime/checkpoint.schema.json"
+    },
+    {
+      "digest": "sha256:c18795cdd3d128c7c1c8f757e5608f0bc77f0ea2fdc3eb8d362a7914aca093a1",
+      "path": "schemas/runtime/event.schema.json"
+    },
+    {
+      "digest": "sha256:81564c0fba0b0f4d801c79acd54a9c500bf77552892893b76ce7d28f8c154743",
+      "path": "schemas/runtime/task.schema.json"
+    },
+    {
+      "digest": "sha256:d700c90148c447351bd9feddf89ddb7720ab51668951443eea2e19679d7f3ef5",
+      "path": "schemas/runtime/tool-call.schema.json"
+    },
+    {
+      "digest": "sha256:ed2ef144a3ae174543190e062124a3e7758ff484f1adafe1a10a16cd80a65aaf",
+      "path": "state-machines/agent-run.json"
+    },
+    {
+      "digest": "sha256:5ddce3184d6b56ac36bfd2ef6a05199aca4326dcbd2375ca7210e45b03e7e4e6",
+      "path": "state-machines/approval.json"
+    },
+    {
+      "digest": "sha256:0f54a729499eaef16ce723da35fa7e643189f81ea5a4ea126e3217fdd071cc3a",
+      "path": "state-machines/artifact.json"
+    },
+    {
+      "digest": "sha256:8144d4c299c5003e46b24db3c9dddce3575af31983f9083a34119be360978d5b",
+      "path": "state-machines/definition.json"
+    },
+    {
+      "digest": "sha256:10430606889f1ae6c746b5b17a8e8271799e0a5692c8899d47abf008eca6d739",
+      "path": "state-machines/task.json"
+    },
+    {
+      "digest": "sha256:43f7a9768d698a3e86839aca07ba929ec8d032c08717af331e93eae0e14dce19",
+      "path": "state-machines/tool-call.json"
+    }
+  ],
+  "schema_dialect": "https://json-schema.org/draft/2020-12/schema"
+}

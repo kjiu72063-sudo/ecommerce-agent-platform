@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "artifact.schema.json",
+  "title": "Artifact",
+  "description": "产物 - 描述存储在 Object Storage、Git、文件系统或外部文档系统中的不可变产物",
+  "x-contract-version": "0.2.0",
+  "$ref": "#/$defs/ArtifactResource",
+  "$defs": {
+    "ArtifactResource": {
+      "type": "object",
+      "properties": {
+        "api_version": { "const": "agent-platform/v1alpha1" },
+        "kind": { "const": "Artifact" },
+        "metadata": { "$ref": "#/$defs/RuntimeMetadata" },
+        "spec": { "$ref": "#/$defs/ArtifactSpec" },
+        "status": { "$ref": "#/$defs/ArtifactStatus" }
+      },
+      "required": ["api_version", "kind", "metadata", "spec", "status"],
+      "additionalProperties": false
+    },
+    "RuntimeMetadata": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "pattern": "^art_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "scope": { "$ref": "#/$defs/Scope" },
+        "labels": { "type": "object", "additionalProperties": { "type": "string" } },
+        "annotations": { "type": "object", "additionalProperties": { "type": "string" } },
+        "created_at": { "type": "string", "format": "date-time" },
+        "created_by": { "$ref": "#/$defs/ActorRef" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "revision", "scope", "created_at", "created_by"],
+      "additionalProperties": false
+    },
+    "ArtifactSpec": {
+      "type": "object",
+      "properties": {
+        "artifact_type": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{1,63}$", "description": "产物类型" },
+        "media_type": { "type": "string", "pattern": "^[a-z]+/[a-z0-9.+-]+$", "description": "MIME Type" },
+        "storage_provider": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{1,63}$", "description": "存储提供者" },
+        "locator": { "$ref": "#/$defs/ArtifactLocator", "description": "位置引用" },
+        "content_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$", "description": "内容摘要" },
+        "size_bytes": { "type": "integer", "minimum": 0, "description": "大小" },
+        "encryption": { "$ref": "#/$defs/EncryptionSpec", "description": "加密规格" },
+        "classification": { "type": "string", "enum": ["public", "internal", "confidential", "restricted"], "description": "数据分类" },
+        "provenance": { "$ref": "#/$defs/ArtifactProvenance", "description": "来源" },
+        "schema_ref": { "$ref": "#/$defs/SchemaRef", "description": "结构化产物的 Schema" },
+        "retention_policy": { "$ref": "#/$defs/RetentionPolicy", "description": "保留策略" },
+        "access_policy_ref": { "$ref": "#/$defs/ResourceRef", "description": "访问权限" },
+        "supersedes": { "$ref": "#/$defs/ArtifactRef", "description": "替代的 Artifact" }
+      },
+      "required": ["artifact_type", "media_type", "storage_provider", "locator", "encryption", "classification", "provenance", "retention_policy", "access_policy_ref"],
+      "additionalProperties": false
+    },
+    "ArtifactLocator": {
+      "type": "object",
+      "properties": {
+        "provider": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{1,63}$" },
+        "bucket_or_repository": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "object_key": { "type": "string", "minLength": 1, "maxLength": 2048 },
+        "version_id": { "type": "string", "minLength": 1, "maxLength": 256 }
+      },
+      "required": ["provider", "bucket_or_repository", "object_key"],
+      "additionalProperties": false
+    },
+    "EncryptionSpec": {
+      "type": "object",
+      "properties": {
+        "encrypted": { "type": "boolean" },
+        "algorithm": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "key_ref": { "$ref": "#/$defs/SecretRef" }
+      },
+      "required": ["encrypted"],
+      "additionalProperties": false
+    },
+    "ArtifactProvenance": {
+      "type": "object",
+      "properties": {
+        "task_ref": { "$ref": "#/$defs/ObjectRef" },
+        "run_ref": { "$ref": "#/$defs/ObjectRef" },
+        "tool_call_ref": { "$ref": "#/$defs/ObjectRef" },
+        "model_route_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,126}[a-z0-9]$", "minLength": 3, "maxLength": 128 },
+        "actor": { "$ref": "#/$defs/ActorRef" }
+      },
+      "required": ["actor"],
+      "additionalProperties": false
+    },
+    "RetentionPolicy": {
+      "type": "object",
+      "properties": {
+        "retain_days": { "type": "integer", "minimum": 1 },
+        "delete_after": { "type": "string", "format": "date-time" },
+        "legal_hold": { "type": "boolean", "default": false }
+      },
+      "required": ["retain_days"],
+      "additionalProperties": false
+    },
+    "ArtifactStatus": {
+      "type": "object",
+      "properties": {
+        "phase": { "$ref": "#/$defs/ArtifactPhase" }
+      },
+      "required": ["phase"],
+      "additionalProperties": false
+    },
+    "ArtifactPhase": {
+      "type": "string",
+      "enum": ["pending_upload", "available", "quarantined", "blocked", "archived", "deleted"],
+      "description": "Artifact 生命周期状态"
+    },
+    "Scope": { "$ref": "common-types.schema.json#/$defs/Scope" },
+    "ActorRef": { "$ref": "common-types.schema.json#/$defs/ActorRef" },
+    "ObjectRef": { "$ref": "common-types.schema.json#/$defs/ObjectRef" },
+    "ResourceRef": { "$ref": "common-types.schema.json#/$defs/ResourceRef" },
+    "SchemaRef": { "$ref": "common-types.schema.json#/$defs/SchemaRef" },
+    "ArtifactRef": { "$ref": "common-types.schema.json#/$defs/ArtifactRef" },
+    "SecretRef": { "$ref": "common-types.schema.json#/$defs/SecretRef" }
+  }
+}

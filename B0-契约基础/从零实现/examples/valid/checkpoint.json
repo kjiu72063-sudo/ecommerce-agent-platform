@@ -1,0 +1,54 @@
+{
+  "api_version": "agent-platform/v1alpha1",
+  "kind": "Checkpoint",
+  "metadata": {
+    "id": "ckp_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+    "revision": 1,
+    "scope": {
+      "type": "project",
+      "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+      "user_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+      "project_id": "prj_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411"
+    },
+    "labels": {},
+    "annotations": {},
+    "created_at": "2026-09-01T12:05:00Z",
+    "created_by": {
+      "actor_type": "system",
+      "actor_id": "sys_harness"
+    }
+  },
+  "spec": {
+    "run_ref": {
+      "kind": "AgentRun",
+      "id": "run_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411"
+    },
+    "sequence": 1,
+    "graph_state": {
+      "current_step": "analyzing_code",
+      "progress": 0.3,
+      "collected_info": {
+        "files_scanned": 15,
+        "issues_found": 3
+      }
+    },
+    "node_state": {
+      "current_node": "code_analysis",
+      "next_node": "generate_fix"
+    },
+    "context_digest": "sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+    "side_effect_ledger": [],
+    "pending_approvals": [],
+    "pending_tool_calls": [],
+    "resume_token_ref": {
+      "provider": "vault",
+      "key": "checkpoints/ckp_0198f6d0/resume_token",
+      "version": 1,
+      "field": "token"
+    },
+    "created_reason": "periodic"
+  },
+  "status": {
+    "phase": "committed"
+  }
+}

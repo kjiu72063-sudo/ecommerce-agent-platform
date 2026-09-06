@@ -1,0 +1,82 @@
+{
+  "api_version": "agent-platform/v1alpha1",
+  "kind": "PermissionProfile",
+  "metadata": {
+    "annotations": {},
+    "content_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000008",
+    "created_at": "2026-08-28T00:00:00Z",
+    "created_by": {
+      "actor_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f402",
+      "actor_type": "user",
+      "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401"
+    },
+    "id": "pep_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f418",
+    "key": "development-safe",
+    "labels": {
+      "domain": "development"
+    },
+    "namespace": "personal",
+    "revision": 1,
+    "scope": {
+      "project_id": "prj_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f403",
+      "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401",
+      "type": "project",
+      "user_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f402"
+    },
+    "version": "1.0.0"
+  },
+  "spec": {
+    "capabilities": [
+      "repository.read",
+      "repository.write"
+    ],
+    "cross_tenant_default": "deny",
+    "default_decision": "deny",
+    "deny_precedence": true,
+    "roles": [
+      "developer"
+    ],
+    "rules": [
+      {
+        "actions": [
+          "repository.read"
+        ],
+        "conditions": {
+          "environment": [
+            "development",
+            "sandbox"
+          ]
+        },
+        "effect": "allow",
+        "resources": [
+          "project:current/repository:*"
+        ]
+      },
+      {
+        "actions": [
+          "repository.write"
+        ],
+        "conditions": {},
+        "effect": "require_approval",
+        "resources": [
+          "project:current/repository:*"
+        ]
+      },
+      {
+        "actions": [
+          "secret.read_raw"
+        ],
+        "conditions": {},
+        "effect": "deny",
+        "resources": [
+          "*"
+        ]
+      }
+    ]
+  },
+  "status": {
+    "activated_at": "2026-08-28T01:00:00Z",
+    "observed_revision": 1,
+    "phase": "active"
+  }
+}

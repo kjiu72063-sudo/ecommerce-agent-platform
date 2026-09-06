@@ -1,0 +1,79 @@
+{
+  "expected_error_code": "ARTIFACT_LOCATOR_SECRET",
+  "payload": {
+    "api_version": "agent-platform/v1alpha1",
+    "kind": "Artifact",
+    "metadata": {
+      "annotations": {},
+      "created_at": "2026-08-28T00:00:00Z",
+      "created_by": {
+        "actor_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f402",
+        "actor_type": "user",
+        "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401"
+      },
+      "id": "art_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f426",
+      "labels": {
+        "domain": "development"
+      },
+      "revision": 1,
+      "scope": {
+        "project_id": "prj_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f403",
+        "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401",
+        "type": "project",
+        "user_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f402"
+      },
+      "updated_at": "2026-08-28T01:00:00Z"
+    },
+    "spec": {
+      "access_policy_ref": {
+        "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000008",
+        "id": "pep_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f418",
+        "kind": "PermissionProfile",
+        "version": "1.0.0"
+      },
+      "artifact_type": "document",
+      "classification": "internal",
+      "content_digest": "sha256:000000000000000000000000000000000000000000000000000000000000000e",
+      "encryption": {
+        "encrypted": false
+      },
+      "locator": {
+        "bucket_or_repository": "agent-artifacts",
+        "object_key": "report.md?X-Amz-Signature=secret",
+        "provider": "s3",
+        "version_id": "v1"
+      },
+      "media_type": "text/markdown",
+      "provenance": {
+        "actor": {
+          "actor_id": "agt_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+          "actor_type": "agent",
+          "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401"
+        },
+        "run_ref": {
+          "id": "run_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f422",
+          "kind": "AgentRun"
+        },
+        "task_ref": {
+          "id": "tsk_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f421",
+          "kind": "Task"
+        }
+      },
+      "retention_policy": {
+        "legal_hold": false,
+        "retain_days": 365
+      },
+      "schema_ref": {
+        "digest": "sha256:00000000000000000000000000000000000000000000000000000000000000c8",
+        "id": "sch_programming-result",
+        "version": "1.0.0"
+      },
+      "size_bytes": 4096,
+      "storage_provider": "object-storage"
+    },
+    "status": {
+      "phase": "available"
+    }
+  },
+  "target_model": "artifact"
+}

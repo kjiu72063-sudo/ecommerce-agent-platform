@@ -1,0 +1,19 @@
+{
+  "name": "task",
+  "description": "Task 状态机 - 任务生命周期管理",
+  "transitions": {
+    "created": ["validated", "cancelled", "expired"],
+    "validated": ["queued", "failed", "cancelled", "expired"],
+    "queued": ["running", "suspended", "cancelled", "expired"],
+    "running": ["waiting_input", "waiting_approval", "suspended", "succeeded", "failed", "cancelled", "expired"],
+    "waiting_input": ["queued", "running", "cancelled", "expired"],
+    "waiting_approval": ["queued", "running", "failed", "cancelled", "expired"],
+    "suspended": ["queued", "cancelled", "expired"],
+    "succeeded": [],
+    "failed": [],
+    "cancelled": [],
+    "expired": []
+  },
+  "terminal_states": ["succeeded", "failed", "cancelled", "expired"],
+  "initial_state": "created"
+}

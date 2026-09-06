@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "event.schema.json",
+  "title": "Event",
+  "description": "事件 - 系统已经发生事实的不可变记录，用于审计、状态投影、异步集成和故障恢复",
+  "x-contract-version": "0.2.0",
+  "$ref": "#/$defs/EventResource",
+  "$defs": {
+    "EventResource": {
+      "type": "object",
+      "properties": {
+        "api_version": { "const": "agent-platform/v1alpha1" },
+        "kind": { "const": "Event" },
+        "metadata": { "$ref": "#/$defs/RuntimeMetadata" },
+        "spec": { "$ref": "#/$defs/EventSpec" },
+        "status": { "$ref": "#/$defs/EventStatus" }
+      },
+      "required": ["api_version", "kind", "metadata", "spec", "status"],
+      "additionalProperties": false
+    },
+    "RuntimeMetadata": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "pattern": "^evt_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "scope": { "$ref": "#/$defs/Scope" },
+        "labels": { "type": "object", "additionalProperties": { "type": "string" } },
+        "annotations": { "type": "object", "additionalProperties": { "type": "string" } },
+        "created_at": { "type": "string", "format": "date-time" },
+        "created_by": { "$ref": "#/$defs/ActorRef" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "revision", "scope", "created_at", "created_by"],
+      "additionalProperties": false
+    },
+    "EventSpec": {
+      "type": "object",
+      "properties": {
+        "specversion": { "const": "1.0", "description": "CloudEvents 版本" },
+        "id": { "type": "string", "pattern": "^evt_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", "description": "事件 ID（必须与 metadata.id 一致）" },
+        "source": { "type": "string", "pattern": "^(?:|https?://)[^\\s]{1,510}$", "description": "事件来源" },
+        "type": { "type": "string", "pattern": "^[a-z][a-z0-9_.:-]{2,255}$", "description": "事件类型" },
+        "subject": { "type": "string", "minLength": 1, "maxLength": 512, "description": "事件主题" },
+        "time": { "type": "string", "format": "date-time", "description": "事件时间" },
+        "datacontenttype": { "const": "application/json", "description": "数据内容类型" },
+        "dataschema": { "type": "string", "pattern": "^https://[^\\s]{1,2040}$", "description": "数据 Schema URL" },
+        "subject_ref": { "$ref": "#/$defs/ObjectRef", "description": "关联资源" },
+        "sequence": { "type": "integer", "minimum": 1, "description": "同一聚合对象的严格递增序号" },
+        "trace": { "$ref": "#/$defs/TraceContext", "description": "追踪上下文" },
+        "schema_ref": { "$ref": "#/$defs/SchemaRef", "description": "数据 Schema 引用" },
+        "data": { "type": "object", "description": "事件数据" }
+      },
+      "required": ["specversion", "id", "source", "type", "time", "datacontenttype", "dataschema", "subject_ref", "sequence", "trace", "schema_ref", "data"],
+      "additionalProperties": false
+    },
+    "TraceContext": {
+      "type": "object",
+      "properties": {
+        "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+        "span_id": { "type": "string", "pattern": "^[0-9a-f]{16}$" },
+        "parent_span_id": { "type": "string", "pattern": "^[0-9a-f]{16}$" },
+        "correlation_id": { "type": "string", "pattern": "^corr_[A-Za-z0-9._:-]{3,128}$" }
+      },
+      "required": ["trace_id", "span_id", "correlation_id"],
+      "additionalProperties": false
+    },
+    "EventStatus": {
+      "type": "object",
+      "properties": {
+        "phase": { "const": "recorded" }
+      },
+      "required": ["phase"],
+      "additionalProperties": false
+    },
+    "Scope": { "$ref": "common-types.schema.json#/$defs/Scope" },
+    "ActorRef": { "$ref": "common-types.schema.json#/$defs/ActorRef" },
+    "ObjectRef": { "$ref": "common-types.schema.json#/$defs/ObjectRef" },
+    "SchemaRef": { "$ref": "common-types.schema.json#/$defs/SchemaRef" }
+  }
+}

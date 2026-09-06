@@ -1,0 +1,115 @@
+{
+  "api_version": "agent-platform/v1alpha1",
+  "kind": "Task",
+  "metadata": {
+    "annotations": {},
+    "created_at": "2026-08-28T00:00:00Z",
+    "created_by": {
+      "actor_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f402",
+      "actor_type": "user",
+      "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401"
+    },
+    "id": "tsk_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f421",
+    "labels": {
+      "domain": "development"
+    },
+    "revision": 1,
+    "scope": {
+      "project_id": "prj_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f403",
+      "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401",
+      "type": "project",
+      "user_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f402"
+    },
+    "updated_at": "2026-08-28T01:00:00Z"
+  },
+  "spec": {
+    "approval_policy_ref": {
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000008",
+      "id": "pep_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f418",
+      "kind": "PermissionProfile",
+      "version": "1.0.0"
+    },
+    "budget": {
+      "max_cost_usd": "20.00",
+      "max_iterations": 20,
+      "max_model_input_tokens": 300000,
+      "max_model_output_tokens": 100000,
+      "max_model_tokens": 400000,
+      "max_tool_calls": 100,
+      "max_wall_time_seconds": 3600
+    },
+    "deadline_at": "2026-08-29T00:00:00Z",
+    "dependencies": [],
+    "domain": "development",
+    "expected_output_schema_ref": {
+      "digest": "sha256:00000000000000000000000000000000000000000000000000000000000000c8",
+      "id": "sch_programming-result",
+      "version": "1.0.0"
+    },
+    "idempotency_key": "openclaw:feishu:message-12345",
+    "input_artifact_refs": [],
+    "input_schema_ref": {
+      "digest": "sha256:00000000000000000000000000000000000000000000000000000000000000c8",
+      "id": "sch_programming-task",
+      "version": "1.0.0"
+    },
+    "intent": "development.inspect_repository",
+    "payload": {
+      "repository_ref": "repo_demo",
+      "requested_depth": 3
+    },
+    "permission_grant": {
+      "actions": [
+        "repository.read"
+      ],
+      "expires_at": "2026-08-29T00:00:00Z",
+      "resources": [
+        "project:current/repository:*"
+      ]
+    },
+    "priority": 50,
+    "requested_agent_ref": {
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000001",
+      "id": "agt_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+      "kind": "AgentSpec",
+      "version": "1.0.0"
+    },
+    "requested_by": {
+      "actor_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f402",
+      "actor_type": "user",
+      "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401"
+    },
+    "retention_policy": {
+      "legal_hold": false,
+      "retain_days": 90
+    },
+    "routing_constraints": {
+      "allowed_agent_refs": [
+        {
+          "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000001",
+          "id": "agt_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+          "kind": "AgentSpec",
+          "version": "1.0.0"
+        }
+      ],
+      "allowed_domains": [
+        "development"
+      ],
+      "required_model_capabilities": [
+        "tool_calling"
+      ]
+    },
+    "schedule": {
+      "mode": "immediate"
+    },
+    "source": {
+      "channel": "feishu",
+      "source_message_id": "message-12345",
+      "type": "openclaw"
+    },
+    "title": "检查并说明仓库结构"
+  },
+  "status": {
+    "phase": "queued"
+  }
+}

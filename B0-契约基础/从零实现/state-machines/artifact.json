@@ -1,0 +1,14 @@
+{
+  "name": "artifact",
+  "description": "Artifact 状态机 - 产物生命周期管理",
+  "transitions": {
+    "pending_upload": ["available", "quarantined", "blocked", "deleted"],
+    "available": ["quarantined", "blocked", "archived", "deleted"],
+    "quarantined": ["available", "blocked", "archived", "deleted"],
+    "blocked": ["archived", "deleted"],
+    "archived": ["deleted"],
+    "deleted": []
+  },
+  "terminal_states": ["deleted"],
+  "initial_state": "pending_upload"
+}

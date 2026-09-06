@@ -1,0 +1,137 @@
+{
+  "api_version": "agent-platform/v1alpha1",
+  "kind": "SkillManifest",
+  "metadata": {
+    "annotations": {},
+    "content_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000002",
+    "created_at": "2026-08-28T00:00:00Z",
+    "created_by": {
+      "actor_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f402",
+      "actor_type": "user",
+      "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401"
+    },
+    "id": "skl_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f412",
+    "key": "repository-inspection",
+    "labels": {
+      "domain": "development"
+    },
+    "namespace": "personal",
+    "revision": 1,
+    "scope": {
+      "project_id": "prj_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f403",
+      "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401",
+      "type": "project",
+      "user_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f402"
+    },
+    "version": "1.0.0"
+  },
+  "spec": {
+    "bundle_artifact_ref": {
+      "digest": "sha256:000000000000000000000000000000000000000000000000000000000000000e",
+      "id": "art_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f426",
+      "kind": "Artifact"
+    },
+    "conflicts_with": [],
+    "context_budget": {
+      "max_reference_tokens": 6000,
+      "max_skill_tokens": 4000,
+      "max_total_tokens": 10000
+    },
+    "description": "Inspect an authorized repository and summarize its structure before planning changes.",
+    "domain": [
+      "development"
+    ],
+    "eval_summary": {
+      "evaluated_at": "2026-08-28T00:00:00Z",
+      "evaluated_cases": 120,
+      "output_pass_rate": 0.98,
+      "regression_passed": true,
+      "security_passed": true,
+      "trigger_precision": 0.95,
+      "trigger_recall": 0.92
+    },
+    "input_schema_ref": {
+      "digest": "sha256:00000000000000000000000000000000000000000000000000000000000000c8",
+      "id": "sch_repository-inspection-input",
+      "version": "1.0.0"
+    },
+    "output_schema_ref": {
+      "digest": "sha256:00000000000000000000000000000000000000000000000000000000000000c8",
+      "id": "sch_repository-inspection-output",
+      "version": "1.0.0"
+    },
+    "permission_requirements": [
+      {
+        "actions": [
+          "repository.read"
+        ],
+        "conditions": {
+          "environment": "sandbox"
+        },
+        "resources": [
+          "project:current/repository:*"
+        ]
+      }
+    ],
+    "portable_name": "repository-inspection",
+    "provenance": {
+      "actor": {
+        "actor_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f402",
+        "actor_type": "user",
+        "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401"
+      },
+      "source_ref": "review:skill-001",
+      "type": "human"
+    },
+    "required_skills": [],
+    "required_tools": [
+      {
+        "required_capabilities": [
+          "repository.read"
+        ],
+        "tool_ref": {
+          "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000003",
+          "id": "tol_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f413",
+          "kind": "ToolManifest",
+          "version": "1.0.0"
+        }
+      }
+    ],
+    "risk_level": "low",
+    "runtime_requirements": {
+      "binaries": [
+        "git",
+        "rg"
+      ],
+      "has_scripts": true,
+      "network_domains": [],
+      "operating_systems": [
+        "linux"
+      ],
+      "sandbox_profile": "restricted-development",
+      "sandbox_required": true
+    },
+    "source_repository": {
+      "commit": "0123456789abcdef0123456789abcdef01234567",
+      "path": "skills/repository-inspection",
+      "repository": "agent-platform-skills"
+    },
+    "tags": [
+      "repository",
+      "inspection"
+    ],
+    "trigger_examples": {
+      "negative": [
+        "向客户发送项目完成邮件"
+      ],
+      "positive": [
+        "分析这个代码仓库的结构"
+      ]
+    }
+  },
+  "status": {
+    "activated_at": "2026-08-28T01:00:00Z",
+    "observed_revision": 1,
+    "phase": "active"
+  }
+}

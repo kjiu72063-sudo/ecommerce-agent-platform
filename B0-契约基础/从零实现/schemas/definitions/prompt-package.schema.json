@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "prompt-package.schema.json",
+  "title": "PromptPackage",
+  "description": "Prompt 包 - 保存稳定、版本化、可评估的 Agent 指令",
+  "x-contract-version": "0.2.0",
+  "$ref": "#/$defs/PromptPackageResource",
+  "$defs": {
+    "PromptPackageResource": {
+      "type": "object",
+      "properties": {
+        "api_version": { "const": "agent-platform/v1alpha1" },
+        "kind": { "const": "PromptPackage" },
+        "metadata": { "$ref": "#/$defs/DefinitionMetadata" },
+        "spec": { "$ref": "#/$defs/PromptPackageSpec" },
+        "status": { "$ref": "#/$defs/DefinitionStatus" }
+      },
+      "required": ["api_version", "kind", "metadata", "spec", "status"],
+      "additionalProperties": false
+    },
+    "DefinitionMetadata": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^prm_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "key": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,126}[a-z0-9]$", "minLength": 3, "maxLength": 128 },
+        "namespace": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,126}[a-z0-9]$", "minLength": 2, "maxLength": 128 },
+        "version": { "type": "string", "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "scope": { "$ref": "#/$defs/Scope" },
+        "labels": { "type": "object", "additionalProperties": { "type": "string", "maxLength": 256 } },
+        "annotations": { "type": "object", "additionalProperties": { "type": "string", "maxLength": 2048 } },
+        "content_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "created_by": { "$ref": "#/$defs/ActorRef" }
+      },
+      "required": ["id", "key", "namespace", "version", "revision", "scope", "content_digest", "created_at", "created_by"],
+      "additionalProperties": false
+    },
+    "PromptPackageSpec": {
+      "type": "object",
+      "properties": {
+        "fragments": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/PromptFragment" },
+          "minItems": 1,
+          "description": "有序 Prompt 片段列表"
+        },
+        "variables_schema_ref": {
+          "$ref": "#/$defs/SchemaRef",
+          "description": "允许注入的变量 Schema"
+        },
+        "model_compatibility": {
+          "$ref": "#/$defs/ModelCompatibility",
+          "description": "适用模型能力"
+        },
+        "output_schema_ref": {
+          "$ref": "#/$defs/SchemaRef",
+          "description": "结构化输出 Schema"
+        },
+        "max_static_tokens": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "固定 Prompt Token 上限"
+        },
+        "eval_suite_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ArtifactRef" },
+          "minItems": 1,
+          "description": "回归评估集引用"
+        },
+        "change_summary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "description": "版本变更说明"
+        }
+      },
+      "required": [
+        "fragments", "variables_schema_ref", "model_compatibility",
+        "output_schema_ref", "max_static_tokens", "eval_suite_refs", "change_summary"
+      ],
+      "additionalProperties": false
+    },
+    "PromptFragment": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{1,126}[a-z0-9]$",
+          "minLength": 3,
+          "maxLength": 128,
+          "description": "片段名称"
+        },
+        "layer": {
+          "$ref": "#/$defs/PromptLayer",
+          "description": "所属层级"
+        },
+        "order": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "排序序号（唯一）"
+        },
+        "content": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20000,
+          "description": "片段内容"
+        }
+      },
+      "required": ["name", "layer", "order", "content"],
+      "additionalProperties": false
+    },
+    "PromptLayer": {
+      "type": "string",
+      "enum": ["safety", "identity", "domain", "behavior", "output_contract", "error_policy"],
+      "description": "Prompt 层级"
+    },
+    "ModelCompatibility": {
+      "type": "object",
+      "properties": {
+        "required_capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["tool_calling", "vision", "long_context", "structured_output", "reasoning"]
+          },
+          "description": "必需的模型能力"
+        },
+        "provider_allowlist": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{1,63}$" },
+          "minItems": 1,
+          "description": "允许的供应商白名单"
+        }
+      },
+      "required": ["required_capabilities", "provider_allowlist"],
+      "additionalProperties": false
+    },
+    "DefinitionStatus": {
+      "type": "object",
+      "properties": {
+        "phase": { "type": "string", "enum": ["proposed", "draft", "testing", "awaiting_approval", "approved", "active", "deprecated", "blocked", "archived"] },
+        "observed_revision": { "type": "integer", "minimum": 1 },
+        "reason": { "type": "string", "maxLength": 2048 },
+        "activated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["phase", "observed_revision"],
+      "additionalProperties": false
+    },
+    "Scope": { "$ref": "common-types.schema.json#/$defs/Scope" },
+    "ActorRef": { "$ref": "common-types.schema.json#/$defs/ActorRef" },
+    "SchemaRef": { "$ref": "common-types.schema.json#/$defs/SchemaRef" },
+    "ArtifactRef": { "$ref": "common-types.schema.json#/$defs/ArtifactRef" }
+  }
+}

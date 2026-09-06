@@ -1,0 +1,458 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "skill-manifest.schema.json",
+  "title": "SkillManifest",
+  "description": "技能清单 - 描述一个可移植 Skill Bundle 的平台级元数据、触发条件、依赖、权限、风险和发布状态",
+  "x-contract-version": "0.2.0",
+  "$ref": "#/$defs/SkillManifestResource",
+  "$defs": {
+    "SkillManifestResource": {
+      "type": "object",
+      "properties": {
+        "api_version": {
+          "const": "agent-platform/v1alpha1"
+        },
+        "kind": {
+          "const": "SkillManifest"
+        },
+        "metadata": {
+          "$ref": "#/$defs/DefinitionMetadata"
+        },
+        "spec": {
+          "$ref": "#/$defs/SkillManifestSpec"
+        },
+        "status": {
+          "$ref": "#/$defs/DefinitionStatus"
+        }
+      },
+      "required": ["api_version", "kind", "metadata", "spec", "status"],
+      "additionalProperties": false
+    },
+    "DefinitionMetadata": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^skl_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "description": "SkillManifest ID，必须使用 skl_ 前缀"
+        },
+        "key": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{1,126}[a-z0-9]$",
+          "minLength": 3,
+          "maxLength": 128,
+          "description": "人类可读标识，如 code-review-skill"
+        },
+        "namespace": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,126}[a-z0-9]$",
+          "minLength": 2,
+          "maxLength": 128,
+          "description": "命名空间"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$",
+          "description": "语义版本"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "scope": { "$ref": "#/$defs/Scope" },
+        "labels": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "maxLength": 256 }
+        },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "maxLength": 2048 }
+        },
+        "content_digest": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "created_at": { "type": "string", "format": "date-time" },
+        "created_by": { "$ref": "#/$defs/ActorRef" }
+      },
+      "required": ["id", "key", "namespace", "version", "revision", "scope", "content_digest", "created_at", "created_by"],
+      "additionalProperties": false
+    },
+    "SkillManifestSpec": {
+      "type": "object",
+      "properties": {
+        "portable_name": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$",
+          "description": "与 SKILL.md 中的名称一致，用于跨平台移植"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 20,
+          "maxLength": 2048,
+          "description": "何时使用、解决什么问题（至少20字符）"
+        },
+        "domain": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{1,63}$"
+          },
+          "minItems": 1,
+          "description": "所属领域，可多值"
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$"
+          },
+          "description": "检索标签"
+        },
+        "trigger_examples": {
+          "$ref": "#/$defs/TriggerExamples"
+        },
+        "input_schema_ref": {
+          "$ref": "#/$defs/SchemaRef"
+        },
+        "output_schema_ref": {
+          "$ref": "#/$defs/SchemaRef"
+        },
+        "required_tools": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ToolRequirement"
+          },
+          "description": "所需工具和最低版本"
+        },
+        "required_skills": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SkillRequirement"
+          },
+          "description": "技能依赖"
+        },
+        "conflicts_with": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ResourceRef"
+          },
+          "description": "显式冲突的技能"
+        },
+        "permission_requirements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PermissionRequest"
+          },
+          "description": "请求但不授予权限"
+        },
+        "risk_level": {
+          "$ref": "#/$defs/RiskLevel"
+        },
+        "runtime_requirements": {
+          "$ref": "#/$defs/RuntimeRequirements"
+        },
+        "context_budget": {
+          "$ref": "#/$defs/ContextBudget"
+        },
+        "bundle_artifact_ref": {
+          "$ref": "#/$defs/ArtifactRef",
+          "description": "不可变发布包引用"
+        },
+        "source_repository": {
+          "$ref": "#/$defs/SourceRepository"
+        },
+        "eval_summary": {
+          "$ref": "#/$defs/EvalSummary"
+        },
+        "provenance": {
+          "$ref": "#/$defs/DefinitionProvenance"
+        }
+      },
+      "required": [
+        "portable_name", "description", "domain", "trigger_examples",
+        "risk_level", "runtime_requirements", "context_budget",
+        "bundle_artifact_ref", "source_repository", "eval_summary", "provenance"
+      ],
+      "additionalProperties": false
+    },
+    "TriggerExamples": {
+      "type": "object",
+      "properties": {
+        "positive": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "minItems": 1,
+          "description": "正例：应该触发的场景"
+        },
+        "negative": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "minItems": 1,
+          "description": "反例：不应该触发的场景"
+        }
+      },
+      "required": ["positive", "negative"],
+      "additionalProperties": false
+    },
+    "ToolRequirement": {
+      "type": "object",
+      "properties": {
+        "tool_ref": {
+          "$ref": "#/$defs/ResourceRef",
+          "description": "工具引用"
+        },
+        "required_capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "description": "所需能力列表"
+        }
+      },
+      "required": ["tool_ref"],
+      "additionalProperties": false
+    },
+    "SkillRequirement": {
+      "type": "object",
+      "properties": {
+        "skill_ref": {
+          "$ref": "#/$defs/ResourceRef",
+          "description": "技能引用"
+        },
+        "optional": {
+          "type": "boolean",
+          "default": false,
+          "description": "是否可选依赖"
+        }
+      },
+      "required": ["skill_ref"],
+      "additionalProperties": false
+    },
+    "PermissionRequest": {
+      "type": "object",
+      "properties": {
+        "actions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_.:-]{2,127}$"
+          },
+          "minItems": 1,
+          "description": "请求的动作列表"
+        },
+        "resources": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "minItems": 1,
+          "description": "请求的资源列表"
+        },
+        "conditions": {
+          "type": "object",
+          "description": "附加条件"
+        }
+      },
+      "required": ["actions", "resources"],
+      "additionalProperties": false
+    },
+    "RiskLevel": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"],
+      "description": "风险级别"
+    },
+    "RuntimeRequirements": {
+      "type": "object",
+      "properties": {
+        "operating_systems": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["linux", "windows", "macos", "any"]
+          },
+          "description": "支持的操作系统"
+        },
+        "binaries": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_.+-]{1,128}$"
+          },
+          "description": "依赖的二进制文件"
+        },
+        "network_domains": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(?:[a-z0-9-]+\\.)+[a-z]{2,63}$"
+          },
+          "description": "需要访问的网络域名"
+        },
+        "has_scripts": {
+          "type": "boolean",
+          "description": "是否包含脚本"
+        },
+        "sandbox_required": {
+          "type": "boolean",
+          "description": "是否需要沙箱"
+        },
+        "sandbox_profile": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "沙箱配置文件名"
+        }
+      },
+      "required": ["operating_systems", "has_scripts", "sandbox_required"],
+      "additionalProperties": false
+    },
+    "ContextBudget": {
+      "type": "object",
+      "properties": {
+        "max_skill_tokens": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "技能内容最大 Token"
+        },
+        "max_reference_tokens": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "参考资料最大 Token"
+        },
+        "max_total_tokens": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "总 Token 上限"
+        }
+      },
+      "required": ["max_skill_tokens", "max_reference_tokens", "max_total_tokens"],
+      "additionalProperties": false
+    },
+    "SourceRepository": {
+      "type": "object",
+      "properties": {
+        "repository": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "description": "仓库地址"
+        },
+        "commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$",
+          "description": "Git Commit SHA（40位十六进制）"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "description": "仓库内的路径"
+        }
+      },
+      "required": ["repository", "commit", "path"],
+      "additionalProperties": false
+    },
+    "EvalSummary": {
+      "type": "object",
+      "properties": {
+        "trigger_precision": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "触发精确率"
+        },
+        "trigger_recall": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "触发召回率"
+        },
+        "output_pass_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "输出通过率"
+        },
+        "security_passed": {
+          "type": "boolean",
+          "description": "是否通过安全评估"
+        },
+        "regression_passed": {
+          "type": "boolean",
+          "description": "是否通过回归测试"
+        },
+        "evaluated_cases": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "评估用例数"
+        },
+        "evaluated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "评估时间"
+        }
+      },
+      "required": [
+        "trigger_precision", "trigger_recall", "output_pass_rate",
+        "security_passed", "regression_passed", "evaluated_cases", "evaluated_at"
+      ],
+      "additionalProperties": false
+    },
+    "DefinitionProvenance": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/ProvenanceType"
+        },
+        "actor": {
+          "$ref": "#/$defs/ActorRef"
+        },
+        "source_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "description": "来源引用"
+        }
+      },
+      "required": ["type", "actor"],
+      "additionalProperties": false
+    },
+    "ProvenanceType": {
+      "type": "string",
+      "enum": ["human", "hermes_proposal", "external", "imported"],
+      "description": "来源类型"
+    },
+    "DefinitionStatus": {
+      "type": "object",
+      "properties": {
+        "phase": {
+          "type": "string",
+          "enum": ["proposed", "draft", "testing", "awaiting_approval", "approved", "active", "deprecated", "blocked", "archived"]
+        },
+        "observed_revision": { "type": "integer", "minimum": 1 },
+        "reason": { "type": "string", "maxLength": 2048 },
+        "activated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["phase", "observed_revision"],
+      "additionalProperties": false
+    },
+    "Scope": { "$ref": "common-types.schema.json#/$defs/Scope" },
+    "ActorRef": { "$ref": "common-types.schema.json#/$defs/ActorRef" },
+    "SchemaRef": { "$ref": "common-types.schema.json#/$defs/SchemaRef" },
+    "ResourceRef": { "$ref": "common-types.schema.json#/$defs/ResourceRef" },
+    "ArtifactRef": { "$ref": "common-types.schema.json#/$defs/ArtifactRef" }
+  }
+}

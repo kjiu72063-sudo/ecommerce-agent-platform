@@ -1,0 +1,194 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "loop-profile.schema.json",
+  "title": "LoopProfile",
+  "description": "Loop 配置 - 定义 Agent Run 如何进行有界迭代",
+  "x-contract-version": "0.2.0",
+  "$ref": "#/$defs/LoopProfileResource",
+  "$defs": {
+    "LoopProfileResource": {
+      "type": "object",
+      "properties": {
+        "api_version": { "const": "agent-platform/v1alpha1" },
+        "kind": { "const": "LoopProfile" },
+        "metadata": { "$ref": "#/$defs/DefinitionMetadata" },
+        "spec": { "$ref": "#/$defs/LoopProfileSpec" },
+        "status": { "$ref": "#/$defs/DefinitionStatus" }
+      },
+      "required": ["api_version", "kind", "metadata", "spec", "status"],
+      "additionalProperties": false
+    },
+    "DefinitionMetadata": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "pattern": "^lop_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+        "key": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,126}[a-z0-9]$", "minLength": 3, "maxLength": 128 },
+        "namespace": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,126}[a-z0-9]$", "minLength": 2, "maxLength": 128 },
+        "version": { "type": "string", "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "scope": { "$ref": "#/$defs/Scope" },
+        "labels": { "type": "object", "additionalProperties": { "type": "string", "maxLength": 256 } },
+        "annotations": { "type": "object", "additionalProperties": { "type": "string", "maxLength": 2048 } },
+        "content_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "created_by": { "$ref": "#/$defs/ActorRef" }
+      },
+      "required": ["id", "key", "namespace", "version", "revision", "scope", "content_digest", "created_at", "created_by"],
+      "additionalProperties": false
+    },
+    "LoopProfileSpec": {
+      "type": "object",
+      "properties": {
+        "strategy": {
+          "$ref": "#/$defs/LoopStrategy",
+          "description": "迭代策略"
+        },
+        "max_iterations": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "最大迭代次数"
+        },
+        "max_wall_time_seconds": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "最大执行时间（秒）"
+        },
+        "max_model_tokens": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "最大 Token"
+        },
+        "max_cost_usd": {
+          "type": "string",
+          "pattern": "^\\d+(\\.\\d+)?$",
+          "description": "最大费用（美元）"
+        },
+        "stop_conditions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/StopCondition" },
+          "minItems": 1,
+          "description": "停止条件"
+        },
+        "evaluator_refs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ResourceRef" },
+          "minItems": 1,
+          "description": "评估器引用"
+        },
+        "checkpoint_policy": {
+          "$ref": "#/$defs/CheckpointPolicy",
+          "description": "Checkpoint 策略"
+        },
+        "retry_policy": {
+          "$ref": "#/$defs/LoopRetryPolicy",
+          "description": "重试策略"
+        },
+        "human_interrupts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/HumanInterrupt" },
+          "description": "人工中断配置"
+        },
+        "progress_policy": {
+          "$ref": "#/$defs/ProgressPolicy",
+          "description": "进度策略"
+        },
+        "rollback_policy": {
+          "$ref": "#/$defs/RollbackPolicy",
+          "description": "回滚策略"
+        }
+      },
+      "required": [
+        "strategy", "max_iterations", "max_wall_time_seconds", "max_model_tokens",
+        "max_cost_usd", "stop_conditions", "evaluator_refs", "checkpoint_policy",
+        "retry_policy", "progress_policy", "rollback_policy"
+      ],
+      "additionalProperties": false
+    },
+    "LoopStrategy": {
+      "type": "string",
+      "enum": ["single_pass", "react", "repair", "ralph", "review_refine"],
+      "description": "迭代策略"
+    },
+    "StopCondition": {
+      "type": "object",
+      "properties": {
+        "condition_type": {
+          "type": "string",
+          "enum": ["success", "failure", "budget", "human_stop", "validator"],
+          "description": "条件类型"
+        },
+        "expression": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096,
+          "description": "条件表达式"
+        }
+      },
+      "required": ["condition_type", "expression"],
+      "additionalProperties": false
+    },
+    "CheckpointPolicy": {
+      "type": "object",
+      "properties": {
+        "interval_iterations": { "type": "integer", "exclusiveMinimum": 0 },
+        "on_tool_side_effect": { "type": "boolean" },
+        "on_human_interrupt": { "const": true },
+        "on_node_end": { "type": "boolean" }
+      },
+      "required": ["interval_iterations", "on_tool_side_effect", "on_human_interrupt", "on_node_end"],
+      "additionalProperties": false
+    },
+    "LoopRetryPolicy": {
+      "type": "object",
+      "properties": {
+        "max_model_retries": { "type": "integer", "minimum": 0 },
+        "max_node_retries": { "type": "integer", "minimum": 0 },
+        "backoff": { "type": "string", "enum": ["none", "fixed", "exponential"] }
+      },
+      "required": ["max_model_retries", "max_node_retries", "backoff"],
+      "additionalProperties": false
+    },
+    "HumanInterrupt": {
+      "type": "object",
+      "properties": {
+        "stage": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "required": { "type": "boolean" }
+      },
+      "required": ["stage", "reason", "required"],
+      "additionalProperties": false
+    },
+    "ProgressPolicy": {
+      "type": "object",
+      "properties": {
+        "emit_every_iterations": { "type": "integer", "exclusiveMinimum": 0 },
+        "persist_summary": { "type": "boolean" }
+      },
+      "required": ["emit_every_iterations", "persist_summary"],
+      "additionalProperties": false
+    },
+    "RollbackPolicy": {
+      "type": "object",
+      "properties": {
+        "strategy": { "type": "string", "enum": ["none", "compensating_action", "manual"] },
+        "compensation_tool_refs": { "type": "array", "items": { "$ref": "#/$defs/ResourceRef" } }
+      },
+      "required": ["strategy"],
+      "additionalProperties": false
+    },
+    "DefinitionStatus": {
+      "type": "object",
+      "properties": {
+        "phase": { "type": "string", "enum": ["proposed", "draft", "testing", "awaiting_approval", "approved", "active", "deprecated", "blocked", "archived"] },
+        "observed_revision": { "type": "integer", "minimum": 1 },
+        "reason": { "type": "string", "maxLength": 2048 },
+        "activated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["phase", "observed_revision"],
+      "additionalProperties": false
+    },
+    "Scope": { "$ref": "common-types.schema.json#/$defs/Scope" },
+    "ActorRef": { "$ref": "common-types.schema.json#/$defs/ActorRef" },
+    "ResourceRef": { "$ref": "common-types.schema.json#/$defs/ResourceRef" }
+  }
+}

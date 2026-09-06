@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "initial_state": "proposed",
+  "machine": "tool-call",
+  "terminal_states": [
+    "cancelled",
+    "denied",
+    "expired",
+    "failed",
+    "rejected",
+    "succeeded",
+    "unknown"
+  ],
+  "transition_event_required": true,
+  "transitions": {
+    "approved": [
+      "scheduled",
+      "expired",
+      "cancelled"
+    ],
+    "cancelled": [],
+    "denied": [],
+    "executing": [
+      "succeeded",
+      "failed",
+      "cancelled",
+      "unknown"
+    ],
+    "expired": [],
+    "failed": [],
+    "proposed": [
+      "validating",
+      "cancelled"
+    ],
+    "rejected": [],
+    "scheduled": [
+      "executing",
+      "cancelled"
+    ],
+    "succeeded": [],
+    "unknown": [],
+    "validating": [
+      "denied",
+      "waiting_approval",
+      "scheduled",
+      "failed",
+      "cancelled"
+    ],
+    "waiting_approval": [
+      "approved",
+      "rejected",
+      "expired",
+      "cancelled"
+    ]
+  }
+}

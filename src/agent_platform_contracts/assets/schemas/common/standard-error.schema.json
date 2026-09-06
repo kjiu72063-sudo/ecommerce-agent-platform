@@ -1,0 +1,98 @@
+{
+  "$defs": {
+    "ErrorCategory": {
+      "enum": [
+        "validation",
+        "authentication",
+        "authorization",
+        "approval",
+        "budget",
+        "model",
+        "tool",
+        "dependency",
+        "conflict",
+        "cancelled",
+        "timeout",
+        "internal"
+      ],
+      "title": "ErrorCategory",
+      "type": "string"
+    },
+    "ErrorSeverity": {
+      "enum": [
+        "info",
+        "warning",
+        "error",
+        "critical"
+      ],
+      "title": "ErrorSeverity",
+      "type": "string"
+    }
+  },
+  "$id": "https://schemas.agent-platform.local/v1alpha1/standard-error.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "category": {
+      "$ref": "#/$defs/ErrorCategory"
+    },
+    "cause_ref": {
+      "anyOf": [
+        {
+          "pattern": "^evt_[0-9a-f-]{36}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Cause Ref"
+    },
+    "code": {
+      "pattern": "^[A-Z][A-Z0-9_]{2,127}$",
+      "title": "Code",
+      "type": "string"
+    },
+    "details": {
+      "additionalProperties": true,
+      "title": "Details",
+      "type": "object"
+    },
+    "message": {
+      "maxLength": 4096,
+      "minLength": 1,
+      "title": "Message",
+      "type": "string"
+    },
+    "occurred_at": {
+      "format": "date-time",
+      "title": "Occurred At",
+      "type": "string"
+    },
+    "retryable": {
+      "title": "Retryable",
+      "type": "boolean"
+    },
+    "safe_to_retry": {
+      "title": "Safe To Retry",
+      "type": "boolean"
+    },
+    "severity": {
+      "$ref": "#/$defs/ErrorSeverity"
+    }
+  },
+  "required": [
+    "code",
+    "category",
+    "message",
+    "retryable",
+    "safe_to_retry",
+    "severity",
+    "occurred_at"
+  ],
+  "title": "StandardError",
+  "type": "object",
+  "x-contract-version": "0.2.0",
+  "x-source-model": "agent_platform_contracts.models.StandardError"
+}

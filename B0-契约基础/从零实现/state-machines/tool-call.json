@@ -1,0 +1,21 @@
+{
+  "name": "tool-call",
+  "description": "ToolCall 状态机 - 工具调用生命周期管理",
+  "transitions": {
+    "proposed": ["validating", "cancelled"],
+    "validating": ["denied", "waiting_approval", "scheduled", "failed", "cancelled"],
+    "denied": [],
+    "waiting_approval": ["approved", "rejected", "expired", "cancelled"],
+    "approved": ["scheduled", "expired", "cancelled"],
+    "rejected": [],
+    "expired": [],
+    "scheduled": ["executing", "cancelled"],
+    "executing": ["succeeded", "failed", "cancelled", "unknown"],
+    "succeeded": [],
+    "failed": [],
+    "cancelled": [],
+    "unknown": []
+  },
+  "terminal_states": ["denied", "rejected", "expired", "succeeded", "failed", "cancelled", "unknown"],
+  "initial_state": "proposed"
+}

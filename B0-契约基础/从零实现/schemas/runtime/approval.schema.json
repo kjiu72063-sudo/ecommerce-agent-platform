@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "approval.schema.json",
+  "title": "Approval",
+  "description": "审批 - 记录 Human-in-the-loop 或策略审批过程",
+  "x-contract-version": "0.2.0",
+  "$ref": "#/$defs/ApprovalResource",
+  "$defs": {
+    "ApprovalResource": {
+      "type": "object",
+      "properties": {
+        "api_version": { "const": "agent-platform/v1alpha1" },
+        "kind": { "const": "Approval" },
+        "metadata": { "$ref": "#/$defs/RuntimeMetadata" },
+        "spec": { "$ref": "#/$defs/ApprovalSpec" },
+        "status": { "$ref": "#/$defs/ApprovalStatus" }
+      },
+      "required": ["api_version", "kind", "metadata", "spec", "status"],
+      "additionalProperties": false
+    },
+    "RuntimeMetadata": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "pattern": "^apr_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "scope": { "$ref": "#/$defs/Scope" },
+        "labels": { "type": "object", "additionalProperties": { "type": "string" } },
+        "annotations": { "type": "object", "additionalProperties": { "type": "string" } },
+        "created_at": { "type": "string", "format": "date-time" },
+        "created_by": { "$ref": "#/$defs/ActorRef" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "revision", "scope", "created_at", "created_by"],
+      "additionalProperties": false
+    },
+    "ApprovalSpec": {
+      "type": "object",
+      "properties": {
+        "subject_ref": { "$ref": "#/$defs/ObjectRef", "description": "被审批对象" },
+        "requester": { "$ref": "#/$defs/ActorRef", "description": "发起者" },
+        "approval_type": { "type": "string", "pattern": "^[a-z][a-z0-9_.:-]{2,127}$", "description": "审批类型" },
+        "risk_summary": { "type": "string", "minLength": 1, "maxLength": 4096, "description": "风险说明" },
+        "requested_actions": { "type": "array", "items": { "$ref": "#/$defs/RequestedAction" }, "minItems": 1, "description": "精确动作和资源" },
+        "input_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$", "description": "防止审批后替换输入" },
+        "policy_snapshot": { "$ref": "#/$defs/ResourceRef", "description": "触发审批的策略版本" },
+        "required_approvers": { "type": "array", "items": { "$ref": "#/$defs/ApproverRule" }, "minItems": 1, "description": "审批规则" },
+        "decisions": { "type": "array", "items": { "$ref": "#/$defs/ApprovalDecisionEntry" }, "description": "决策记录" },
+        "expires_at": { "type": "string", "format": "date-time", "description": "过期时间" },
+        "one_time": { "type": "boolean", "description": "是否一次性" },
+        "usage_count": { "type": "integer", "minimum": 0, "description": "已使用次数" }
+      },
+      "required": ["subject_ref", "requester", "approval_type", "risk_summary", "requested_actions", "input_digest", "policy_snapshot", "required_approvers", "expires_at", "one_time", "usage_count"],
+      "additionalProperties": false
+    },
+    "RequestedAction": {
+      "type": "object",
+      "properties": {
+        "action": { "type": "string", "pattern": "^[a-z][a-z0-9_.:-]{2,127}$" },
+        "resource": { "type": "string", "minLength": 1, "maxLength": 4096 }
+      },
+      "required": ["action", "resource"],
+      "additionalProperties": false
+    },
+    "ApproverRule": {
+      "type": "object",
+      "properties": {
+        "role": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,126}[a-z0-9]$", "minLength": 3, "maxLength": 128 },
+        "count": { "type": "integer", "exclusiveMinimum": 0 },
+        "separation_of_duties": { "type": "boolean", "default": false }
+      },
+      "required": ["role", "count"],
+      "additionalProperties": false
+    },
+    "ApprovalDecisionEntry": {
+      "type": "object",
+      "properties": {
+        "approver": { "$ref": "#/$defs/ActorRef" },
+        "decision": { "type": "string", "enum": ["approve", "reject", "revoke"] },
+        "decided_at": { "type": "string", "format": "date-time" },
+        "comment": { "type": "string", "maxLength": 2048 }
+      },
+      "required": ["approver", "decision", "decided_at"],
+      "additionalProperties": false
+    },
+    "ApprovalStatus": {
+      "type": "object",
+      "properties": {
+        "phase": { "$ref": "#/$defs/ApprovalPhase" }
+      },
+      "required": ["phase"],
+      "additionalProperties": false
+    },
+    "ApprovalPhase": {
+      "type": "string",
+      "enum": ["requested", "pending", "approved", "rejected", "expired", "revoked", "consumed"],
+      "description": "Approval 生命周期状态"
+    },
+    "Scope": { "$ref": "common-types.schema.json#/$defs/Scope" },
+    "ActorRef": { "$ref": "common-types.schema.json#/$defs/ActorRef" },
+    "ObjectRef": { "$ref": "common-types.schema.json#/$defs/ObjectRef" },
+    "ResourceRef": { "$ref": "common-types.schema.json#/$defs/ResourceRef" }
+  }
+}

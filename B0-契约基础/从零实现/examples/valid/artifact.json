@@ -1,0 +1,77 @@
+{
+  "api_version": "agent-platform/v1alpha1",
+  "kind": "Artifact",
+  "metadata": {
+    "id": "art_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+    "revision": 1,
+    "scope": {
+      "type": "project",
+      "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+      "user_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+      "project_id": "prj_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411"
+    },
+    "labels": {
+      "type": "code",
+      "language": "python"
+    },
+    "annotations": {},
+    "created_at": "2026-09-01T12:30:00Z",
+    "created_by": {
+      "actor_type": "agent",
+      "actor_id": "agt_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411"
+    }
+  },
+  "spec": {
+    "artifact_type": "code",
+    "media_type": "text/x-python",
+    "storage_provider": "git",
+    "locator": {
+      "provider": "git",
+      "bucket_or_repository": "prj_demo",
+      "object_key": "src/generated/user_settings.py",
+      "version_id": "v1.0.0"
+    },
+    "content_digest": "sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+    "size_bytes": 2048,
+    "encryption": {
+      "encrypted": false
+    },
+    "classification": "internal",
+    "provenance": {
+      "task_ref": {
+        "kind": "Task",
+        "id": "tsk_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411"
+      },
+      "run_ref": {
+        "kind": "AgentRun",
+        "id": "run_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411"
+      },
+      "tool_call_ref": {
+        "kind": "ToolCall",
+        "id": "tcl_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f413"
+      },
+      "actor": {
+        "actor_type": "agent",
+        "actor_id": "agt_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411"
+      }
+    },
+    "schema_ref": {
+      "id": "sch_python_code",
+      "version": "1.0.0",
+      "digest": "sha256:b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3"
+    },
+    "retention_policy": {
+      "retain_days": 365,
+      "legal_hold": false
+    },
+    "access_policy_ref": {
+      "kind": "PermissionProfile",
+      "id": "pep_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+      "version": "1.0.0",
+      "digest": "sha256:f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1"
+    }
+  },
+  "status": {
+    "phase": "available"
+  }
+}

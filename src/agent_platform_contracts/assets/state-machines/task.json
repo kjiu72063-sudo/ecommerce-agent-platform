@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "initial_state": "created",
+  "machine": "task",
+  "terminal_states": [
+    "cancelled",
+    "expired",
+    "failed",
+    "succeeded"
+  ],
+  "transition_event_required": true,
+  "transitions": {
+    "cancelled": [],
+    "created": [
+      "validated",
+      "cancelled",
+      "expired"
+    ],
+    "expired": [],
+    "failed": [],
+    "queued": [
+      "running",
+      "suspended",
+      "cancelled",
+      "expired"
+    ],
+    "running": [
+      "waiting_input",
+      "waiting_approval",
+      "suspended",
+      "succeeded",
+      "failed",
+      "cancelled",
+      "expired"
+    ],
+    "succeeded": [],
+    "suspended": [
+      "queued",
+      "cancelled",
+      "expired"
+    ],
+    "validated": [
+      "queued",
+      "failed",
+      "cancelled",
+      "expired"
+    ],
+    "waiting_approval": [
+      "queued",
+      "running",
+      "failed",
+      "cancelled",
+      "expired"
+    ],
+    "waiting_input": [
+      "queued",
+      "running",
+      "cancelled",
+      "expired"
+    ]
+  }
+}

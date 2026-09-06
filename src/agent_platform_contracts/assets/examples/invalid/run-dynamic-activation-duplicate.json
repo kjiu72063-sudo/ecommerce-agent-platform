@@ -1,0 +1,223 @@
+{
+  "expected_error_code": "DYNAMIC_DEPENDENCY_DUPLICATE",
+  "payload": {
+    "api_version": "agent-platform/v1alpha1",
+    "kind": "AgentRun",
+    "metadata": {
+      "annotations": {},
+      "created_at": "2026-08-28T00:00:00Z",
+      "created_by": {
+        "actor_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f402",
+        "actor_type": "user",
+        "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401"
+      },
+      "id": "run_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f422",
+      "labels": {
+        "domain": "development"
+      },
+      "revision": 1,
+      "scope": {
+        "project_id": "prj_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f403",
+        "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401",
+        "type": "project",
+        "user_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f402"
+      },
+      "updated_at": "2026-08-28T01:00:00Z"
+    },
+    "spec": {
+      "agent_snapshot": {
+        "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000001",
+        "id": "agt_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+        "kind": "AgentSpec",
+        "version": "1.0.0"
+      },
+      "attempt": 1,
+      "budget": {
+        "max_cost_usd": "20.00",
+        "max_iterations": 20,
+        "max_model_input_tokens": 300000,
+        "max_model_output_tokens": 100000,
+        "max_model_tokens": 400000,
+        "max_tool_calls": 100,
+        "max_wall_time_seconds": 3600
+      },
+      "context_snapshot_refs": [
+        {
+          "digest": "sha256:00000000000000000000000000000000000000000000000000000000000000ca",
+          "id": "art_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f427",
+          "kind": "Artifact"
+        }
+      ],
+      "current_model_selection": {
+        "event_ref": {
+          "id": "evt_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f42a",
+          "kind": "Event"
+        },
+        "model": "gpt-frontier",
+        "price_snapshot_ref": {
+          "digest": "sha256:00000000000000000000000000000000000000000000000000000000000000c9",
+          "effective_at": "2026-08-28T00:00:00Z",
+          "snapshot_id": "price_2026-08-28",
+          "version": "1.0.0"
+        },
+        "provider": "openai",
+        "route_id": "primary-model",
+        "selected_at": "2026-08-28T00:00:00Z",
+        "selection_reason": "initial",
+        "sequence": 1
+      },
+      "dynamic_dependency_activations": [
+        {
+          "activated_at": "2026-08-28T00:00:20Z",
+          "activation_reason": "Selected from the permission-filtered Skill catalog for repository inspection.",
+          "checkpoint_ref": {
+            "id": "ckp_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f423",
+            "kind": "Checkpoint"
+          },
+          "event_ref": {
+            "id": "evt_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f428",
+            "kind": "Event"
+          },
+          "permission_decision_digest": "sha256:00000000000000000000000000000000000000000000000000000000000000dc",
+          "resource_ref": {
+            "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000002",
+            "id": "skl_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f412",
+            "kind": "SkillManifest",
+            "version": "1.0.0"
+          },
+          "sequence": 1
+        },
+        {
+          "activated_at": "2026-08-28T00:00:30Z",
+          "activation_reason": "First Tool use required by the activated Skill.",
+          "checkpoint_ref": {
+            "id": "ckp_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f423",
+            "kind": "Checkpoint"
+          },
+          "event_ref": {
+            "id": "evt_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f429",
+            "kind": "Event"
+          },
+          "permission_decision_digest": "sha256:00000000000000000000000000000000000000000000000000000000000000dd",
+          "resource_ref": {
+            "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000002",
+            "id": "skl_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f412",
+            "kind": "SkillManifest",
+            "version": "1.0.0"
+          },
+          "sequence": 2,
+          "source_skill_ref": {
+            "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000002",
+            "id": "skl_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f412",
+            "kind": "SkillManifest",
+            "version": "1.0.0"
+          }
+        }
+      ],
+      "lease": {
+        "acquired_at": "2026-08-28T00:00:00Z",
+        "expires_at": "2026-08-28T01:00:00Z",
+        "fencing_token": 1,
+        "heartbeat_at": "2026-08-28T00:00:10Z",
+        "lease_id": "lease_run-001",
+        "worker_ref": {
+          "instance": "instance-a",
+          "service": "agent-runtime",
+          "worker_id": "wrk_runtime-01"
+        }
+      },
+      "model_selection_history": [
+        {
+          "event_ref": {
+            "id": "evt_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f42a",
+            "kind": "Event"
+          },
+          "model": "gpt-frontier",
+          "price_snapshot_ref": {
+            "digest": "sha256:00000000000000000000000000000000000000000000000000000000000000c9",
+            "effective_at": "2026-08-28T00:00:00Z",
+            "snapshot_id": "price_2026-08-28",
+            "version": "1.0.0"
+          },
+          "provider": "openai",
+          "route_id": "primary-model",
+          "selected_at": "2026-08-28T00:00:00Z",
+          "selection_reason": "initial",
+          "sequence": 1
+        }
+      ],
+      "output_artifact_refs": [],
+      "resolved_dependencies": {
+        "context_policy_ref": {
+          "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000006",
+          "id": "cpo_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f416",
+          "kind": "ContextPolicy",
+          "version": "1.0.0"
+        },
+        "loop_profile_ref": {
+          "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000007",
+          "id": "lop_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f417",
+          "kind": "LoopProfile",
+          "version": "1.0.0"
+        },
+        "model_policy_ref": {
+          "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000005",
+          "id": "mpo_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f415",
+          "kind": "ModelPolicy",
+          "version": "1.0.0"
+        },
+        "permission_profile_ref": {
+          "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000008",
+          "id": "pep_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f418",
+          "kind": "PermissionProfile",
+          "version": "1.0.0"
+        },
+        "price_snapshot_ref": {
+          "digest": "sha256:00000000000000000000000000000000000000000000000000000000000000c9",
+          "effective_at": "2026-08-28T00:00:00Z",
+          "snapshot_id": "price_2026-08-28",
+          "version": "1.0.0"
+        },
+        "prompt_package_ref": {
+          "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000004",
+          "id": "prm_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f414",
+          "kind": "PromptPackage",
+          "version": "1.0.0"
+        },
+        "runtime_version": "python-runtime-1.0.0",
+        "schema_version": "1.0.0",
+        "startup_skill_refs": [],
+        "startup_tool_refs": []
+      },
+      "task_ref": {
+        "id": "tsk_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f421",
+        "kind": "Task"
+      },
+      "thread_ref": "thr_project-001",
+      "usage": {
+        "cost_usd": "0.25",
+        "iterations": 1,
+        "model_input_tokens": 1200,
+        "model_output_tokens": 300,
+        "model_tokens": 1500,
+        "price_snapshot_ref": {
+          "digest": "sha256:00000000000000000000000000000000000000000000000000000000000000c9",
+          "effective_at": "2026-08-28T00:00:00Z",
+          "snapshot_id": "price_2026-08-28",
+          "version": "1.0.0"
+        },
+        "tool_calls": 1,
+        "wall_time_seconds": 15.5
+      },
+      "worker_ref": {
+        "instance": "instance-a",
+        "service": "agent-runtime",
+        "worker_id": "wrk_runtime-01"
+      }
+    },
+    "status": {
+      "phase": "running"
+    }
+  },
+  "target_model": "agent-run"
+}

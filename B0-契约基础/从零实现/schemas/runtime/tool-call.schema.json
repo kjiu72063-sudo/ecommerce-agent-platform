@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tool-call.schema.json",
+  "title": "ToolCall",
+  "description": "工具调用 - 记录一次结构化 Tool 调用的完整生命周期",
+  "x-contract-version": "0.2.0",
+  "$ref": "#/$defs/ToolCallResource",
+  "$defs": {
+    "ToolCallResource": {
+      "type": "object",
+      "properties": {
+        "api_version": { "const": "agent-platform/v1alpha1" },
+        "kind": { "const": "ToolCall" },
+        "metadata": { "$ref": "#/$defs/RuntimeMetadata" },
+        "spec": { "$ref": "#/$defs/ToolCallSpec" },
+        "status": { "$ref": "#/$defs/ToolCallStatus" }
+      },
+      "required": ["api_version", "kind", "metadata", "spec", "status"],
+      "additionalProperties": false
+    },
+    "RuntimeMetadata": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "pattern": "^tcl_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "scope": { "$ref": "#/$defs/Scope" },
+        "labels": { "type": "object", "additionalProperties": { "type": "string" } },
+        "annotations": { "type": "object", "additionalProperties": { "type": "string" } },
+        "created_at": { "type": "string", "format": "date-time" },
+        "created_by": { "$ref": "#/$defs/ActorRef" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "revision", "scope", "created_at", "created_by"],
+      "additionalProperties": false
+    },
+    "ToolCallSpec": {
+      "type": "object",
+      "properties": {
+        "run_ref": { "$ref": "#/$defs/ObjectRef", "description": "所属 AgentRun" },
+        "tool_snapshot": { "$ref": "#/$defs/ToolSnapshot", "description": "Tool 精确版本与摘要" },
+        "requested_by": { "$ref": "#/$defs/ActorRef", "description": "请求者" },
+        "input": { "description": "小型参数或 ArtifactRef" },
+        "input_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$", "description": "规范化输入摘要" },
+        "idempotency_key": { "type": "string", "minLength": 8, "maxLength": 512, "description": "副作用幂等键" },
+        "permission_decision": { "$ref": "#/$defs/PermissionDecision", "description": "权限决策" },
+        "approval_ref": { "$ref": "#/$defs/ObjectRef", "description": "可选 Approval" },
+        "execution_target": { "$ref": "#/$defs/ExecutionLocation", "description": "执行目标" },
+        "attempt": { "type": "integer", "minimum": 1, "description": "调用重试序号" },
+        "output": { "description": "小型结果或 ArtifactRef" },
+        "side_effect_receipt": { "type": "string", "minLength": 1, "maxLength": 512, "description": "外部系统事务或回执 ID" },
+        "usage": { "type": "object", "additionalProperties": { "type": "number", "minimum": 0 }, "description": "时间、网络和计算资源" },
+        "error": { "$ref": "#/$defs/StandardError", "description": "标准错误对象" }
+      },
+      "required": ["run_ref", "tool_snapshot", "requested_by", "input", "input_digest", "permission_decision", "execution_target", "attempt"],
+      "additionalProperties": false
+    },
+    "ToolSnapshot": {
+      "type": "object",
+      "properties": {
+        "tool_ref": { "$ref": "#/$defs/ResourceRef" },
+        "side_effect": { "$ref": "#/$defs/SideEffect" },
+        "risk_level": { "$ref": "#/$defs/RiskLevel" }
+      },
+      "required": ["tool_ref", "side_effect", "risk_level"],
+      "additionalProperties": false
+    },
+    "SideEffect": {
+      "type": "string",
+      "enum": ["read_only", "local_write", "external_write", "external_send", "destructive", "privileged"]
+    },
+    "RiskLevel": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"]
+    },
+    "ExecutionLocation": {
+      "type": "string",
+      "enum": ["cloud", "local", "sandbox", "device", "gpu"]
+    },
+    "PermissionDecision": {
+      "type": "object",
+      "properties": {
+        "decision": { "type": "string", "enum": ["allow", "deny", "require_approval"] },
+        "policy_refs": { "type": "array", "items": { "$ref": "#/$defs/ResourceRef" }, "minItems": 1 },
+        "reason_codes": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 4096 }, "minItems": 1 },
+        "constraints": { "type": "object" },
+        "request_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "decision_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      },
+      "required": ["decision", "policy_refs", "reason_codes", "request_digest", "decision_digest"],
+      "additionalProperties": false
+    },
+    "ToolCallStatus": {
+      "type": "object",
+      "properties": {
+        "phase": { "$ref": "#/$defs/ToolCallPhase" }
+      },
+      "required": ["phase"],
+      "additionalProperties": false
+    },
+    "ToolCallPhase": {
+      "type": "string",
+      "enum": ["proposed", "validating", "denied", "waiting_approval", "approved", "rejected", "expired", "scheduled", "executing", "succeeded", "failed", "cancelled", "unknown"],
+      "description": "ToolCall 生命周期状态"
+    },
+    "Scope": { "$ref": "common-types.schema.json#/$defs/Scope" },
+    "ActorRef": { "$ref": "common-types.schema.json#/$defs/ActorRef" },
+    "ResourceRef": { "$ref": "common-types.schema.json#/$defs/ResourceRef" },
+    "ObjectRef": { "$ref": "common-types.schema.json#/$defs/ObjectRef" },
+    "StandardError": { "$ref": "standard-error.schema.json" }
+  }
+}

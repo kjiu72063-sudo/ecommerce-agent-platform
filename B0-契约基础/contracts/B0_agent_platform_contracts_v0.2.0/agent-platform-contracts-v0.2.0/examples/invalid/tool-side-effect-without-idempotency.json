@@ -1,0 +1,101 @@
+{
+  "expected_error_code": "IDEMPOTENCY_REQUIRED",
+  "payload": {
+    "api_version": "agent-platform/v1alpha1",
+    "kind": "ToolManifest",
+    "metadata": {
+      "annotations": {},
+      "content_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000003",
+      "created_at": "2026-08-28T00:00:00Z",
+      "created_by": {
+        "actor_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f402",
+        "actor_type": "user",
+        "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401"
+      },
+      "id": "tol_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f413",
+      "key": "repository-read",
+      "labels": {
+        "domain": "development"
+      },
+      "namespace": "personal",
+      "revision": 1,
+      "scope": {
+        "project_id": "prj_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f403",
+        "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401",
+        "type": "project",
+        "user_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f402"
+      },
+      "version": "1.0.0"
+    },
+    "spec": {
+      "approval_requirement": {
+        "conditions": [],
+        "mode": "none"
+      },
+      "auth_profile_ref": {
+        "field": "access_token",
+        "key": "tenants/default/repository",
+        "provider": "vault",
+        "version": 1
+      },
+      "capability": "repository.read",
+      "domain": [
+        "development"
+      ],
+      "endpoint_ref": {
+        "endpoint_key": "tools/repository.read",
+        "service_id": "repository-gateway"
+      },
+      "execution_location": "sandbox",
+      "health_contract": {
+        "healthcheck_key": "repository-gateway/health",
+        "interval_seconds": 30,
+        "unhealthy_after_failures": 3
+      },
+      "idempotency": {
+        "duplicate_semantics": "not_applicable",
+        "key_scope": "none",
+        "supported": false
+      },
+      "input_schema_ref": {
+        "digest": "sha256:00000000000000000000000000000000000000000000000000000000000000c8",
+        "id": "sch_repository-read-input",
+        "version": "1.0.0"
+      },
+      "output_schema_ref": {
+        "digest": "sha256:00000000000000000000000000000000000000000000000000000000000000c8",
+        "id": "sch_repository-read-output",
+        "version": "1.0.0"
+      },
+      "provider": "git-service",
+      "rate_limit": {
+        "per_seconds": 60,
+        "requests": 60
+      },
+      "retry_policy": {
+        "backoff": "exponential",
+        "base_delay_seconds": 0.5,
+        "max_attempts": 3,
+        "requires_safe_to_retry": true,
+        "retryable_error_codes": [
+          "TOOL_TIMEOUT",
+          "DEPENDENCY_UNAVAILABLE"
+        ]
+      },
+      "risk_level": "low",
+      "sandbox_profile": "restricted-development",
+      "side_effect": "external_write",
+      "timeout_policy": {
+        "connect_timeout_seconds": 5,
+        "execution_timeout_seconds": 60
+      },
+      "transport": "mcp"
+    },
+    "status": {
+      "activated_at": "2026-08-28T01:00:00Z",
+      "observed_revision": 1,
+      "phase": "active"
+    }
+  },
+  "target_model": "tool-manifest"
+}

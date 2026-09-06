@@ -1,0 +1,684 @@
+{
+  "$defs": {
+    "ActorRef": {
+      "additionalProperties": false,
+      "properties": {
+        "actor_id": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "title": "Actor Id",
+          "type": "string"
+        },
+        "actor_type": {
+          "$ref": "#/$defs/ActorType"
+        },
+        "tenant_id": {
+          "anyOf": [
+            {
+              "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tenant Id"
+        }
+      },
+      "required": [
+        "actor_type",
+        "actor_id"
+      ],
+      "title": "ActorRef",
+      "type": "object"
+    },
+    "ActorType": {
+      "enum": [
+        "user",
+        "agent",
+        "service",
+        "system"
+      ],
+      "title": "ActorType",
+      "type": "string"
+    },
+    "CompactionPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "preserve_provenance": {
+          "const": true,
+          "default": true,
+          "title": "Preserve Provenance",
+          "type": "boolean"
+        },
+        "strategy": {
+          "enum": [
+            "extractive",
+            "abstractive",
+            "hybrid"
+          ],
+          "title": "Strategy",
+          "type": "string"
+        },
+        "target_ratio": {
+          "exclusiveMinimum": 0,
+          "maximum": 1,
+          "title": "Target Ratio",
+          "type": "number"
+        }
+      },
+      "required": [
+        "strategy",
+        "target_ratio"
+      ],
+      "title": "CompactionPolicy",
+      "type": "object"
+    },
+    "ContextMemoryScope": {
+      "additionalProperties": false,
+      "properties": {
+        "allow_cross_tenant": {
+          "const": false,
+          "default": false,
+          "title": "Allow Cross Tenant",
+          "type": "boolean"
+        },
+        "allow_cross_user": {
+          "const": false,
+          "default": false,
+          "title": "Allow Cross User",
+          "type": "boolean"
+        },
+        "allowed_scopes": {
+          "items": {
+            "$ref": "#/$defs/ScopeType"
+          },
+          "title": "Allowed Scopes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "allowed_scopes"
+      ],
+      "title": "ContextMemoryScope",
+      "type": "object"
+    },
+    "ContextPolicySpec": {
+      "additionalProperties": false,
+      "properties": {
+        "compaction": {
+          "$ref": "#/$defs/CompactionPolicy"
+        },
+        "deduplication": {
+          "$ref": "#/$defs/DeduplicationPolicy"
+        },
+        "freshness": {
+          "$ref": "#/$defs/FreshnessPolicy"
+        },
+        "memory_scope": {
+          "$ref": "#/$defs/ContextMemoryScope"
+        },
+        "provenance_requirement": {
+          "title": "Provenance Requirement",
+          "type": "boolean"
+        },
+        "redaction": {
+          "$ref": "#/$defs/RedactionPolicy"
+        },
+        "skill_selection": {
+          "$ref": "#/$defs/SkillSelection"
+        },
+        "snapshot_policy": {
+          "$ref": "#/$defs/SnapshotPolicy"
+        },
+        "source_rules": {
+          "items": {
+            "$ref": "#/$defs/SourceRule"
+          },
+          "minItems": 1,
+          "title": "Source Rules",
+          "type": "array"
+        },
+        "token_budget": {
+          "$ref": "#/$defs/ContextTokenBudget"
+        },
+        "tool_selection": {
+          "$ref": "#/$defs/ToolSelection"
+        }
+      },
+      "required": [
+        "source_rules",
+        "token_budget",
+        "skill_selection",
+        "tool_selection",
+        "memory_scope",
+        "freshness",
+        "deduplication",
+        "compaction",
+        "redaction",
+        "provenance_requirement",
+        "snapshot_policy"
+      ],
+      "title": "ContextPolicySpec",
+      "type": "object"
+    },
+    "ContextSourceType": {
+      "enum": [
+        "task",
+        "agent_spec",
+        "prompt",
+        "thread",
+        "memory",
+        "project_state",
+        "skill",
+        "tool_schema",
+        "knowledge",
+        "artifact",
+        "tool_result",
+        "graph_state",
+        "approval"
+      ],
+      "title": "ContextSourceType",
+      "type": "string"
+    },
+    "ContextTokenBudget": {
+      "additionalProperties": false,
+      "properties": {
+        "per_source": {
+          "additionalProperties": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "propertyNames": {
+            "$ref": "#/$defs/ContextSourceType"
+          },
+          "title": "Per Source",
+          "type": "object"
+        },
+        "reserved_output_tokens": {
+          "minimum": 0,
+          "title": "Reserved Output Tokens",
+          "type": "integer"
+        },
+        "total_tokens": {
+          "exclusiveMinimum": 0,
+          "title": "Total Tokens",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total_tokens",
+        "reserved_output_tokens",
+        "per_source"
+      ],
+      "title": "ContextTokenBudget",
+      "type": "object"
+    },
+    "DeduplicationPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "similarity_threshold": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Similarity Threshold"
+        },
+        "strategy": {
+          "enum": [
+            "digest",
+            "semantic",
+            "hybrid"
+          ],
+          "title": "Strategy",
+          "type": "string"
+        }
+      },
+      "required": [
+        "strategy"
+      ],
+      "title": "DeduplicationPolicy",
+      "type": "object"
+    },
+    "DefinitionMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "annotations": {
+          "additionalProperties": {
+            "maxLength": 2048,
+            "type": "string"
+          },
+          "propertyNames": {
+            "maxLength": 128
+          },
+          "title": "Annotations",
+          "type": "object"
+        },
+        "content_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "title": "Content Digest",
+          "type": "string"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "created_by": {
+          "$ref": "#/$defs/ActorRef"
+        },
+        "id": {
+          "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "key": {
+          "maxLength": 128,
+          "minLength": 3,
+          "pattern": "^[a-z0-9][a-z0-9-]{1,126}[a-z0-9]$",
+          "title": "Key",
+          "type": "string"
+        },
+        "labels": {
+          "patternProperties": {
+            "^[a-z0-9][a-z0-9._/-]{0,62}$": {
+              "maxLength": 256,
+              "type": "string"
+            }
+          },
+          "title": "Labels",
+          "type": "object"
+        },
+        "namespace": {
+          "maxLength": 128,
+          "minLength": 2,
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,126}[a-z0-9]$",
+          "title": "Namespace",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "scope": {
+          "$ref": "#/$defs/Scope"
+        },
+        "version": {
+          "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "key",
+        "namespace",
+        "version",
+        "revision",
+        "scope",
+        "content_digest",
+        "created_at",
+        "created_by"
+      ],
+      "title": "DefinitionMetadata",
+      "type": "object"
+    },
+    "DefinitionPhase": {
+      "enum": [
+        "proposed",
+        "draft",
+        "testing",
+        "awaiting_approval",
+        "approved",
+        "active",
+        "deprecated",
+        "blocked",
+        "archived"
+      ],
+      "title": "DefinitionPhase",
+      "type": "string"
+    },
+    "DefinitionStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "activated_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Activated At"
+        },
+        "observed_revision": {
+          "minimum": 1,
+          "title": "Observed Revision",
+          "type": "integer"
+        },
+        "phase": {
+          "$ref": "#/$defs/DefinitionPhase"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 2048,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "phase",
+        "observed_revision"
+      ],
+      "title": "DefinitionStatus",
+      "type": "object"
+    },
+    "FreshnessPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "default_ttl_seconds": {
+          "minimum": 0,
+          "title": "Default Ttl Seconds",
+          "type": "integer"
+        },
+        "source_ttl_seconds": {
+          "additionalProperties": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "propertyNames": {
+            "$ref": "#/$defs/ContextSourceType"
+          },
+          "title": "Source Ttl Seconds",
+          "type": "object"
+        }
+      },
+      "required": [
+        "default_ttl_seconds"
+      ],
+      "title": "FreshnessPolicy",
+      "type": "object"
+    },
+    "RedactionPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "pii_mode": {
+          "enum": [
+            "none",
+            "mask",
+            "remove"
+          ],
+          "title": "Pii Mode",
+          "type": "string"
+        },
+        "redact_secrets": {
+          "const": true,
+          "default": true,
+          "title": "Redact Secrets",
+          "type": "boolean"
+        },
+        "restricted_data_mode": {
+          "enum": [
+            "deny",
+            "local_only",
+            "mask"
+          ],
+          "title": "Restricted Data Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "pii_mode",
+        "restricted_data_mode"
+      ],
+      "title": "RedactionPolicy",
+      "type": "object"
+    },
+    "Scope": {
+      "additionalProperties": false,
+      "properties": {
+        "project_id": {
+          "anyOf": [
+            {
+              "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Project Id"
+        },
+        "session_id": {
+          "anyOf": [
+            {
+              "pattern": "^ses_[A-Za-z0-9._:-]{3,128}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Session Id"
+        },
+        "tenant_id": {
+          "anyOf": [
+            {
+              "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tenant Id"
+        },
+        "type": {
+          "$ref": "#/$defs/ScopeType"
+        },
+        "user_id": {
+          "anyOf": [
+            {
+              "pattern": "^(?:ten|usr|prj|agt|skl|tol|prm|mpo|cpo|lop|pep|tsk|run|ckp|tcl|apr|art|evt)_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "User Id"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "Scope",
+      "type": "object"
+    },
+    "ScopeType": {
+      "enum": [
+        "system",
+        "tenant",
+        "user",
+        "project",
+        "session"
+      ],
+      "title": "ScopeType",
+      "type": "string"
+    },
+    "SkillSelection": {
+      "additionalProperties": false,
+      "properties": {
+        "metadata_token_limit": {
+          "exclusiveMinimum": 0,
+          "title": "Metadata Token Limit",
+          "type": "integer"
+        },
+        "similarity_threshold": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Similarity Threshold",
+          "type": "number"
+        },
+        "top_k": {
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Top K",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "top_k",
+        "similarity_threshold",
+        "metadata_token_limit"
+      ],
+      "title": "SkillSelection",
+      "type": "object"
+    },
+    "SnapshotPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "persist": {
+          "title": "Persist",
+          "type": "boolean"
+        },
+        "require_digest": {
+          "const": true,
+          "default": true,
+          "title": "Require Digest",
+          "type": "boolean"
+        },
+        "retention_days": {
+          "minimum": 1,
+          "title": "Retention Days",
+          "type": "integer"
+        },
+        "store_content": {
+          "title": "Store Content",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "persist",
+        "store_content",
+        "retention_days"
+      ],
+      "title": "SnapshotPolicy",
+      "type": "object"
+    },
+    "SourceRule": {
+      "additionalProperties": false,
+      "properties": {
+        "effect": {
+          "enum": [
+            "allow",
+            "deny"
+          ],
+          "title": "Effect",
+          "type": "string"
+        },
+        "filters": {
+          "additionalProperties": true,
+          "title": "Filters",
+          "type": "object"
+        },
+        "priority": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Priority",
+          "type": "integer"
+        },
+        "source": {
+          "$ref": "#/$defs/ContextSourceType"
+        }
+      },
+      "required": [
+        "source",
+        "effect",
+        "priority"
+      ],
+      "title": "SourceRule",
+      "type": "object"
+    },
+    "ToolSelection": {
+      "additionalProperties": false,
+      "properties": {
+        "max_visible_tools": {
+          "maximum": 256,
+          "minimum": 1,
+          "title": "Max Visible Tools",
+          "type": "integer"
+        },
+        "schema_token_limit": {
+          "exclusiveMinimum": 0,
+          "title": "Schema Token Limit",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "max_visible_tools",
+        "schema_token_limit"
+      ],
+      "title": "ToolSelection",
+      "type": "object"
+    }
+  },
+  "$id": "https://schemas.agent-platform.local/v1alpha1/context-policy.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "api_version": {
+      "const": "agent-platform/v1alpha1",
+      "default": "agent-platform/v1alpha1",
+      "title": "Api Version",
+      "type": "string"
+    },
+    "kind": {
+      "const": "ContextPolicy",
+      "default": "ContextPolicy",
+      "title": "Kind",
+      "type": "string"
+    },
+    "metadata": {
+      "$ref": "#/$defs/DefinitionMetadata"
+    },
+    "spec": {
+      "$ref": "#/$defs/ContextPolicySpec"
+    },
+    "status": {
+      "$ref": "#/$defs/DefinitionStatus"
+    }
+  },
+  "required": [
+    "metadata",
+    "spec",
+    "status"
+  ],
+  "title": "ContextPolicyResource",
+  "type": "object",
+  "x-contract-version": "0.2.0",
+  "x-source-model": "agent_platform_contracts.models.ContextPolicyResource"
+}

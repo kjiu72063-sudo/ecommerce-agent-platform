@@ -1,0 +1,122 @@
+{
+  "expected_error_code": "CONTEXT_BUDGET_EXCEEDED",
+  "payload": {
+    "api_version": "agent-platform/v1alpha1",
+    "kind": "ContextPolicy",
+    "metadata": {
+      "annotations": {},
+      "content_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000006",
+      "created_at": "2026-08-28T00:00:00Z",
+      "created_by": {
+        "actor_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f402",
+        "actor_type": "user",
+        "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401"
+      },
+      "id": "cpo_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f416",
+      "key": "programming-context",
+      "labels": {
+        "domain": "development"
+      },
+      "namespace": "personal",
+      "revision": 1,
+      "scope": {
+        "project_id": "prj_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f403",
+        "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401",
+        "type": "project",
+        "user_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f402"
+      },
+      "version": "1.0.0"
+    },
+    "spec": {
+      "compaction": {
+        "preserve_provenance": true,
+        "strategy": "hybrid",
+        "target_ratio": 0.6
+      },
+      "deduplication": {
+        "similarity_threshold": 0.92,
+        "strategy": "hybrid"
+      },
+      "freshness": {
+        "default_ttl_seconds": 3600,
+        "source_ttl_seconds": {
+          "knowledge": 86400,
+          "tool_result": 300
+        }
+      },
+      "memory_scope": {
+        "allow_cross_tenant": false,
+        "allow_cross_user": false,
+        "allowed_scopes": [
+          "project",
+          "user"
+        ]
+      },
+      "provenance_requirement": true,
+      "redaction": {
+        "pii_mode": "mask",
+        "redact_secrets": true,
+        "restricted_data_mode": "local_only"
+      },
+      "skill_selection": {
+        "metadata_token_limit": 2000,
+        "similarity_threshold": 0.72,
+        "top_k": 8
+      },
+      "snapshot_policy": {
+        "persist": true,
+        "require_digest": true,
+        "retention_days": 30,
+        "store_content": false
+      },
+      "source_rules": [
+        {
+          "effect": "allow",
+          "filters": {},
+          "priority": 100,
+          "source": "task"
+        },
+        {
+          "effect": "allow",
+          "filters": {
+            "scope": [
+              "project",
+              "user"
+            ]
+          },
+          "priority": 60,
+          "source": "memory"
+        },
+        {
+          "effect": "allow",
+          "filters": {
+            "require_provenance": true
+          },
+          "priority": 70,
+          "source": "knowledge"
+        }
+      ],
+      "token_budget": {
+        "per_source": {
+          "knowledge": 12000,
+          "prompt": 8000,
+          "skill": 10000,
+          "task": 5000,
+          "tool_schema": 5000
+        },
+        "reserved_output_tokens": 10000,
+        "total_tokens": 10000
+      },
+      "tool_selection": {
+        "max_visible_tools": 24,
+        "schema_token_limit": 8000
+      }
+    },
+    "status": {
+      "activated_at": "2026-08-28T01:00:00Z",
+      "observed_revision": 1,
+      "phase": "active"
+    }
+  },
+  "target_model": "context-policy"
+}

@@ -1,0 +1,161 @@
+{
+  "api_version": "agent-platform/v1alpha1",
+  "kind": "AgentRun",
+  "metadata": {
+    "id": "run_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+    "revision": 1,
+    "scope": {
+      "type": "project",
+      "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+      "user_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+      "project_id": "prj_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411"
+    },
+    "labels": {},
+    "annotations": {},
+    "created_at": "2026-09-01T12:00:00Z",
+    "created_by": {
+      "actor_type": "system",
+      "actor_id": "sys_scheduler"
+    }
+  },
+  "spec": {
+    "task_ref": {
+      "kind": "Task",
+      "id": "tsk_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411"
+    },
+    "attempt": 1,
+    "agent_snapshot": {
+      "kind": "AgentSpec",
+      "id": "agt_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+      "version": "1.0.0",
+      "digest": "sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
+    },
+    "resolved_dependencies": {
+      "prompt_package_ref": {
+        "kind": "PromptPackage",
+        "id": "prm_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+        "version": "1.0.0",
+        "digest": "sha256:b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3"
+      },
+      "context_policy_ref": {
+        "kind": "ContextPolicy",
+        "id": "cpo_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+        "version": "1.0.0",
+        "digest": "sha256:c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4"
+      },
+      "model_policy_ref": {
+        "kind": "ModelPolicy",
+        "id": "mpo_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+        "version": "1.0.0",
+        "digest": "sha256:d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5"
+      },
+      "loop_profile_ref": {
+        "kind": "LoopProfile",
+        "id": "lop_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+        "version": "1.0.0",
+        "digest": "sha256:e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6"
+      },
+      "permission_profile_ref": {
+        "kind": "PermissionProfile",
+        "id": "pep_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+        "version": "1.0.0",
+        "digest": "sha256:f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1"
+      },
+      "startup_skill_refs": [
+        {
+          "kind": "SkillManifest",
+          "id": "skl_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+          "version": "1.0.0",
+          "digest": "sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
+        }
+      ],
+      "startup_tool_refs": [
+        {
+          "kind": "ToolManifest",
+          "id": "tol_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+          "version": "1.0.0",
+          "digest": "sha256:b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3"
+        }
+      ],
+      "price_snapshot_ref": {
+        "snapshot_id": "price_2026_09_01",
+        "version": "1.0.0",
+        "effective_at": "2026-09-01T00:00:00Z",
+        "digest": "sha256:c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4"
+      },
+      "schema_version": "0.2.0",
+      "runtime_version": "1.0.0"
+    },
+    "dynamic_dependency_activations": [],
+    "current_model_selection": {
+      "sequence": 1,
+      "route_id": "openai-gpt4",
+      "provider": "openai",
+      "model": "gpt-4-turbo",
+      "selected_at": "2026-09-01T12:00:00Z",
+      "selection_reason": "initial",
+      "price_snapshot_ref": {
+        "snapshot_id": "price_2026_09_01",
+        "version": "1.0.0",
+        "effective_at": "2026-09-01T00:00:00Z",
+        "digest": "sha256:c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4"
+      },
+      "event_ref": {
+        "kind": "Event",
+        "id": "evt_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411"
+      }
+    },
+    "model_selection_history": [
+      {
+        "sequence": 1,
+        "route_id": "openai-gpt4",
+        "provider": "openai",
+        "model": "gpt-4-turbo",
+        "selected_at": "2026-09-01T12:00:00Z",
+        "selection_reason": "initial",
+        "price_snapshot_ref": {
+          "snapshot_id": "price_2026_09_01",
+          "version": "1.0.0",
+          "effective_at": "2026-09-01T00:00:00Z",
+          "digest": "sha256:c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4"
+        },
+        "event_ref": {
+          "kind": "Event",
+          "id": "evt_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411"
+        }
+      }
+    ],
+    "worker_ref": {
+      "worker_id": "wrk_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+      "service": "agent-harness",
+      "instance": "instance-001"
+    },
+    "budget": {
+      "max_wall_time_seconds": 7200,
+      "max_model_tokens": 800000,
+      "max_cost_usd": "30.00",
+      "max_tool_calls": 100,
+      "max_iterations": 20
+    },
+    "usage": {
+      "wall_time_seconds": 0,
+      "model_input_tokens": 0,
+      "model_output_tokens": 0,
+      "model_tokens": 0,
+      "cost_usd": "0",
+      "tool_calls": 0,
+      "iterations": 0,
+      "price_snapshot_ref": {
+        "snapshot_id": "price_2026_09_01",
+        "version": "1.0.0",
+        "effective_at": "2026-09-01T00:00:00Z",
+        "digest": "sha256:c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4"
+      }
+    },
+    "context_snapshot_refs": [],
+    "output_artifact_refs": []
+  },
+  "status": {
+    "phase": "running"
+  }
+}

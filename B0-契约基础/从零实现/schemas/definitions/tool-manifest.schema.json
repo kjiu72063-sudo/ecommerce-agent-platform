@@ -1,0 +1,302 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tool-manifest.schema.json",
+  "title": "ToolManifest",
+  "description": "工具清单 - 描述一个原子可执行能力的调用契约、传输协议、副作用、权限、幂等和运行位置",
+  "x-contract-version": "0.2.0",
+  "$ref": "#/$defs/ToolManifestResource",
+  "$defs": {
+    "ToolManifestResource": {
+      "type": "object",
+      "properties": {
+        "api_version": { "const": "agent-platform/v1alpha1" },
+        "kind": { "const": "ToolManifest" },
+        "metadata": { "$ref": "#/$defs/DefinitionMetadata" },
+        "spec": { "$ref": "#/$defs/ToolManifestSpec" },
+        "status": { "$ref": "#/$defs/DefinitionStatus" }
+      },
+      "required": ["api_version", "kind", "metadata", "spec", "status"],
+      "additionalProperties": false
+    },
+    "DefinitionMetadata": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^tol_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "key": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,126}[a-z0-9]$", "minLength": 3, "maxLength": 128 },
+        "namespace": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,126}[a-z0-9]$", "minLength": 2, "maxLength": 128 },
+        "version": { "type": "string", "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "scope": { "$ref": "#/$defs/Scope" },
+        "labels": { "type": "object", "additionalProperties": { "type": "string", "maxLength": 256 } },
+        "annotations": { "type": "object", "additionalProperties": { "type": "string", "maxLength": 2048 } },
+        "content_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "created_by": { "$ref": "#/$defs/ActorRef" }
+      },
+      "required": ["id", "key", "namespace", "version", "revision", "scope", "content_digest", "created_at", "created_by"],
+      "additionalProperties": false
+    },
+    "ToolManifestSpec": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "能力提供者，如 github, slack, internal"
+        },
+        "capability": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.:-]{2,127}$",
+          "description": "原子能力名称，如 repository.read, file.write"
+        },
+        "domain": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{1,63}$" },
+          "minItems": 1,
+          "description": "所属领域"
+        },
+        "transport": {
+          "$ref": "#/$defs/ToolTransport",
+          "description": "传输协议"
+        },
+        "endpoint_ref": {
+          "$ref": "#/$defs/EndpointRef",
+          "description": "服务发现引用"
+        },
+        "input_schema_ref": {
+          "$ref": "#/$defs/SchemaRef",
+          "description": "输入契约"
+        },
+        "output_schema_ref": {
+          "$ref": "#/$defs/SchemaRef",
+          "description": "输出契约"
+        },
+        "auth_profile_ref": {
+          "$ref": "#/$defs/SecretRef",
+          "description": "凭证引用（可选）"
+        },
+        "side_effect": {
+          "$ref": "#/$defs/SideEffect",
+          "description": "副作用分类"
+        },
+        "risk_level": {
+          "$ref": "#/$defs/RiskLevel",
+          "description": "风险级别"
+        },
+        "idempotency": {
+          "$ref": "#/$defs/IdempotencyPolicy",
+          "description": "幂等策略"
+        },
+        "timeout_policy": {
+          "$ref": "#/$defs/TimeoutPolicy",
+          "description": "超时策略"
+        },
+        "retry_policy": {
+          "$ref": "#/$defs/RetryPolicy",
+          "description": "重试策略"
+        },
+        "rate_limit": {
+          "$ref": "#/$defs/RateLimit",
+          "description": "限流策略（可选）"
+        },
+        "execution_location": {
+          "$ref": "#/$defs/ExecutionLocation",
+          "description": "执行位置"
+        },
+        "sandbox_profile": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "沙箱配置文件名"
+        },
+        "approval_requirement": {
+          "$ref": "#/$defs/ApprovalRequirement",
+          "description": "审批要求"
+        },
+        "health_contract": {
+          "$ref": "#/$defs/HealthContract",
+          "description": "健康检查契约"
+        }
+      },
+      "required": [
+        "provider", "capability", "domain", "transport", "endpoint_ref",
+        "input_schema_ref", "output_schema_ref", "side_effect", "risk_level",
+        "idempotency", "timeout_policy", "retry_policy", "execution_location",
+        "approval_requirement", "health_contract"
+      ],
+      "additionalProperties": false
+    },
+    "ToolTransport": {
+      "type": "string",
+      "enum": ["local", "http", "grpc", "mcp", "openclaw"],
+      "description": "传输协议"
+    },
+    "SideEffect": {
+      "type": "string",
+      "enum": ["read_only", "local_write", "external_write", "external_send", "destructive", "privileged"],
+      "description": "副作用分类"
+    },
+    "ExecutionLocation": {
+      "type": "string",
+      "enum": ["cloud", "local", "sandbox", "device", "gpu"],
+      "description": "执行位置"
+    },
+    "EndpointRef": {
+      "type": "object",
+      "properties": {
+        "service_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,63}$",
+          "description": "服务标识"
+        },
+        "endpoint_key": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_.:/-]{1,255}$",
+          "description": "端点标识"
+        }
+      },
+      "required": ["service_id", "endpoint_key"],
+      "additionalProperties": false
+    },
+    "IdempotencyPolicy": {
+      "type": "object",
+      "properties": {
+        "supported": {
+          "type": "boolean",
+          "description": "是否支持幂等"
+        },
+        "key_scope": {
+          "type": "string",
+          "enum": ["none", "tool_target", "tenant_tool_target"],
+          "description": "幂等键作用域"
+        },
+        "duplicate_semantics": {
+          "type": "string",
+          "enum": ["reject", "return_original", "reconcile", "not_applicable"],
+          "description": "重复调用语义"
+        }
+      },
+      "required": ["supported", "key_scope", "duplicate_semantics"],
+      "additionalProperties": false
+    },
+    "TimeoutPolicy": {
+      "type": "object",
+      "properties": {
+        "connect_timeout_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "连接超时（秒）"
+        },
+        "execution_timeout_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "执行超时（秒）"
+        }
+      },
+      "required": ["connect_timeout_seconds", "execution_timeout_seconds"],
+      "additionalProperties": false
+    },
+    "RetryPolicy": {
+      "type": "object",
+      "properties": {
+        "max_attempts": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "最大重试次数"
+        },
+        "retryable_error_codes": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,127}$" },
+          "description": "可重试的错误码"
+        },
+        "backoff": {
+          "type": "string",
+          "enum": ["none", "fixed", "exponential"],
+          "description": "退避策略"
+        },
+        "base_delay_seconds": {
+          "type": "number",
+          "minimum": 0,
+          "description": "基础延迟（秒）"
+        },
+        "requires_safe_to_retry": {
+          "const": true,
+          "description": "必须要求 safe_to_retry"
+        }
+      },
+      "required": ["max_attempts", "retryable_error_codes", "backoff", "base_delay_seconds", "requires_safe_to_retry"],
+      "additionalProperties": false
+    },
+    "RateLimit": {
+      "type": "object",
+      "properties": {
+        "requests": { "type": "integer", "exclusiveMinimum": 0 },
+        "per_seconds": { "type": "integer", "exclusiveMinimum": 0 }
+      },
+      "required": ["requests", "per_seconds"],
+      "additionalProperties": false
+    },
+    "ApprovalRequirement": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["none", "conditional", "always"],
+          "description": "审批模式"
+        },
+        "conditions": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 4096 },
+          "description": "条件审批的条件"
+        }
+      },
+      "required": ["mode"],
+      "additionalProperties": false
+    },
+    "HealthContract": {
+      "type": "object",
+      "properties": {
+        "healthcheck_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256,
+          "description": "健康检查标识"
+        },
+        "interval_seconds": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "检查间隔（秒）"
+        },
+        "unhealthy_after_failures": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "连续失败次数阈值"
+        }
+      },
+      "required": ["healthcheck_key", "interval_seconds", "unhealthy_after_failures"],
+      "additionalProperties": false
+    },
+    "RiskLevel": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"]
+    },
+    "Scope": { "$ref": "common-types.schema.json#/$defs/Scope" },
+    "ActorRef": { "$ref": "common-types.schema.json#/$defs/ActorRef" },
+    "SchemaRef": { "$ref": "common-types.schema.json#/$defs/SchemaRef" },
+    "SecretRef": { "$ref": "common-types.schema.json#/$defs/SecretRef" },
+    "DefinitionStatus": {
+      "type": "object",
+      "properties": {
+        "phase": { "type": "string", "enum": ["proposed", "draft", "testing", "awaiting_approval", "approved", "active", "deprecated", "blocked", "archived"] },
+        "observed_revision": { "type": "integer", "minimum": 1 },
+        "reason": { "type": "string", "maxLength": 2048 },
+        "activated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["phase", "observed_revision"],
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "target_model": "task",
+  "expected_error_code": "VALIDATION_ERROR",
+  "description": "缺少必填字段 idempotency_key",
+  "payload": {
+    "api_version": "agent-platform/v1alpha1",
+    "kind": "Task",
+    "metadata": {
+      "id": "tsk_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f412",
+      "revision": 1,
+      "scope": {
+        "type": "project",
+        "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+        "user_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+        "project_id": "prj_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411"
+      },
+      "created_at": "2026-09-01T12:00:00Z",
+      "created_by": {
+        "actor_type": "user",
+        "actor_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411"
+      }
+    },
+    "spec": {
+      "title": "测试任务",
+      "intent": "development.test",
+      "domain": "development",
+      "requested_by": {
+        "actor_type": "user",
+        "actor_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411"
+      },
+      "source": {
+        "type": "api"
+      },
+      "payload": {},
+      "input_schema_ref": {
+        "id": "sch_test",
+        "version": "1.0.0",
+        "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "expected_output_schema_ref": {
+        "id": "sch_test_output",
+        "version": "1.0.0",
+        "digest": "sha256:a7ffc6f8bf1ed76651c14756a061d662f580ff4de43b49fa82d80a4b80f8434a"
+      },
+      "routing_constraints": {},
+      "priority": 50,
+      "budget": {
+        "max_wall_time_seconds": 3600,
+        "max_model_tokens": 100000,
+        "max_cost_usd": "10.00",
+        "max_tool_calls": 50,
+        "max_iterations": 10
+      },
+      "permission_grant": {
+        "actions": ["test"],
+        "resources": ["*"]
+      },
+      "retention_policy": {
+        "retain_days": 30
+      },
+      "idempotency_key": "test-12345"
+    },
+    "status": {
+      "phase": "created"
+    }
+  }
+}

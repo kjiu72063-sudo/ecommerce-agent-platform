@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "api_version": "agent-platform/v1alpha1",
+  "codes": [
+    {"code": "EXTRA_FIELD_FORBIDDEN", "category": "validation", "http_status": 422},
+    {"code": "HERMES_PROPOSAL_NOT_ACTIVATABLE", "category": "validation", "http_status": 409},
+    {"code": "IDEMPOTENCY_REQUIRED", "category": "validation", "http_status": 422},
+    {"code": "PROMPT_ORDER_DUPLICATE", "category": "validation", "http_status": 422},
+    {"code": "MODEL_PROVIDER_NOT_ALLOWED", "category": "authorization", "http_status": 403},
+    {"code": "CONTEXT_BUDGET_EXCEEDED", "category": "budget", "http_status": 422},
+    {"code": "LOOP_HARD_LIMIT_REQUIRED", "category": "validation", "http_status": 422},
+    {"code": "DEFAULT_DENY_REQUIRED", "category": "authorization", "http_status": 422},
+    {"code": "TASK_IDEMPOTENCY_REQUIRED", "category": "validation", "http_status": 422},
+    {"code": "EXACT_VERSION_REQUIRED", "category": "validation", "http_status": 422},
+    {"code": "DYNAMIC_ACTIVATION_SEQUENCE_INVALID", "category": "conflict", "http_status": 409},
+    {"code": "DYNAMIC_DEPENDENCY_DUPLICATE", "category": "conflict", "http_status": 409},
+    {"code": "MODEL_SELECTION_CURRENT_MISMATCH", "category": "conflict", "http_status": 409},
+    {"code": "MODEL_FALLBACK_TRIGGER_REQUIRED", "category": "validation", "http_status": 422},
+    {"code": "CHECKPOINT_SEQUENCE_INVALID", "category": "conflict", "http_status": 409},
+    {"code": "TOOL_CALL_IDEMPOTENCY_REQUIRED", "category": "validation", "http_status": 422},
+    {"code": "APPROVAL_ALREADY_CONSUMED", "category": "approval", "http_status": 409},
+    {"code": "ARTIFACT_LOCATOR_SECRET", "category": "validation", "http_status": 422},
+    {"code": "EVENT_SEQUENCE_INVALID", "category": "conflict", "http_status": 409},
+    {"code": "STATE_TRANSITION_NOT_ALLOWED", "category": "conflict", "http_status": 409},
+    {"code": "LEASE_EXPIRED", "category": "conflict", "http_status": 409},
+    {"code": "FENCING_TOKEN_STALE", "category": "conflict", "http_status": 409},
+    {"code": "PERMISSION_DENIED", "category": "authorization", "http_status": 403},
+    {"code": "APPROVAL_REQUIRED", "category": "approval", "http_status": 409}
+  ]
+}

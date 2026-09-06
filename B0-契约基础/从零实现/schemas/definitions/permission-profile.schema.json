@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "permission-profile.schema.json",
+  "title": "PermissionProfile",
+  "description": "权限配置 - 定义 Agent、Skill、Tool 和 Task 的最大可用权限",
+  "x-contract-version": "0.2.0",
+  "$ref": "#/$defs/PermissionProfileResource",
+  "$defs": {
+    "PermissionProfileResource": {
+      "type": "object",
+      "properties": {
+        "api_version": { "const": "agent-platform/v1alpha1" },
+        "kind": { "const": "PermissionProfile" },
+        "metadata": { "$ref": "#/$defs/DefinitionMetadata" },
+        "spec": { "$ref": "#/$defs/PermissionProfileSpec" },
+        "status": { "$ref": "#/$defs/DefinitionStatus" }
+      },
+      "required": ["api_version", "kind", "metadata", "spec", "status"],
+      "additionalProperties": false
+    },
+    "DefinitionMetadata": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "pattern": "^pep_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+        "key": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,126}[a-z0-9]$", "minLength": 3, "maxLength": 128 },
+        "namespace": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,126}[a-z0-9]$", "minLength": 2, "maxLength": 128 },
+        "version": { "type": "string", "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "scope": { "$ref": "#/$defs/Scope" },
+        "labels": { "type": "object", "additionalProperties": { "type": "string", "maxLength": 256 } },
+        "annotations": { "type": "object", "additionalProperties": { "type": "string", "maxLength": 2048 } },
+        "content_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "created_by": { "$ref": "#/$defs/ActorRef" }
+      },
+      "required": ["id", "key", "namespace", "version", "revision", "scope", "content_digest", "created_at", "created_by"],
+      "additionalProperties": false
+    },
+    "PermissionProfileSpec": {
+      "type": "object",
+      "properties": {
+        "roles": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,126}[a-z0-9]$", "minLength": 3, "maxLength": 128 },
+          "description": "角色列表"
+        },
+        "rules": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/PermissionRule" },
+          "minItems": 1,
+          "description": "权限规则"
+        },
+        "capabilities": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_.:-]{2,127}$" },
+          "description": "能力列表"
+        },
+        "default_decision": {
+          "const": "deny",
+          "description": "默认决策：deny"
+        },
+        "deny_precedence": {
+          "const": true,
+          "description": "Deny 优先"
+        },
+        "cross_tenant_default": {
+          "const": "deny",
+          "description": "跨租户默认拒绝"
+        }
+      },
+      "required": ["rules", "default_decision", "deny_precedence", "cross_tenant_default"],
+      "additionalProperties": false
+    },
+    "PermissionRule": {
+      "type": "object",
+      "properties": {
+        "effect": {
+          "$ref": "#/$defs/PermissionEffect",
+          "description": "权限效果"
+        },
+        "actions": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_.:-]{2,127}$" },
+          "minItems": 1,
+          "description": "动作列表"
+        },
+        "resources": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 4096 },
+          "minItems": 1,
+          "description": "资源列表"
+        },
+        "conditions": {
+          "type": "object",
+          "description": "条件"
+        }
+      },
+      "required": ["effect", "actions", "resources"],
+      "additionalProperties": false
+    },
+    "PermissionEffect": {
+      "type": "string",
+      "enum": ["allow", "deny", "require_approval"],
+      "description": "权限效果"
+    },
+    "DefinitionStatus": {
+      "type": "object",
+      "properties": {
+        "phase": { "type": "string", "enum": ["proposed", "draft", "testing", "awaiting_approval", "approved", "active", "deprecated", "blocked", "archived"] },
+        "observed_revision": { "type": "integer", "minimum": 1 },
+        "reason": { "type": "string", "maxLength": 2048 },
+        "activated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["phase", "observed_revision"],
+      "additionalProperties": false
+    },
+    "Scope": { "$ref": "common-types.schema.json#/$defs/Scope" },
+    "ActorRef": { "$ref": "common-types.schema.json#/$defs/ActorRef" }
+  }
+}

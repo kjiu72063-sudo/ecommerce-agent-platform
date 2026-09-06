@@ -1,0 +1,160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "model-policy.schema.json",
+  "title": "ModelPolicy",
+  "description": "模型策略 - 定义任务选择模型、回退、预算、隐私和能力约束",
+  "x-contract-version": "0.2.0",
+  "$ref": "#/$defs/ModelPolicyResource",
+  "$defs": {
+    "ModelPolicyResource": {
+      "type": "object",
+      "properties": {
+        "api_version": { "const": "agent-platform/v1alpha1" },
+        "kind": { "const": "ModelPolicy" },
+        "metadata": { "$ref": "#/$defs/DefinitionMetadata" },
+        "spec": { "$ref": "#/$defs/ModelPolicySpec" },
+        "status": { "$ref": "#/$defs/DefinitionStatus" }
+      },
+      "required": ["api_version", "kind", "metadata", "spec", "status"],
+      "additionalProperties": false
+    },
+    "DefinitionMetadata": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "pattern": "^mpo_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+        "key": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,126}[a-z0-9]$", "minLength": 3, "maxLength": 128 },
+        "namespace": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{0,126}[a-z0-9]$", "minLength": 2, "maxLength": 128 },
+        "version": { "type": "string", "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$" },
+        "revision": { "type": "integer", "minimum": 1 },
+        "scope": { "$ref": "#/$defs/Scope" },
+        "labels": { "type": "object", "additionalProperties": { "type": "string", "maxLength": 256 } },
+        "annotations": { "type": "object", "additionalProperties": { "type": "string", "maxLength": 2048 } },
+        "content_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "created_by": { "$ref": "#/$defs/ActorRef" }
+      },
+      "required": ["id", "key", "namespace", "version", "revision", "scope", "content_digest", "created_at", "created_by"],
+      "additionalProperties": false
+    },
+    "ModelPolicySpec": {
+      "type": "object",
+      "properties": {
+        "routes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ModelRoute" },
+          "minItems": 1,
+          "description": "模型路由列表"
+        },
+        "required_capabilities": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 4096 },
+          "description": "必需的模型能力"
+        },
+        "provider_allowlist": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1, "maxLength": 4096 },
+          "minItems": 1,
+          "description": "允许的供应商白名单"
+        },
+        "data_classification_rules": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/DataClassificationRule" },
+          "minItems": 1,
+          "description": "数据分类规则"
+        },
+        "fallback_chain": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/FallbackStep" },
+          "description": "回退链"
+        },
+        "budget_limits": {
+          "$ref": "#/$defs/Budget",
+          "description": "预算限制"
+        },
+        "quality_floor": {
+          "type": "string",
+          "enum": ["economy", "standard", "high", "frontier"],
+          "description": "最低模型质量等级"
+        },
+        "region_constraints": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[A-Z]{2}(?:-[A-Z0-9]{1,3})?$" },
+          "description": "数据区域要求"
+        },
+        "local_model_rules": {
+          "type": "object",
+          "description": "本地模型规则"
+        },
+        "circuit_breaker": {
+          "$ref": "#/$defs/CircuitBreaker",
+          "description": "熔断器"
+        }
+      },
+      "required": [
+        "routes", "required_capabilities", "provider_allowlist",
+        "data_classification_rules", "fallback_chain", "budget_limits",
+        "quality_floor", "region_constraints", "circuit_breaker"
+      ],
+      "additionalProperties": false
+    },
+    "ModelRoute": {
+      "type": "object",
+      "properties": {
+        "route_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,126}[a-z0-9]$", "minLength": 3, "maxLength": 128 },
+        "provider": { "type": "string", "pattern": "^[a-z][a-z0-9_-]{1,63}$" },
+        "model": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "priority": { "type": "integer", "minimum": 0 },
+        "required_capabilities": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "conditions": { "type": "object" }
+      },
+      "required": ["route_id", "provider", "model", "priority", "required_capabilities"],
+      "additionalProperties": false
+    },
+    "DataClassificationRule": {
+      "type": "object",
+      "properties": {
+        "classification": {
+          "type": "string",
+          "enum": ["public", "internal", "confidential", "restricted"]
+        },
+        "allowed_providers": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "require_local": { "type": "boolean", "default": false }
+      },
+      "required": ["classification", "allowed_providers"],
+      "additionalProperties": false
+    },
+    "FallbackStep": {
+      "type": "object",
+      "properties": {
+        "route_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,126}[a-z0-9]$", "minLength": 3, "maxLength": 128 },
+        "on_error_codes": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 4096 }, "minItems": 1 }
+      },
+      "required": ["route_id", "on_error_codes"],
+      "additionalProperties": false
+    },
+    "CircuitBreaker": {
+      "type": "object",
+      "properties": {
+        "failure_threshold": { "type": "integer", "exclusiveMinimum": 0 },
+        "window_seconds": { "type": "integer", "exclusiveMinimum": 0 },
+        "open_seconds": { "type": "integer", "exclusiveMinimum": 0 }
+      },
+      "required": ["failure_threshold", "window_seconds", "open_seconds"],
+      "additionalProperties": false
+    },
+    "DefinitionStatus": {
+      "type": "object",
+      "properties": {
+        "phase": { "type": "string", "enum": ["proposed", "draft", "testing", "awaiting_approval", "approved", "active", "deprecated", "blocked", "archived"] },
+        "observed_revision": { "type": "integer", "minimum": 1 },
+        "reason": { "type": "string", "maxLength": 2048 },
+        "activated_at": { "type": "string", "format": "date-time" }
+      },
+      "required": ["phase", "observed_revision"],
+      "additionalProperties": false
+    },
+    "Scope": { "$ref": "common-types.schema.json#/$defs/Scope" },
+    "ActorRef": { "$ref": "common-types.schema.json#/$defs/ActorRef" },
+    "Budget": { "$ref": "common-types.schema.json#/$defs/Budget" }
+  }
+}

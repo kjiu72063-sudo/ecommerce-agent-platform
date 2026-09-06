@@ -1,0 +1,254 @@
+{
+  "contract_version": "0.2.0",
+  "api_version": "agent-platform/v1alpha1",
+  "generated_at": "2026-09-01T00:00:00Z",
+  "summary": {
+    "total_schemas": 17,
+    "total_examples": 21,
+    "total_state_machines": 6
+  },
+  "generated_files": [
+    {
+      "path": "schemas/common/common-types.schema.json",
+      "digest": "sha256:bd1e2699191e4a3764841f82f38547c539f3bbb1dd24840ddc6f5911773672b7",
+      "size_bytes": 11331
+    },
+    {
+      "path": "schemas/common/standard-error.schema.json",
+      "digest": "sha256:479dc55e1f32cbe8b33b02b095e586b556a3c59296c666199a623f4f9f65c595",
+      "size_bytes": 2031
+    },
+    {
+      "path": "schemas/definitions/agent-spec.schema.json",
+      "digest": "sha256:ba6b0795be08bd1b90d7552ac15dfa91cf910463f20dd542a30e62c35f1d2d48",
+      "size_bytes": 10051
+    },
+    {
+      "path": "schemas/definitions/context-policy.schema.json",
+      "digest": "sha256:276e61e46930b05479b420a4605eeeb593085c91f145b0382f9c896cac3df4ef",
+      "size_bytes": 8895
+    },
+    {
+      "path": "schemas/definitions/loop-profile.schema.json",
+      "digest": "sha256:b5690697e15ff4ee309ab230fad1ffaa2636dce388af3302cddc1bd24afb121a",
+      "size_bytes": 7527
+    },
+    {
+      "path": "schemas/definitions/model-policy.schema.json",
+      "digest": "sha256:97b146d5905523856122e1887355fe72fc3830be97c832ef10be8c92903caa6c",
+      "size_bytes": 6898
+    },
+    {
+      "path": "schemas/definitions/permission-profile.schema.json",
+      "digest": "sha256:cc794982bd71b0ce4c3fe97274f83fbf3b27c6741a73b89c015ccc2f724aada3",
+      "size_bytes": 4872
+    },
+    {
+      "path": "schemas/definitions/prompt-package.schema.json",
+      "digest": "sha256:ce469c78abc4e7dad00bb8f12c4f14014afc75f91a7655106a49bdac35e9daa6",
+      "size_bytes": 6043
+    },
+    {
+      "path": "schemas/definitions/skill-manifest.schema.json",
+      "digest": "sha256:c9fddb9dd634ceee10cda259a19a2ac857b702d81f61b6c8f5d8a214f0856b8b",
+      "size_bytes": 13622
+    },
+    {
+      "path": "schemas/definitions/tool-manifest.schema.json",
+      "digest": "sha256:48ef1a3736ac8581108971841002fd111ff5ca36bba767772fde73e8c5f5b9ca",
+      "size_bytes": 10636
+    },
+    {
+      "path": "schemas/runtime/agent-run.schema.json",
+      "digest": "sha256:5eb17701d3cb79c16ed71cee4a22820756ce691c4d122876a44afcd69aa6b5d7",
+      "size_bytes": 10175
+    },
+    {
+      "path": "schemas/runtime/approval.schema.json",
+      "digest": "sha256:938a3d7b7dbdc2c15bfd22bcd71dc75ad5d7ba7148739799d1eec08a82b30816",
+      "size_bytes": 5068
+    },
+    {
+      "path": "schemas/runtime/artifact.schema.json",
+      "digest": "sha256:1704c4a62e9d3c8f0bf07fc0a57fa9ecc5a4292b406e1cf21bba948d90a4f5fa",
+      "size_bytes": 5828
+    },
+    {
+      "path": "schemas/runtime/checkpoint.schema.json",
+      "digest": "sha256:d13f31a53bcdc53e0336511c9153d219471bf2c62e2d9bd8e19018199d8e3d8e",
+      "size_bytes": 3928
+    },
+    {
+      "path": "schemas/runtime/event.schema.json",
+      "digest": "sha256:de9c316ca38750cb9ff5da576f41eff49f93882ccb2ec4842a331d6528575681",
+      "size_bytes": 4171
+    },
+    {
+      "path": "schemas/runtime/task.schema.json",
+      "digest": "sha256:9b88ea34fbae099e07b4bec95f8174188c4ed863d2f6b08e6a51e71ceeca01cc",
+      "size_bytes": 9174
+    },
+    {
+      "path": "schemas/runtime/tool-call.schema.json",
+      "digest": "sha256:2f0e1ad821f15078eef4681cc3e5b60b69be7357ba99c0624e13a9ab28370ef1",
+      "size_bytes": 5558
+    },
+    {
+      "path": "examples/valid/agent-run.json",
+      "type": "valid",
+      "digest": "sha256:7065b1c46bd6141bf73dbce42d2160161662b74535ace20882ac27998c53b07f",
+      "size_bytes": 5277
+    },
+    {
+      "path": "examples/valid/agent-spec.json",
+      "type": "valid",
+      "digest": "sha256:febb012a63ae4d62d4d51fcf04c439bcae86813894b9cc25526b1735dca9501d",
+      "size_bytes": 4154
+    },
+    {
+      "path": "examples/valid/approval.json",
+      "type": "valid",
+      "digest": "sha256:db087afef5a41cc47f8bff75af768a0f65723f925a5960e91a991a8895e7b1d7",
+      "size_bytes": 2016
+    },
+    {
+      "path": "examples/valid/artifact.json",
+      "type": "valid",
+      "digest": "sha256:22314fc2dd5812346343cfb24d118d00bf858bacdb37dc89200e138002e5bf0e",
+      "size_bytes": 2174
+    },
+    {
+      "path": "examples/valid/checkpoint.json",
+      "type": "valid",
+      "digest": "sha256:a4013dff337fbaf6392bad128031c0266008bd450da1755542006123e2dfc855",
+      "size_bytes": 1411
+    },
+    {
+      "path": "examples/valid/context-policy.json",
+      "type": "valid",
+      "digest": "sha256:8a9720d050af476d43451f8526c5839d1033bb08950ad2bc014175ab8f0c3b26",
+      "size_bytes": 2653
+    },
+    {
+      "path": "examples/valid/event.json",
+      "type": "valid",
+      "digest": "sha256:3f518311e384abbe73573d28f6c014d72d1f1714900aa2fa6ce9844c039837cb",
+      "size_bytes": 1790
+    },
+    {
+      "path": "examples/valid/loop-profile.json",
+      "type": "valid",
+      "digest": "sha256:c7a45ea58e934c2318e490cdc639429d258381057da98b162319074b571b846b",
+      "size_bytes": 2663
+    },
+    {
+      "path": "examples/valid/model-policy.json",
+      "type": "valid",
+      "digest": "sha256:46769959ad062f968dbf36752a6913bc5e8012997a6c95411c7f974205310c20",
+      "size_bytes": 2792
+    },
+    {
+      "path": "examples/valid/permission-profile.json",
+      "type": "valid",
+      "digest": "sha256:5c74207d596cbe450ad3243a3da637d40f67476d9e12e5d6cd747f4a3f188e71",
+      "size_bytes": 2095
+    },
+    {
+      "path": "examples/valid/prompt-package.json",
+      "type": "valid",
+      "digest": "sha256:9d5815e9d5fbda04445752a2421aec42f4a80b4ea6ad8b1b389423fafd3484a7",
+      "size_bytes": 3668
+    },
+    {
+      "path": "examples/valid/skill-manifest.json",
+      "type": "valid",
+      "digest": "sha256:86ee6659db539273d96c9ac4c73e4d97a91a8e72efe2c811f57352e523719226",
+      "size_bytes": 3625
+    },
+    {
+      "path": "examples/valid/task.json",
+      "type": "valid",
+      "digest": "sha256:cfffa85664809fde92539e1746bac467523c9e0af9572a9607562475efe0fea5",
+      "size_bytes": 3494
+    },
+    {
+      "path": "examples/valid/tool-call.json",
+      "type": "valid",
+      "digest": "sha256:1581677ce75cf4e74b7e70a777c8de80b8241c8e65da9c9373ee16d81c67b20f",
+      "size_bytes": 2330
+    },
+    {
+      "path": "examples/valid/tool-manifest.json",
+      "type": "valid",
+      "digest": "sha256:2d1cb59c51b1bb80ad2cb10664afad332323ad721ffdd7547228e408b41d5e30",
+      "size_bytes": 2382
+    },
+    {
+      "path": "examples/invalid/agent-spec-extra-field.json",
+      "type": "invalid",
+      "digest": "sha256:e907ae8311d57e4b0a681fad8d9a98a41ee03268972968db20105179356114d1",
+      "size_bytes": 3644
+    },
+    {
+      "path": "examples/invalid/checkpoint-zero-sequence.json",
+      "type": "invalid",
+      "digest": "sha256:88bd7a2191efd5f1e67064ae869b631eb6ce791885f8c6c4a8e95aa62b05ac6c",
+      "size_bytes": 1365
+    },
+    {
+      "path": "examples/invalid/event-zero-sequence.json",
+      "type": "invalid",
+      "digest": "sha256:d049df97af96ed6aa20cd2c47a89688f2d01856954304cb1c8bb228103c807df",
+      "size_bytes": 1560
+    },
+    {
+      "path": "examples/invalid/loop-zero-iterations.json",
+      "type": "invalid",
+      "digest": "sha256:1d0835b3f68b4f732bb76b74f6a3e004e46385c9800c3ecbce11858075cd3b15",
+      "size_bytes": 1953
+    },
+    {
+      "path": "examples/invalid/permission-default-allow.json",
+      "type": "invalid",
+      "digest": "sha256:d4fb0138acc8bdc0761095ab097f8f040462afb57eb9cb6cff6d1c3a6de48dcd",
+      "size_bytes": 1154
+    },
+    {
+      "path": "examples/invalid/task-missing-idempotency-key.json",
+      "type": "invalid",
+      "digest": "sha256:4f90bf08f833ff9bc34ad3cf8c7d312a59cc82cad77d5d32a0bbae28cd304e28",
+      "size_bytes": 1918
+    },
+    {
+      "path": "state-machines/agent-run.json",
+      "digest": "sha256:68285d190d39ccaa65b12aa5e6ac27833292ffd422ef1ad0985e3e225c29515d",
+      "size_bytes": 1037
+    },
+    {
+      "path": "state-machines/approval.json",
+      "digest": "sha256:040efc6841e0990188e610395123f37242bbbe4ca80841b2f228875ecf4932b9",
+      "size_bytes": 460
+    },
+    {
+      "path": "state-machines/artifact.json",
+      "digest": "sha256:4cc2e6dcbcf469029cba55eb36e457232ec2c65e9c8b0614714a54705481d086",
+      "size_bytes": 483
+    },
+    {
+      "path": "state-machines/definition.json",
+      "digest": "sha256:f41f63f51afb7f434fed7e59292202f82099f41728c533a80504b0b905e987d4",
+      "size_bytes": 580
+    },
+    {
+      "path": "state-machines/task.json",
+      "digest": "sha256:02c60b17aeb99ba8424fcb89d89c084c56c48cb46b173bf491b9e63286b0dd50",
+      "size_bytes": 782
+    },
+    {
+      "path": "state-machines/tool-call.json",
+      "digest": "sha256:f652102bb9d40030da59ac472955c0e8f314f24e480159499e3bfe47a87a1bda",
+      "size_bytes": 762
+    }
+  ],
+  "self_digest": "sha256:f6d6491f223a2064435f037792c4c0736dff1fd4e2cd965bece8d2a250ba41bf"
+}

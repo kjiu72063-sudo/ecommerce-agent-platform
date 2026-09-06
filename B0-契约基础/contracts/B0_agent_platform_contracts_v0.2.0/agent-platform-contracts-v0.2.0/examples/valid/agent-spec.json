@@ -1,0 +1,145 @@
+{
+  "api_version": "agent-platform/v1alpha1",
+  "kind": "AgentSpec",
+  "metadata": {
+    "annotations": {},
+    "content_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000001",
+    "created_at": "2026-08-28T00:00:00Z",
+    "created_by": {
+      "actor_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f402",
+      "actor_type": "user",
+      "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401"
+    },
+    "id": "agt_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+    "key": "programming-agent",
+    "labels": {
+      "domain": "development"
+    },
+    "namespace": "personal",
+    "revision": 1,
+    "scope": {
+      "project_id": "prj_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f403",
+      "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401",
+      "type": "project",
+      "user_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f402"
+    },
+    "version": "1.0.0"
+  },
+  "spec": {
+    "approval_defaults": {
+      "approval_ttl_seconds": 1800,
+      "destructive": true,
+      "external_send": true,
+      "privileged": true
+    },
+    "budget_defaults": {
+      "max_cost_usd": "20.00",
+      "max_iterations": 20,
+      "max_model_input_tokens": 300000,
+      "max_model_output_tokens": 100000,
+      "max_model_tokens": 400000,
+      "max_tool_calls": 100,
+      "max_wall_time_seconds": 3600
+    },
+    "concurrency_policy": {
+      "max_parallel_runs_per_task": 1,
+      "max_parallel_tasks": 4,
+      "serialization_key_template": "project:{project_id}:repository:{repository_id}"
+    },
+    "context_policy_ref": {
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000006",
+      "id": "cpo_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f416",
+      "kind": "ContextPolicy",
+      "version": "1.0.0"
+    },
+    "domain": "development",
+    "eval_suite_refs": [
+      {
+        "digest": "sha256:00000000000000000000000000000000000000000000000000000000000000ca",
+        "id": "art_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f427",
+        "kind": "Artifact"
+      }
+    ],
+    "goals": [
+      "分析代码库并完成任务",
+      "运行测试并提供可验证结果"
+    ],
+    "input_schema_ref": {
+      "digest": "sha256:00000000000000000000000000000000000000000000000000000000000000c8",
+      "id": "sch_programming-task",
+      "version": "1.0.0"
+    },
+    "loop_profile_ref": {
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000007",
+      "id": "lop_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f417",
+      "kind": "LoopProfile",
+      "version": "1.0.0"
+    },
+    "memory_policy": {
+      "allow_cross_tenant": false,
+      "allow_cross_user": false,
+      "max_retention_days": 365,
+      "readable_scopes": [
+        "project",
+        "user"
+      ],
+      "writable_scopes": [
+        "project"
+      ],
+      "write_requires_approval": true
+    },
+    "model_policy_ref": {
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000005",
+      "id": "mpo_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f415",
+      "kind": "ModelPolicy",
+      "version": "1.0.0"
+    },
+    "non_goals": [
+      "未经审批部署生产环境",
+      "访问任务范围外的仓库"
+    ],
+    "output_schema_ref": {
+      "digest": "sha256:00000000000000000000000000000000000000000000000000000000000000c8",
+      "id": "sch_programming-result",
+      "version": "1.0.0"
+    },
+    "permission_profile_ref": {
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000008",
+      "id": "pep_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f418",
+      "kind": "PermissionProfile",
+      "version": "1.0.0"
+    },
+    "prompt_package_ref": {
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000004",
+      "id": "prm_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f414",
+      "kind": "PromptPackage",
+      "version": "1.0.0"
+    },
+    "purpose": "在受控代码仓库中完成可验证的编程任务",
+    "skill_bindings": [
+      {
+        "max_candidates": 8,
+        "selector": {
+          "domain": "development",
+          "labels": {},
+          "status": "active"
+        }
+      }
+    ],
+    "tool_bindings": [
+      {
+        "max_candidates": 12,
+        "selector": {
+          "domain": "development",
+          "labels": {},
+          "status": "active"
+        }
+      }
+    ]
+  },
+  "status": {
+    "activated_at": "2026-08-28T01:00:00Z",
+    "observed_revision": 1,
+    "phase": "active"
+  }
+}

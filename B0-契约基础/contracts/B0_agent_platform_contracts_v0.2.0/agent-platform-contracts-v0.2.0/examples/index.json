@@ -1,0 +1,117 @@
+{
+  "contract_version": "0.2.0",
+  "invalid": {
+    "agent-spec-extra-field": {
+      "expected_error_code": "EXTRA_FIELD_FORBIDDEN",
+      "path": "invalid/agent-spec-extra-field.json",
+      "target_model": "agent-spec"
+    },
+    "approval-one-time-used-twice": {
+      "expected_error_code": "APPROVAL_ALREADY_CONSUMED",
+      "path": "invalid/approval-one-time-used-twice.json",
+      "target_model": "approval"
+    },
+    "artifact-signed-locator": {
+      "expected_error_code": "ARTIFACT_LOCATOR_SECRET",
+      "path": "invalid/artifact-signed-locator.json",
+      "target_model": "artifact"
+    },
+    "checkpoint-zero-sequence": {
+      "expected_error_code": "CHECKPOINT_SEQUENCE_INVALID",
+      "path": "invalid/checkpoint-zero-sequence.json",
+      "target_model": "checkpoint"
+    },
+    "context-budget-overflow": {
+      "expected_error_code": "CONTEXT_BUDGET_EXCEEDED",
+      "path": "invalid/context-budget-overflow.json",
+      "target_model": "context-policy"
+    },
+    "event-zero-sequence": {
+      "expected_error_code": "EVENT_SEQUENCE_INVALID",
+      "path": "invalid/event-zero-sequence.json",
+      "target_model": "event"
+    },
+    "loop-zero-iterations": {
+      "expected_error_code": "LOOP_HARD_LIMIT_REQUIRED",
+      "path": "invalid/loop-zero-iterations.json",
+      "target_model": "loop-profile"
+    },
+    "model-provider-not-allowlisted": {
+      "expected_error_code": "MODEL_PROVIDER_NOT_ALLOWED",
+      "path": "invalid/model-provider-not-allowlisted.json",
+      "target_model": "model-policy"
+    },
+    "permission-default-allow": {
+      "expected_error_code": "DEFAULT_DENY_REQUIRED",
+      "path": "invalid/permission-default-allow.json",
+      "target_model": "permission-profile"
+    },
+    "prompt-duplicate-order": {
+      "expected_error_code": "PROMPT_ORDER_DUPLICATE",
+      "path": "invalid/prompt-duplicate-order.json",
+      "target_model": "prompt-package"
+    },
+    "run-dynamic-activation-duplicate": {
+      "expected_error_code": "DYNAMIC_DEPENDENCY_DUPLICATE",
+      "path": "invalid/run-dynamic-activation-duplicate.json",
+      "target_model": "agent-run"
+    },
+    "run-dynamic-activation-sequence-gap": {
+      "expected_error_code": "DYNAMIC_ACTIVATION_SEQUENCE_INVALID",
+      "path": "invalid/run-dynamic-activation-sequence-gap.json",
+      "target_model": "agent-run"
+    },
+    "run-latest-dependency": {
+      "expected_error_code": "EXACT_VERSION_REQUIRED",
+      "path": "invalid/run-latest-dependency.json",
+      "target_model": "agent-run"
+    },
+    "run-model-current-mismatch": {
+      "expected_error_code": "MODEL_SELECTION_CURRENT_MISMATCH",
+      "path": "invalid/run-model-current-mismatch.json",
+      "target_model": "agent-run"
+    },
+    "run-model-fallback-missing-trigger": {
+      "expected_error_code": "MODEL_FALLBACK_TRIGGER_REQUIRED",
+      "path": "invalid/run-model-fallback-missing-trigger.json",
+      "target_model": "agent-run"
+    },
+    "skill-hermes-active": {
+      "expected_error_code": "HERMES_PROPOSAL_NOT_ACTIVATABLE",
+      "path": "invalid/skill-hermes-active.json",
+      "target_model": "skill-manifest"
+    },
+    "task-missing-idempotency-key": {
+      "expected_error_code": "TASK_IDEMPOTENCY_REQUIRED",
+      "path": "invalid/task-missing-idempotency-key.json",
+      "target_model": "task"
+    },
+    "tool-call-side-effect-without-key": {
+      "expected_error_code": "TOOL_CALL_IDEMPOTENCY_REQUIRED",
+      "path": "invalid/tool-call-side-effect-without-key.json",
+      "target_model": "tool-call"
+    },
+    "tool-side-effect-without-idempotency": {
+      "expected_error_code": "IDEMPOTENCY_REQUIRED",
+      "path": "invalid/tool-side-effect-without-idempotency.json",
+      "target_model": "tool-manifest"
+    }
+  },
+  "valid": {
+    "agent-run": "valid/agent-run.json",
+    "agent-spec": "valid/agent-spec.json",
+    "approval": "valid/approval.json",
+    "artifact": "valid/artifact.json",
+    "checkpoint": "valid/checkpoint.json",
+    "context-policy": "valid/context-policy.json",
+    "event": "valid/event.json",
+    "loop-profile": "valid/loop-profile.json",
+    "model-policy": "valid/model-policy.json",
+    "permission-profile": "valid/permission-profile.json",
+    "prompt-package": "valid/prompt-package.json",
+    "skill-manifest": "valid/skill-manifest.json",
+    "task": "valid/task.json",
+    "tool-call": "valid/tool-call.json",
+    "tool-manifest": "valid/tool-manifest.json"
+  }
+}

@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-platform-contracts"
+version = "0.2.0"
+description = "Executable B0 contracts for the multi-agent platform"
+requires-python = ">=3.12"
+dependencies = ["pydantic>=2.13,<3"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+agent_platform_contracts = ["assets/**/*.json"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"

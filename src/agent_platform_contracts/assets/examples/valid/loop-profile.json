@@ -1,0 +1,84 @@
+{
+  "api_version": "agent-platform/v1alpha1",
+  "kind": "LoopProfile",
+  "metadata": {
+    "annotations": {},
+    "content_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000007",
+    "created_at": "2026-08-28T00:00:00Z",
+    "created_by": {
+      "actor_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f402",
+      "actor_type": "user",
+      "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401"
+    },
+    "id": "lop_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f417",
+    "key": "bounded-repair",
+    "labels": {
+      "domain": "development"
+    },
+    "namespace": "personal",
+    "revision": 1,
+    "scope": {
+      "project_id": "prj_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f403",
+      "tenant_id": "ten_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f401",
+      "type": "project",
+      "user_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f402"
+    },
+    "version": "1.0.0"
+  },
+  "spec": {
+    "checkpoint_policy": {
+      "interval_iterations": 2,
+      "on_human_interrupt": true,
+      "on_node_end": true,
+      "on_tool_side_effect": true
+    },
+    "evaluator_refs": [
+      {
+        "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000003",
+        "id": "tol_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f413",
+        "kind": "ToolManifest",
+        "version": "1.0.0"
+      }
+    ],
+    "human_interrupts": [
+      {
+        "reason": "External writes need approval",
+        "required": true,
+        "stage": "external_side_effect"
+      }
+    ],
+    "max_cost_usd": "20.00",
+    "max_iterations": 20,
+    "max_model_tokens": 400000,
+    "max_wall_time_seconds": 3600,
+    "progress_policy": {
+      "emit_every_iterations": 1,
+      "persist_summary": true
+    },
+    "retry_policy": {
+      "backoff": "exponential",
+      "max_model_retries": 2,
+      "max_node_retries": 1
+    },
+    "rollback_policy": {
+      "compensation_tool_refs": [],
+      "strategy": "manual"
+    },
+    "stop_conditions": [
+      {
+        "condition_type": "success",
+        "expression": "all_required_tests_pass"
+      },
+      {
+        "condition_type": "budget",
+        "expression": "hard_budget_reached"
+      }
+    ],
+    "strategy": "repair"
+  },
+  "status": {
+    "activated_at": "2026-08-28T01:00:00Z",
+    "observed_revision": 1,
+    "phase": "active"
+  }
+}
