@@ -4,7 +4,7 @@
 
 **Blocked by:** None（可以立即开始）
 
-**Status:** ready-for-agent
+**Status:** completed
 
 ## 目标
 
