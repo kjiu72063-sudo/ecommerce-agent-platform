@@ -66,6 +66,7 @@ class AnswerDraft(BaseModel):
     confidence_signal: Literal["supported", "uncertain", "conflicting", "unavailable"]
     need_human: bool
     reason_codes: list[str] = Field(default_factory=list)
+    configuration_refs: dict[str, str] = Field(default_factory=dict)
     generated_at: datetime
 
     @field_validator("answer_text")
