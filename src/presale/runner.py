@@ -11,7 +11,7 @@ from .context import ContextBuildError, PresaleContextBuilder
 from .contracts import ProductQuestion
 from .disposition import AnswerDispositionService, HumanDispositionRecord
 from .knowledge import DeterministicKnowledgeRetriever, KnowledgeSource
-from .trace import PresaleRunTracer
+from .trace import PresaleRunTracer, TraceError
 
 
 class QaRuntimeError(ValueError):
@@ -134,7 +134,7 @@ class PresaleQaRunner:
         result = PresaleQaResult(
             run_ref=run_id,
             answer_draft=draft,
-            trace=self._tracer.get(trace_id),
+            trace=self._tracer.get(trace_id, tenant_id=question.tenant_id),
         )
         self._idempotency[idempotency_key] = (business_content, result)
         return result
@@ -155,5 +155,7 @@ class PresaleQaRunner:
     def discard(self, answer_id: str, *, actor_id: str, reason: str) -> HumanDispositionRecord:
         return self._dispositions.discard(answer_id, actor_id=actor_id, reason=reason)
 
-    def get_trace(self, run_ref: str):
-        return self._tracer.get(run_ref)
+    def get_trace(self, run_ref: str, *, tenant_id: str | None = None):
+        if not tenant_id:
+            raise TraceError("TENANT_ID_REQUIRED")
+        return self._tracer.get(run_ref, tenant_id=tenant_id)

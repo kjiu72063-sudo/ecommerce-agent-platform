@@ -83,7 +83,7 @@ class DeterministicKnowledgeRetriever:
         for item in sorted(in_scope, key=lambda source: (source.source_id, source.version)):
             for locator, content in self._flatten(item.fields):
                 searchable = f"{locator} {content}".lower()
-                if not terms.intersection(self._terms(searchable)):
+                if len(terms.intersection(self._terms(searchable))) < 2:
                     continue
                 matched.append(
                     EvidenceItem(

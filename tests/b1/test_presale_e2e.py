@@ -83,7 +83,7 @@ def test_end_to_end_run_ref_is_traceable():
     runner = PresaleQaRunner(sources=[published_source()])
     result = runner.ask(QUESTION)
 
-    trace = runner.get_trace(result.run_ref)
+    trace = runner.get_trace(result.run_ref, tenant_id="tenant-demo")
 
     assert trace.run_ref == result.run_ref
     assert trace.tenant_id == "tenant-demo"

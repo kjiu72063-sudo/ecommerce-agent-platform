@@ -52,7 +52,7 @@ def test_start_records_question_and_returns_queryable_run_ref():
         configuration_refs={"agent_spec": "1.0.0"},
     )
 
-    trace = tracer.get(trace_id)
+    trace = tracer.get(trace_id, tenant_id="tenant-demo")
     assert trace.run_ref == trace_id
     assert trace.question_id == "question-001"
     assert trace.tenant_id == "tenant-demo"
@@ -77,7 +77,7 @@ def test_records_stages_and_attaches_context_and_answer():
     tracer.attach_answer(trace_id, draft)
     tracer.record_stage(trace_id, "answer_generated", draft.answer_id)
 
-    trace = tracer.get(trace_id)
+    trace = tracer.get(trace_id, tenant_id="tenant-demo")
     stages = [item.stage for item in trace.stages]
     assert "knowledge_retrieved" in stages
     assert "answer_generated" in stages
@@ -97,7 +97,7 @@ def test_failure_records_failed_event_and_reason():
 
     tracer.fail(trace_id, "CONTEXT_BUDGET_EXCEEDED")
 
-    trace = tracer.get(trace_id)
+    trace = tracer.get(trace_id, tenant_id="tenant-demo")
     assert trace.failed is True
     assert trace.failure_reason == "CONTEXT_BUDGET_EXCEEDED"
     assert trace.stages[-1].stage == "failed"
@@ -113,7 +113,7 @@ def test_get_unknown_or_cross_tenant_returns_error():
     )
 
     with pytest.raises(TraceError, match="TRACE_NOT_FOUND"):
-        tracer.get("run_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f999")
+        tracer.get("run_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f999", tenant_id="tenant-demo")
 
     with pytest.raises(TraceError, match="OUT_OF_SCOPE"):
         tracer.get(trace_id, tenant_id="tenant-other")

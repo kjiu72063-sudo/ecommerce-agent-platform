@@ -125,10 +125,12 @@ class PresaleRunTracer:
         )
 
     def get(self, run_ref: str, *, tenant_id: str | None = None) -> PresaleRunTrace:
+        if not tenant_id:
+            raise TraceError("TENANT_ID_REQUIRED")
         trace = self._traces.get(run_ref)
         if trace is None:
             raise TraceError("TRACE_NOT_FOUND")
-        if tenant_id is not None and trace.tenant_id != tenant_id:
+        if trace.tenant_id != tenant_id:
             raise TraceError("OUT_OF_SCOPE")
         return trace
 
