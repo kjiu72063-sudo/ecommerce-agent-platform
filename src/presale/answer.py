@@ -55,7 +55,7 @@ class PresaleAnswerGenerator:
             raise AnswerGenerationError("ANSWER_GENERATION_FAILED") from exc
 
         return AnswerDraft(
-            answer_id=f"answer-{question.question_id}",
+            answer_id=f"answer-{run_ref['id']}",
             question_id=question.question_id,
             run_ref=run_ref,
             answer_text=answer_text,
@@ -81,7 +81,7 @@ class PresaleAnswerGenerator:
         confidence_signal: str,
     ) -> AnswerDraft:
         return AnswerDraft(
-            answer_id=f"answer-{question.question_id}",
+            answer_id=f"answer-{run_ref['id']}",
             question_id=question.question_id,
             run_ref=run_ref,
             answer_text="当前无法确认，请转人工处理。",
