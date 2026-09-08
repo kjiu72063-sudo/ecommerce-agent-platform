@@ -18,6 +18,10 @@ class QaRuntimeError(ValueError):
     """A presale QA run failed without a trustworthy result."""
 
 
+class IdempotencyConflictError(ValueError):
+    """The same idempotency key was reused with different business content."""
+
+
 def _uuid7() -> UUID:
     value = uuid4().int
     value &= ~(0xF << 76)
@@ -58,6 +62,7 @@ class PresaleQaRunner:
         self._generator = generator if generator is not None else PresaleAnswerGenerator()
         self._dispositions = AnswerDispositionService()
         self._tracer = PresaleRunTracer()
+        self._idempotency: dict[tuple[str, str], tuple[tuple[str, str], PresaleQaResult]] = {}
         self._task_id = task_id
         self._agent_run_id = agent_run_id
         self._policy_ref = policy_ref or {
@@ -72,6 +77,15 @@ class PresaleQaRunner:
         }
 
     def ask(self, question: ProductQuestion) -> PresaleQaResult:
+        idempotency_key = (question.tenant_id, question.idempotency_key)
+        business_content = (question.product_id, question.question_text)
+        existing = self._idempotency.get(idempotency_key)
+        if existing:
+            previous_content, previous_result = existing
+            if previous_content != business_content:
+                raise IdempotencyConflictError("IDEMPOTENCY_CONFLICT")
+            return previous_result
+
         run_id = self._agent_run_id or f"run_{_uuid7()}"
         task_id = self._task_id or f"tsk_{_uuid7()}"
         run_ref = {"kind": "AgentRun", "id": run_id}
@@ -117,7 +131,13 @@ class PresaleQaRunner:
         self._tracer.attach_answer(trace_id, draft)
         self._tracer.record_stage(trace_id, "answer_generated", draft.answer_id)
 
-        return PresaleQaResult(run_ref=run_id, answer_draft=draft, trace=self._tracer.get(trace_id))
+        result = PresaleQaResult(
+            run_ref=run_id,
+            answer_draft=draft,
+            trace=self._tracer.get(trace_id),
+        )
+        self._idempotency[idempotency_key] = (business_content, result)
+        return result
 
     def accept(self, answer_id: str, *, actor_id: str, reason: str) -> HumanDispositionRecord:
         return self._dispositions.accept(answer_id, actor_id=actor_id, reason=reason)
