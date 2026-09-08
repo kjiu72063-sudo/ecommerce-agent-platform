@@ -4,7 +4,7 @@
 
 **Blocked by:** 02、03、04
 
-**Status:** ready-for-agent
+**Status:** completed
 
 ## 目标
 

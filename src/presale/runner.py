@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 from agent_platform_contracts.policies import canonical_sha256
 
 from .answer import AnswerGenerationError, PresaleAnswerGenerator
-from .context import PresaleContextBuilder
+from .context import ContextBuildError, PresaleContextBuilder
 from .contracts import ProductQuestion
 from .disposition import AnswerDispositionService, HumanDispositionRecord
 from .knowledge import DeterministicKnowledgeRetriever, KnowledgeSource
@@ -104,6 +104,9 @@ class PresaleQaRunner:
                 configuration_refs=configuration_refs,
             )
         except AnswerGenerationError as exc:
+            self._tracer.fail(trace_id, str(exc))
+            raise QaRuntimeError(str(exc)) from exc
+        except ContextBuildError as exc:
             self._tracer.fail(trace_id, str(exc))
             raise QaRuntimeError(str(exc)) from exc
         except Exception as exc:
