@@ -46,3 +46,7 @@
 | 09 | 幂等提交 | [09-idempotency.md](09-idempotency.md) | 03 |
 | 10 | 保留策略（30 天） | [10-retention.md](10-retention.md) | 06 |
 | 11 | 最小可观测运行入口 | [11-run-entrypoint.md](11-run-entrypoint.md) | 07 |
+
+## 状态
+
+Ticket 01–11 已全部完成。V1 售前商品问答 tracer bullet 已可运行并可通过 `presale.cli` 从根目录执行。已提交独立 commit 保持每 ticket 可回滚；全量测试 117 passed，ruff/pre-commit 通过。
