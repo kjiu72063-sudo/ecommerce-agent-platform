@@ -121,22 +121,22 @@ class FakeDraftRepo(AnswerDraftRepository):
     def __init__(self):
         self.drafts = {}
 
-    async def save(self, draft):
-        self.drafts[draft.run_ref.id] = draft
+    async def save(self, draft, *, tenant_id):
+        self.drafts[(draft.run_ref.id, tenant_id)] = draft
 
     async def get_by_run(self, run_ref, *, tenant_id):
-        return self.drafts.get(run_ref)
+        return self.drafts.get((run_ref, tenant_id))
 
 
 class FakeDispositionRepo(DispositionRepository):
     def __init__(self):
         self.dispositions = {}
 
-    async def save(self, record):
-        self.dispositions[record.original_answer.answer_id] = record
+    async def save(self, record, *, tenant_id):
+        self.dispositions[(record.original_answer.answer_id, tenant_id)] = record
 
     async def get_by_answer(self, answer_id, *, tenant_id):
-        return self.dispositions.get(answer_id)
+        return self.dispositions.get((answer_id, tenant_id))
 
 
 class FakeTraceRepo(RunTraceRepository):
@@ -177,8 +177,8 @@ def test_ports_are_implementable_and_tenant_scoped():
         await evidence_repo.save_evidence(RUN_REF["id"], [evidence()])
         items = await evidence_repo.get_by_run(RUN_REF["id"], tenant_id="tenant-demo")
         assert len(items) == 1
-        await drafts.save(draft())
-        await dispositions.save(disposition())
+        await drafts.save(draft(), tenant_id="tenant-demo")
+        await dispositions.save(disposition(), tenant_id="tenant-demo")
         await traces.save(trace())
         await traces.mark_disposition(RUN_REF["id"], tenant_id="tenant-demo", state="complete")
         t = await traces.get(RUN_REF["id"], tenant_id="tenant-demo")

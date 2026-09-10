@@ -64,8 +64,8 @@ class AnswerDraftRepository(ABC):
     """Persist generated AnswerDrafts."""
 
     @abstractmethod
-    async def save(self, draft: AnswerDraft) -> None:
-        """Persist a draft. Adapter must reject cross-tenant writes."""
+    async def save(self, draft: AnswerDraft, *, tenant_id: str) -> None:
+        """Persist a draft within a tenant. Adapter must reject cross-tenant writes."""
 
     @abstractmethod
     async def get_by_run(self, run_ref: str, *, tenant_id: str) -> AnswerDraft | None:
@@ -76,8 +76,8 @@ class DispositionRepository(ABC):
     """Persist human dispositions of AnswerDrafts."""
 
     @abstractmethod
-    async def save(self, record: HumanDispositionRecord) -> None:
-        """Persist a disposition record. Adapter must reject cross-tenant writes."""
+    async def save(self, record: HumanDispositionRecord, *, tenant_id: str) -> None:
+        """Persist a disposition record within a tenant. Adapter must reject cross-tenant writes."""
 
     @abstractmethod
     async def get_by_answer(
