@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict
@@ -21,6 +22,22 @@ class RunStage(StrEnum):
     CONTEXT_BUILT = "context_built"
     ANSWER_GENERATED = "answer_generated"
     FAILED = "failed"
+
+
+class DispositionState(StrEnum):
+    PENDING = "pending"
+    ESCALATED = "escalated"
+    COMPLETE = "complete"
+
+
+@dataclass(frozen=True)
+class RetentionPolicy:
+    """Immutable retention rule for V1 prototype run traces."""
+
+    retain_days: int = 30
+
+    def is_expired(self, created_at: datetime, now: datetime) -> bool:
+        return created_at <= now - timedelta(days=self.retain_days)
 
 
 class StageRecord(BaseModel):
@@ -45,6 +62,7 @@ class PresaleRunTrace(BaseModel):
     stages: list[StageRecord]
     context_package_ref: str | None = None
     answer_draft_id: str | None = None
+    disposition_state: DispositionState = DispositionState.PENDING
     failed: bool = False
     failure_reason: str | None = None
 
@@ -52,8 +70,39 @@ class PresaleRunTrace(BaseModel):
 class PresaleRunTracer:
     """Record and query minimal run provenance for one presale question."""
 
-    def __init__(self):
+    def __init__(self, retention_policy: RetentionPolicy | None = None):
         self._traces: dict[str, PresaleRunTrace] = {}
+        self._retention = retention_policy or RetentionPolicy()
+
+    def retention_policy(self) -> RetentionPolicy:
+        return self._retention
+
+    def mark_disposition_complete(self, run_ref: str) -> None:
+        trace = self._require(run_ref)
+        self._traces[run_ref] = trace.model_copy(
+            update={"disposition_state": DispositionState.COMPLETE}
+        )
+
+    def mark_disposition_escalated(self, run_ref: str) -> None:
+        trace = self._require(run_ref)
+        self._traces[run_ref] = trace.model_copy(
+            update={"disposition_state": DispositionState.ESCALATED}
+        )
+
+    def purge_expired(self, *, tenant_id: str, now: datetime) -> list[str]:
+        if not tenant_id:
+            raise TraceError("TENANT_ID_REQUIRED")
+        purged: list[str] = []
+        for run_ref, trace in list(self._traces.items()):
+            if trace.tenant_id != tenant_id:
+                continue
+            if trace.disposition_state is not DispositionState.COMPLETE:
+                continue
+            created_at = trace.stages[0].occurred_at
+            if self._retention.is_expired(created_at, now):
+                purged.append(run_ref)
+                del self._traces[run_ref]
+        return purged
 
     def start(
         self,
@@ -75,7 +124,7 @@ class PresaleRunTracer:
                 StageRecord(
                     stage=RunStage.SUBMITTED,
                     detail=question.question_id,
-                    occurred_at=datetime.now(timezone.utc),
+                    occurred_at=question.requested_at,
                 )
             ],
         )
