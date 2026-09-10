@@ -36,18 +36,34 @@ def test_default_retention_is_30_days():
     assert policy.retain_days == 30
 
 
-def test_expired_completed_record_is_purged():
+def test_expired_completed_record_is_archived_noth_deleted():
     tracer = PresaleRunTracer()
     run_ref = "run_01111111-1111-7111-8111-111111111111"
     start_trace(tracer, run_ref, age_days=40)
     tracer.mark_disposition_complete(run_ref)
 
     now = datetime.now(timezone.utc)
-    purged = tracer.purge_expired(tenant_id="tenant-demo", now=now)
+    archived = tracer.archive_expired(tenant_id="tenant-demo", now=now)
 
-    assert purged == [run_ref]
-    with pytest.raises(TraceError, match="TRACE_NOT_FOUND"):
-        tracer.get(run_ref, tenant_id="tenant-demo")
+    assert archived == [run_ref]
+    trace = tracer.get(run_ref, tenant_id="tenant-demo")
+    assert trace.archived is True
+    assert trace.stages  # 历史 stages/Event 留痕保留
+    assert trace.question_id == "question-retention"
+
+
+def test_archive_is_idempotent():
+    tracer = PresaleRunTracer()
+    run_ref = "run_01111111-1111-7111-8111-111111111111"
+    start_trace(tracer, run_ref, age_days=40)
+    tracer.mark_disposition_complete(run_ref)
+
+    now = datetime.now(timezone.utc)
+    first = tracer.archive_expired(tenant_id="tenant-demo", now=now)
+    second = tracer.archive_expired(tenant_id="tenant-demo", now=now)
+
+    assert first == [run_ref]
+    assert second == []
 
 
 def test_non_expired_completed_record_is_kept():
@@ -57,10 +73,10 @@ def test_non_expired_completed_record_is_kept():
     tracer.mark_disposition_complete(run_ref)
 
     now = datetime.now(timezone.utc)
-    purged = tracer.purge_expired(tenant_id="tenant-demo", now=now)
+    archived = tracer.archive_expired(tenant_id="tenant-demo", now=now)
 
-    assert purged == []
-    assert tracer.get(run_ref, tenant_id="tenant-demo").run_ref == run_ref
+    assert archived == []
+    assert tracer.get(run_ref, tenant_id="tenant-demo").archived is False
 
 
 def test_expired_unfinished_or_escalated_record_is_kept():
@@ -72,16 +88,16 @@ def test_expired_unfinished_or_escalated_record_is_kept():
     tracer.mark_disposition_escalated(escalated)
 
     now = datetime.now(timezone.utc)
-    purged = tracer.purge_expired(tenant_id="tenant-demo", now=now)
+    archived = tracer.archive_expired(tenant_id="tenant-demo", now=now)
 
-    assert purged == []
-    assert tracer.get(unfinished, tenant_id="tenant-demo").run_ref == unfinished
-    assert tracer.get(escalated, tenant_id="tenant-demo").run_ref == escalated
+    assert archived == []
+    assert tracer.get(unfinished, tenant_id="tenant-demo").archived is False
+    assert tracer.get(escalated, tenant_id="tenant-demo").archived is False
 
 
-def test_purge_requires_tenant_scope():
+def test_archive_requires_tenant_scope():
     tracer = PresaleRunTracer()
     start_trace(tracer, "run_01111111-1111-7111-8111-111111111111")
 
     with pytest.raises(TraceError, match="TENANT_ID_REQUIRED"):
-        tracer.purge_expired(tenant_id="", now=datetime.now(timezone.utc))
+        tracer.archive_expired(tenant_id="", now=datetime.now(timezone.utc))

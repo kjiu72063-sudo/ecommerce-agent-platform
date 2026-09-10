@@ -63,6 +63,7 @@ class PresaleRunTrace(BaseModel):
     context_package_ref: str | None = None
     answer_draft_id: str | None = None
     disposition_state: DispositionState = DispositionState.PENDING
+    archived: bool = False
     failed: bool = False
     failure_reason: str | None = None
 
@@ -77,32 +78,37 @@ class PresaleRunTracer:
     def retention_policy(self) -> RetentionPolicy:
         return self._retention
 
-    def mark_disposition_complete(self, run_ref: str) -> None:
+    def mark_disposition(self, run_ref: str, state: DispositionState) -> None:
         trace = self._require(run_ref)
-        self._traces[run_ref] = trace.model_copy(
-            update={"disposition_state": DispositionState.COMPLETE}
-        )
+        self._traces[run_ref] = trace.model_copy(update={"disposition_state": state})
+
+    def mark_disposition_complete(self, run_ref: str) -> None:
+        self.mark_disposition(run_ref, DispositionState.COMPLETE)
 
     def mark_disposition_escalated(self, run_ref: str) -> None:
-        trace = self._require(run_ref)
-        self._traces[run_ref] = trace.model_copy(
-            update={"disposition_state": DispositionState.ESCALATED}
-        )
+        self.mark_disposition(run_ref, DispositionState.ESCALATED)
 
-    def purge_expired(self, *, tenant_id: str, now: datetime) -> list[str]:
+    def archive_expired(self, *, tenant_id: str, now: datetime) -> list[str]:
+        """Mark expired, completed traces as archived while keeping their history.
+
+        Traces are not physically deleted: stages, events and provenance must
+        survive as historical fact per the V1 spec.
+        """
         if not tenant_id:
             raise TraceError("TENANT_ID_REQUIRED")
-        purged: list[str] = []
-        for run_ref, trace in list(self._traces.items()):
+        archived: list[str] = []
+        for run_ref, trace in self._traces.items():
             if trace.tenant_id != tenant_id:
                 continue
             if trace.disposition_state is not DispositionState.COMPLETE:
                 continue
+            if trace.archived:
+                continue
             created_at = trace.stages[0].occurred_at
             if self._retention.is_expired(created_at, now):
-                purged.append(run_ref)
-                del self._traces[run_ref]
-        return purged
+                self._traces[run_ref] = trace.model_copy(update={"archived": True})
+                archived.append(run_ref)
+        return archived
 
     def start(
         self,

@@ -1,9 +1,11 @@
 import io
 import json
+from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime, timezone
-from contextlib import redirect_stdout
 
-from presale.cli import build_runner, format_result, load_catalog, main
+import pytest
+
+from presale.cli import build_runner, format_result, load_catalog, load_trace, main, save_trace
 from presale.contracts import ProductQuestion
 
 SAMPLE_CATALOG = [
@@ -117,3 +119,79 @@ def test_main_defaults_to_sys_argv(monkeypatch, tmp_path):
         main()
 
     assert "run_ref" in buffer.getvalue()
+
+
+def test_save_and_load_trace_roundtrip(tmp_path):
+    trace_path = tmp_path / "traces.json"
+    runner = build_runner(SAMPLE_CATALOG)
+    result = runner.ask(question())
+
+    save_trace(str(trace_path), result.trace)
+
+    trace = load_trace(str(trace_path), run_ref=result.run_ref, tenant_id="tenant-demo")
+
+    assert trace.run_ref == result.run_ref
+    assert trace.tenant_id == "tenant-demo"
+    assert trace.question_id == "question-cli"
+
+
+def test_format_result_includes_context_and_disposition(tmp_path):
+    runner = build_runner(SAMPLE_CATALOG)
+    result = runner.ask(question())
+
+    formatted = format_result(result)
+
+    assert formatted["context_package_ref"] == result.trace.context_package_ref
+    assert formatted["disposition_state"] == "pending"
+
+
+def test_main_queries_trace_by_run_ref(tmp_path):
+    path = tmp_path / "catalog.json"
+    path.write_text(json.dumps(SAMPLE_CATALOG), encoding="utf-8")
+    trace_path = tmp_path / "traces.json"
+
+    buffer = io.StringIO()
+    with redirect_stdout(buffer):
+        main([
+            "--catalog", str(path),
+            "--tenant", "tenant-demo",
+            "--product", "product-001",
+            "--question", "这款商品适合夏季使用吗？",
+            "--idempotency-key", "cli-key-004",
+            "--user-id", "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+            "--save-trace", str(trace_path),
+        ])
+    run_ref = json.loads(buffer.getvalue())["run_ref"]
+
+    qbuffer = io.StringIO()
+    with redirect_stdout(qbuffer):
+        main([
+            "--trace-file", str(trace_path),
+            "--trace-run-ref", run_ref,
+            "--tenant", "tenant-demo",
+        ])
+
+    loaded = json.loads(qbuffer.getvalue())
+    assert loaded["run_ref"] == run_ref
+    assert loaded["tenant_id"] == "tenant-demo"
+
+
+def test_main_prints_budget_error_to_stderr(tmp_path):
+    path = tmp_path / "catalog.json"
+    path.write_text(json.dumps(SAMPLE_CATALOG), encoding="utf-8")
+    err = io.StringIO()
+
+    with pytest.raises(SystemExit) as exc, redirect_stdout(io.StringIO()):
+        with redirect_stderr(err):
+            main([
+                "--catalog", str(path),
+                "--tenant", "tenant-demo",
+                "--product", "product-001",
+                "--question", "这款商品适合夏季使用吗？",
+                "--idempotency-key", "cli-key-005",
+                "--user-id", "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+                "--token-budget", "1",
+            ])
+
+    assert exc.value.code != 0
+    assert "TOKEN_BUDGET_EXCEEDED" in err.getvalue()

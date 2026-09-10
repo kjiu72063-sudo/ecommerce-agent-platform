@@ -236,3 +236,28 @@ Ticket 10：30 天保留策略
 - 知识来源和实时数据契约；
 - 真实模型替代验收；
 - 生产数据治理和部署边界。
+
+## 11. Ticket 10/11 收尾审查与修复
+
+针对 Ticket 10/11 的 code-review（`a451323..HEAD`）确认并修复了以下缺口：
+
+### Ticket 10：保留策略
+
+- **接通运行流程**：`runner.accept/edit/discard` 现在会标记 trace 为 `COMPLETE`，`runner.escalate` 标记为 `ESCALATED`，不再让处置状态恒为 `PENDING`。
+- **归档而非物理删除**：`purge_expired` 改为 `archive_expired`，对到期且已完成的 trace 标记 `archived=True`，保留 stages/Event/provenance 留痕，不物理删除。这是对规格"Event 与 provenance 作为历史事实不被改写"的有意取舍——原型用软标记替代硬删除。
+- **新增 `archived` 字段**，`archive_expired` 幂等。
+
+### Ticket 11：运行入口
+
+- **run_ref 查询**：`--trace-file` + `--trace-run-ref` + `--tenant` 可读取保存的 trace 并校验租户。
+- **保存 trace**：`--save-trace` 把运行 trace 追加为 JSON，支持跨进程查询。
+- **失败出口**：`QaRuntimeError`、`TraceError`、`ValidationError` 统一输出结构化 `{"error": ...}` 到 stderr 并以退出码 1 结束，不再抛裸 traceback。
+- **输入校验**：缺少运行参数时明确报错退出。
+- **Context 字段**：`format_result` 输出 `context_package_ref` 和 `disposition_state`。
+
+### 保留为后续的取舍
+
+- CLI 仍未提供 `console_scripts`/`__main__` 一键命令，仅 `python -m presale.cli` 可用；这属于便捷性增强，不阻塞可观测性。
+- 只读负向测试仍以输出探针为主；完整的外部写副作用隔离验证留待生产化阶段配合 B2 装配实现。
+
+当前全量测试 123 passed，ruff/pre-commit 通过。

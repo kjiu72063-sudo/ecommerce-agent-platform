@@ -140,20 +140,35 @@ class PresaleQaRunner:
         return result
 
     def accept(self, answer_id: str, *, actor_id: str, reason: str) -> HumanDispositionRecord:
-        return self._dispositions.accept(answer_id, actor_id=actor_id, reason=reason)
+        record = self._dispositions.accept(answer_id, actor_id=actor_id, reason=reason)
+        self._trace_disposition(record, escalated=False)
+        return record
 
     def edit(
         self, answer_id: str, *, edited_text: str, actor_id: str, reason: str
     ) -> HumanDispositionRecord:
-        return self._dispositions.edit(
+        record = self._dispositions.edit(
             answer_id, edited_text=edited_text, actor_id=actor_id, reason=reason
         )
+        self._trace_disposition(record, escalated=False)
+        return record
 
     def escalate(self, answer_id: str, *, actor_id: str, reason: str) -> HumanDispositionRecord:
-        return self._dispositions.escalate(answer_id, actor_id=actor_id, reason=reason)
+        record = self._dispositions.escalate(answer_id, actor_id=actor_id, reason=reason)
+        self._trace_disposition(record, escalated=True)
+        return record
 
     def discard(self, answer_id: str, *, actor_id: str, reason: str) -> HumanDispositionRecord:
-        return self._dispositions.discard(answer_id, actor_id=actor_id, reason=reason)
+        record = self._dispositions.discard(answer_id, actor_id=actor_id, reason=reason)
+        self._trace_disposition(record, escalated=False)
+        return record
+
+    def _trace_disposition(self, record: HumanDispositionRecord, *, escalated: bool) -> None:
+        run_ref = record.original_answer.run_ref.id
+        if escalated:
+            self._tracer.mark_disposition_escalated(run_ref)
+        else:
+            self._tracer.mark_disposition_complete(run_ref)
 
     def get_trace(self, run_ref: str, *, tenant_id: str | None = None):
         if not tenant_id:
