@@ -180,47 +180,24 @@ class PresaleRunTracer:
     async def mark_disposition_escalated(self, run_ref: str) -> None:
         await self.mark_disposition(run_ref, DispositionState.ESCALATED)
 
-    async def archive_expired(self, *, tenant_id: str, now: datetime) -> list[str]:
-        """Mark expired, completed traces as archived while keeping their history.
-
-        Traces are not physically deleted: stages, events and provenance must
-        survive as historical fact per the V1 spec.
-        """
-        if not tenant_id:
-            raise TraceError("TENANT_ID_REQUIRED")
-        archived: list[str] = []
-        for trace in await self._repo.list_by_tenant(tenant_id=tenant_id):
-            if trace.disposition_state is not DispositionState.COMPLETE:
-                continue
-            if trace.archived:
-                continue
-            created_at = trace.stages[0].occurred_at
-            if self._retention.is_expired(created_at, now):
-                await self._repo.mark_archived(trace.run_ref, tenant_id=tenant_id)
-                archived.append(trace.run_ref)
-        return archived
-
     async def get(self, run_ref: str, *, tenant_id: str | None = None) -> PresaleRunTrace:
         if not tenant_id:
             raise TraceError("TENANT_ID_REQUIRED")
-        owner_tenant = self._tenants.get(run_ref)
-        if owner_tenant is None:
-            raise TraceError("TRACE_NOT_FOUND")
-        if owner_tenant != tenant_id:
-            raise TraceError("OUT_OF_SCOPE")
         from .ports import NotFoundError
 
         try:
             return await self._repo.get(run_ref, tenant_id=tenant_id)
         except NotFoundError as exc:
+            owner_tenant = self._tenants.get(run_ref)
+            if owner_tenant is not None and owner_tenant != tenant_id:
+                raise TraceError("OUT_OF_SCOPE") from exc
             raise TraceError("TRACE_NOT_FOUND") from exc
 
     async def _require(self, run_ref: str) -> PresaleRunTrace:
-        tenant_id = self._tenant_of(run_ref)
         from .ports import NotFoundError
 
         try:
-            return await self._repo.get(run_ref, tenant_id=tenant_id)
+            return await self._repo.get(run_ref, tenant_id=self._tenant_of(run_ref))
         except NotFoundError as exc:
             raise TraceError("TRACE_NOT_FOUND") from exc
 

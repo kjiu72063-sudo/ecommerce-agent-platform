@@ -261,3 +261,35 @@ Ticket 10：30 天保留策略
 - 只读负向测试仍以输出探针为主；完整的外部写副作用隔离验证留待生产化阶段配合 B2 装配实现。
 
 当前全量测试 123 passed，ruff/pre-commit 通过。
+
+## 12. 生产化 Step 3（依赖注入）审查与 Step 4 修复
+
+### Step 3 code-review 结论
+
+针对 async/依赖注入重构（`bcad31e..HEAD`，提交 `8fff1b7`）的审查确认了承诺已兑现：
+
+- 5 个端口均注入 runner，主路径通过端口持久化问题、证据、回答、处置和 trace；
+- tracer/disposition 注入端口；
+- async 契约整体一致；
+- InMemory/SQLite 适配器均存在。
+
+同时确认了几个必须修复或记录的缺口：
+
+1. **幂等仍是 runner 内存 dict**，`ProductQuestionRepository.find_by_idempotency()` 已实现但未调用；
+2. **trace 的租户映射是进程内状态**，SQLite 重启后新 tracer 无法读取已有 trace；
+3. **处置记录没有持久化 tenant**，租户只作为入参转发到保存；
+4. **保留策略未独立成服务**。
+
+### Step 4：保留策略 RetensionService 与持久化一致性修复
+
+- **新增 `presale/retention.py`**：独立 `RetentionService`，通过 `RunTraceRepository.list_by_tenant` 枚举、`mark_archived` 归档到期且已完成的 trace；保留历史留痕，不物理删除。
+- **修复 tracer 跨重启读取**：`get` 先查询 repo，仅在 `NotFoundError` 且进程内租户索引显示属主不同租户时抛 `OUT_OF_SCOPE`，否则 `TRACE_NOT_FOUND`；正确租户的已持久化 trace 不再因空 `_tenants` 失败。
+- **`HumanDispositionRecord` 补 `tenant_id`**：处置记录自带租户语义，与适配器的租户隔离契约一致。
+- **新增持久化契约测试** `test_presale_persistence.py`：验证 SQLite 适配器注入 runner 后端口真正用于端到端持久化，且新 runner 实例（模拟重启）能读回已持久化 trace。
+
+### 保留为后续项
+
+- **跨进程幂等**：把 `runner` 的幂等去重接入 `ProductQuestionRepository.find_by_idempotency()`需要问题记录携带 `run_ref` 才能重建结果，属于领域契约变更。当前进程内幂等在声明为"单进程本地闭环"的 V1 边界内正确；完整跨进程幂等留待生产化持久化契约定型时处理。
+- 持久化后的 trace 在进程内无 `_tenants` 索引时，Out-of-Scope 与 Not-Found 的区分依赖 repo 适配器的行为；跨租户语义已由适配器兜底。
+
+当前全量测试 130 passed，ruff/pre-commit 通过。

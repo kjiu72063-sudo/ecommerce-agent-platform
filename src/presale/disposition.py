@@ -34,6 +34,7 @@ class HumanDispositionRecord(BaseModel):
     actor_id: str = Field(min_length=1, max_length=256)
     reason: str = Field(min_length=1, max_length=2048)
     occurred_at: datetime
+    tenant_id: str = Field(min_length=1, max_length=128)
     technical_status: str = "unchanged"
     sent_to_consumer: bool = False
 
@@ -157,6 +158,7 @@ class AnswerDispositionService:
             actor_id=actor_id,
             reason=reason,
             occurred_at=datetime.now(timezone.utc),
+            tenant_id=tenant_id,
             technical_status=self._technical_status.get(answer_id, "unchanged"),
         )
         await self._repo.save(record, tenant_id=tenant_id)

@@ -69,6 +69,7 @@ def disposition():
         actor_id="usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
         reason="确认",
         occurred_at=datetime.now(timezone.utc),
+        tenant_id="tenant-demo",
     )
 
 
