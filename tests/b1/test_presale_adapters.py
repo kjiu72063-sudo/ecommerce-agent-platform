@@ -152,6 +152,11 @@ def test_adapters_behave_identically_and_enforce_tenant(backend_factory, tmp_pat
         with pytest.raises(NotFoundError):
             await repo.traces.get(RUN_REF["id"], tenant_id="tenant-other")
 
+        listed = await repo.traces.list_by_tenant(tenant_id="tenant-demo")
+        assert len(listed) == 1
+        assert listed[0].run_ref == RUN_REF["id"]
+        assert await repo.traces.list_by_tenant(tenant_id="tenant-other") == []
+
     asyncio.run(run())
     if hasattr(repo, "_store"):
         repo._store.close()

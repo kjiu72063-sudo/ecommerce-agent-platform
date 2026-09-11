@@ -42,17 +42,27 @@ def answer():
     )
 
 
-def test_start_records_question_and_returns_queryable_run_ref():
+async def _start(tracer):
+    return await tracer.start(
+        question=QUESTION,
+        task_id="tsk_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f421",
+        agent_run_id=RUN_REF["id"],
+        configuration_refs={},
+    )
+
+
+@pytest.mark.asyncio
+async def test_start_records_question_and_returns_queryable_run_ref():
     tracer = PresaleRunTracer()
 
-    trace_id = tracer.start(
+    trace_id = await tracer.start(
         question=QUESTION,
         task_id="tsk_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f421",
         agent_run_id=RUN_REF["id"],
         configuration_refs={"agent_spec": "1.0.0"},
     )
 
-    trace = tracer.get(trace_id, tenant_id="tenant-demo")
+    trace = await tracer.get(trace_id, tenant_id="tenant-demo")
     assert trace.run_ref == trace_id
     assert trace.question_id == "question-001"
     assert trace.tenant_id == "tenant-demo"
@@ -61,23 +71,19 @@ def test_start_records_question_and_returns_queryable_run_ref():
     assert trace.stages[0].stage == "submitted"
 
 
-def test_records_stages_and_attaches_context_and_answer():
+@pytest.mark.asyncio
+async def test_records_stages_and_attaches_context_and_answer():
     tracer = PresaleRunTracer()
-    trace_id = tracer.start(
-        question=QUESTION,
-        task_id="tsk_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f421",
-        agent_run_id=RUN_REF["id"],
-        configuration_refs={},
-    )
+    trace_id = await _start(tracer)
 
-    tracer.record_stage(trace_id, "knowledge_retrieved", "matched")
+    await tracer.record_stage(trace_id, "knowledge_retrieved", "matched")
     context_package = _minimal_context()
-    tracer.attach_context(trace_id, context_package)
+    await tracer.attach_context(trace_id, context_package)
     draft = answer()
-    tracer.attach_answer(trace_id, draft)
-    tracer.record_stage(trace_id, "answer_generated", draft.answer_id)
+    await tracer.attach_answer(trace_id, draft)
+    await tracer.record_stage(trace_id, "answer_generated", draft.answer_id)
 
-    trace = tracer.get(trace_id, tenant_id="tenant-demo")
+    trace = await tracer.get(trace_id, tenant_id="tenant-demo")
     stages = [item.stage for item in trace.stages]
     assert "knowledge_retrieved" in stages
     assert "answer_generated" in stages
@@ -86,44 +92,41 @@ def test_records_stages_and_attaches_context_and_answer():
     assert trace.context_package_ref == context_package.run_ref.id
 
 
-def test_failure_records_failed_event_and_reason():
+@pytest.mark.asyncio
+async def test_failure_records_failed_event_and_reason():
     tracer = PresaleRunTracer()
-    trace_id = tracer.start(
-        question=QUESTION,
-        task_id="tsk_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f421",
-        agent_run_id=RUN_REF["id"],
-        configuration_refs={},
-    )
+    trace_id = await _start(tracer)
 
-    tracer.fail(trace_id, "CONTEXT_BUDGET_EXCEEDED")
+    await tracer.fail(trace_id, "CONTEXT_BUDGET_EXCEEDED")
 
-    trace = tracer.get(trace_id, tenant_id="tenant-demo")
+    trace = await tracer.get(trace_id, tenant_id="tenant-demo")
     assert trace.failed is True
     assert trace.failure_reason == "CONTEXT_BUDGET_EXCEEDED"
     assert trace.stages[-1].stage == "failed"
 
 
-def test_get_unknown_or_cross_tenant_returns_error():
+@pytest.mark.asyncio
+async def test_get_unknown_or_cross_tenant_returns_error():
     tracer = PresaleRunTracer()
-    trace_id = tracer.start(
-        question=QUESTION,
-        task_id="tsk_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f421",
-        agent_run_id=RUN_REF["id"],
-        configuration_refs={},
-    )
+    trace_id = await _start(tracer)
 
     with pytest.raises(TraceError, match="TRACE_NOT_FOUND"):
-        tracer.get("run_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f999", tenant_id="tenant-demo")
+        await tracer.get(
+            "run_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f999", tenant_id="tenant-demo"
+        )
 
     with pytest.raises(TraceError, match="OUT_OF_SCOPE"):
-        tracer.get(trace_id, tenant_id="tenant-other")
+        await tracer.get(trace_id, tenant_id="tenant-other")
 
 
-def test_record_on_unknown_trace_fails():
+@pytest.mark.asyncio
+async def test_record_on_unknown_trace_fails():
     tracer = PresaleRunTracer()
 
     with pytest.raises(TraceError, match="TRACE_NOT_FOUND"):
-        tracer.record_stage("run_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f999", "generated", "x")
+        await tracer.record_stage(
+            "run_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f999", "generated", "x"
+        )
 
 
 def _minimal_context() -> ContextPackage:

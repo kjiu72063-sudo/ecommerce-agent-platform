@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import sys
 from datetime import datetime, timezone
@@ -88,7 +89,7 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def _run(args: argparse.Namespace) -> dict[str, Any]:
+async def _run(args: argparse.Namespace) -> dict[str, Any]:
     runner_source = load_catalog(args.catalog)
     question = ProductQuestion(
         question_id=args.question_id,
@@ -100,7 +101,7 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         idempotency_key=args.idempotency_key,
     )
     runner = build_runner(runner_source, token_budget=args.token_budget)
-    result = runner.ask(question)
+    result = await runner.ask(question)
     if args.save_trace:
         save_trace(args.save_trace, result.trace)
     return format_result(result)
@@ -111,25 +112,28 @@ def _query(args: argparse.Namespace) -> dict[str, Any]:
     return trace.model_dump(mode="json")
 
 
+async def _dispatch(args: argparse.Namespace) -> dict[str, Any]:
+    if args.trace_file:
+        return _query(args)
+    missing = [
+        name
+        for name, value in {
+            "--catalog": args.catalog,
+            "--product": args.product,
+            "--question": args.question,
+            "--idempotency-key": args.idempotency_key,
+        }.items()
+        if not value
+    ]
+    if missing:
+        raise SystemExit("missing required run arguments: " + ", ".join(missing))
+    return await _run(args)
+
+
 def main(argv: list[str] | None = None) -> None:
     args = _parse_args(sys.argv[1:] if argv is None else argv)
     try:
-        if args.trace_file:
-            output = _query(args)
-        else:
-            missing = [
-                name
-                for name, value in {
-                    "--catalog": args.catalog,
-                    "--product": args.product,
-                    "--question": args.question,
-                    "--idempotency-key": args.idempotency_key,
-                }.items()
-                if not value
-            ]
-            if missing:
-                raise SystemExit("missing required run arguments: " + ", ".join(missing))
-            output = _run(args)
+        output = asyncio.run(_dispatch(args))
     except (ValidationError, TraceError, QaRuntimeError) as exc:
         print(json.dumps({"error": str(exc)}, ensure_ascii=False), file=sys.stderr)
         raise SystemExit(1)

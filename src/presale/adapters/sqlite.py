@@ -190,6 +190,12 @@ class SQLiteRunTraceRepository(RunTraceRepository):
             raise NotFoundError("not found")
         return self._deserialize(row["content"])
 
+    async def list_by_tenant(self, *, tenant_id: str) -> list[PresaleRunTrace]:
+        rows = self._db.execute(
+            "SELECT content FROM presale_traces WHERE tenant_id = ?", (tenant_id,)
+        ).fetchall()
+        return [self._deserialize(row["content"]) for row in rows]
+
     async def mark_disposition(self, run_ref: str, *, tenant_id: str, state: str) -> None:
         trace = await self.get(run_ref, tenant_id=tenant_id)
         updated = trace.model_copy(update={"disposition_state": DispositionState(state)})

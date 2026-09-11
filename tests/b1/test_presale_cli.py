@@ -44,9 +44,10 @@ def test_load_catalog_roundtrips_knowledge_sources(tmp_path):
     assert sources[0].product_id == "product-001"
 
 
-def test_format_result_is_deterministic_and_observable():
+@pytest.mark.asyncio
+async def test_format_result_is_deterministic_and_observable():
     runner = build_runner(SAMPLE_CATALOG)
-    result = runner.ask(question())
+    result = await runner.ask(question())
 
     formatted = format_result(result)
 
@@ -121,10 +122,11 @@ def test_main_defaults_to_sys_argv(monkeypatch, tmp_path):
     assert "run_ref" in buffer.getvalue()
 
 
-def test_save_and_load_trace_roundtrip(tmp_path):
+@pytest.mark.asyncio
+async def test_save_and_load_trace_roundtrip(tmp_path):
     trace_path = tmp_path / "traces.json"
     runner = build_runner(SAMPLE_CATALOG)
-    result = runner.ask(question())
+    result = await runner.ask(question())
 
     save_trace(str(trace_path), result.trace)
 
@@ -135,9 +137,10 @@ def test_save_and_load_trace_roundtrip(tmp_path):
     assert trace.question_id == "question-cli"
 
 
-def test_format_result_includes_context_and_disposition(tmp_path):
+@pytest.mark.asyncio
+async def test_format_result_includes_context_and_disposition(tmp_path):
     runner = build_runner(SAMPLE_CATALOG)
-    result = runner.ask(question())
+    result = await runner.ask(question())
 
     formatted = format_result(result)
 

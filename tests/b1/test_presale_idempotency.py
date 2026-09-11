@@ -30,28 +30,31 @@ def source(tenant_id="tenant-demo"):
     )
 
 
-def test_same_tenant_and_key_returns_existing_result():
+@pytest.mark.asyncio
+async def test_same_tenant_and_key_returns_existing_result():
     runner = PresaleQaRunner(sources=[source()])
-    first = runner.ask(question())
-    second = runner.ask(question(question_id="question-002"))
+    first = await runner.ask(question())
+    second = await runner.ask(question(question_id="question-002"))
 
     assert second is first
     assert second.run_ref == first.run_ref
     assert second.answer_draft.answer_id == first.answer_draft.answer_id
 
 
-def test_same_key_with_different_business_content_is_conflict():
+@pytest.mark.asyncio
+async def test_same_key_with_different_business_content_is_conflict():
     runner = PresaleQaRunner(sources=[source()])
-    runner.ask(question())
+    await runner.ask(question())
 
     with pytest.raises(IdempotencyConflictError, match="IDEMPOTENCY_CONFLICT"):
-        runner.ask(question(text="这款商品是什么材质？"))
+        await runner.ask(question(text="这款商品是什么材质？"))
 
 
-def test_same_key_different_tenants_do_not_collide():
+@pytest.mark.asyncio
+async def test_same_key_different_tenants_do_not_collide():
     runner = PresaleQaRunner(sources=[source(), source(tenant_id="tenant-other")])
-    first = runner.ask(question())
-    other = runner.ask(question(question_id="question-other", tenant_id="tenant-other"))
+    first = await runner.ask(question())
+    other = await runner.ask(question(question_id="question-other", tenant_id="tenant-other"))
 
     assert other is not first
     assert other.run_ref != first.run_ref

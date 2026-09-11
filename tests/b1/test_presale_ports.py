@@ -152,6 +152,9 @@ class FakeTraceRepo(RunTraceRepository):
             raise NotFoundError("not found")
         return t
 
+    async def list_by_tenant(self, *, tenant_id):
+        return [t for t in self.traces.values() if t.tenant_id == tenant_id]
+
     async def mark_disposition(self, run_ref, *, tenant_id, state):
         t = await self.get(run_ref, tenant_id=tenant_id)
         self.traces[run_ref] = t.model_copy(update={"disposition_state": DispositionState(state)})

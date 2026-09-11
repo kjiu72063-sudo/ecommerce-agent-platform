@@ -9,6 +9,7 @@ from enum import StrEnum
 from pydantic import BaseModel, ConfigDict, Field
 
 from .contracts import AnswerDraft
+from .ports import DispositionRepository
 
 
 class DispositionError(ValueError):
@@ -38,9 +39,19 @@ class HumanDispositionRecord(BaseModel):
 
 
 class AnswerDispositionService:
-    """Apply one terminal internal disposition to each registered draft."""
+    """Apply terminal dispositions, persisting records through a repository.
 
-    def __init__(self):
+    Draft identity, "already disposed" detection and edited versions live in
+    memory; the terminal HumanDispositionRecord is written to the injected
+    DispositionRepository. Methods are async because the repository is async.
+    """
+
+    def __init__(self, disposition_repo: DispositionRepository | None = None):
+        if disposition_repo is None:
+            from .adapters.in_memory import InMemoryDispositionRepository
+
+            disposition_repo = InMemoryDispositionRepository()
+        self._repo = disposition_repo
         self._drafts: dict[str, AnswerDraft] = {}
         self._records: dict[str, HumanDispositionRecord] = {}
         self._technical_status: dict[str, str] = {}
@@ -58,16 +69,25 @@ class AnswerDispositionService:
             raise DispositionError("DRAFT_NOT_FOUND")
         return deepcopy(answer)
 
-    def accept(self, answer_id: str, *, actor_id: str, reason: str) -> HumanDispositionRecord:
-        return self._record(answer_id, DispositionType.ACCEPTED, actor_id=actor_id, reason=reason)
+    async def accept(
+        self, answer_id: str, *, actor_id: str, reason: str, tenant_id: str
+    ) -> HumanDispositionRecord:
+        return await self._record(
+            answer_id,
+            DispositionType.ACCEPTED,
+            actor_id=actor_id,
+            reason=reason,
+            tenant_id=tenant_id,
+        )
 
-    def edit(
+    async def edit(
         self,
         answer_id: str,
         *,
         edited_text: str,
         actor_id: str,
         reason: str,
+        tenant_id: str,
     ) -> HumanDispositionRecord:
         if not edited_text.strip():
             raise DispositionError("EMPTY_EDIT")
@@ -79,19 +99,36 @@ class AnswerDispositionService:
                 "generated_at": datetime.now(timezone.utc),
             }
         )
-        return self._record(
+        return await self._record(
             answer_id,
             DispositionType.EDITED,
             actor_id=actor_id,
             reason=reason,
+            tenant_id=tenant_id,
             edited_answer=edited,
         )
 
-    def escalate(self, answer_id: str, *, actor_id: str, reason: str) -> HumanDispositionRecord:
-        return self._record(answer_id, DispositionType.ESCALATED, actor_id=actor_id, reason=reason)
+    async def escalate(
+        self, answer_id: str, *, actor_id: str, reason: str, tenant_id: str
+    ) -> HumanDispositionRecord:
+        return await self._record(
+            answer_id,
+            DispositionType.ESCALATED,
+            actor_id=actor_id,
+            reason=reason,
+            tenant_id=tenant_id,
+        )
 
-    def discard(self, answer_id: str, *, actor_id: str, reason: str) -> HumanDispositionRecord:
-        return self._record(answer_id, DispositionType.DISCARDED, actor_id=actor_id, reason=reason)
+    async def discard(
+        self, answer_id: str, *, actor_id: str, reason: str, tenant_id: str
+    ) -> HumanDispositionRecord:
+        return await self._record(
+            answer_id,
+            DispositionType.DISCARDED,
+            actor_id=actor_id,
+            reason=reason,
+            tenant_id=tenant_id,
+        )
 
     def _get_available(self, answer_id: str) -> AnswerDraft:
         if answer_id not in self._drafts:
@@ -100,13 +137,14 @@ class AnswerDispositionService:
             raise DispositionError("ALREADY_DISPOSED")
         return self.get_original(answer_id)
 
-    def _record(
+    async def _record(
         self,
         answer_id: str,
         disposition: DispositionType,
         *,
         actor_id: str,
         reason: str,
+        tenant_id: str,
         edited_answer: AnswerDraft | None = None,
     ) -> HumanDispositionRecord:
         original = self._get_available(answer_id)
@@ -121,5 +159,6 @@ class AnswerDispositionService:
             occurred_at=datetime.now(timezone.utc),
             technical_status=self._technical_status.get(answer_id, "unchanged"),
         )
+        await self._repo.save(record, tenant_id=tenant_id)
         self._records[answer_id] = record
         return record

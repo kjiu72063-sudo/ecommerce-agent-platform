@@ -32,26 +32,29 @@ def source(season="适合四季使用"):
     )
 
 
-def test_trace_lookup_requires_matching_tenant():
+@pytest.mark.asyncio
+async def test_trace_lookup_requires_matching_tenant():
     runner = PresaleQaRunner(
-        sources=[KnowledgeSource(
-            source_id="catalog-review",
-            version="2026.09.01",
-            tenant_id="tenant-demo",
-            product_id="product-001",
-            status="published",
-            fields={"spec": {"season": "适合夏季使用"}},
-        )]
+        sources=[
+            KnowledgeSource(
+                source_id="catalog-review",
+                version="2026.09.01",
+                tenant_id="tenant-demo",
+                product_id="product-001",
+                status="published",
+                fields={"spec": {"season": "适合夏季使用"}},
+            )
+        ]
     )
-    result = runner.ask(question("这款商品适合夏季使用吗？"))
+    result = await runner.ask(question("这款商品适合夏季使用吗？"))
 
     with pytest.raises(TraceError, match="TENANT_ID_REQUIRED"):
-        runner.get_trace(result.run_ref)
+        await runner.get_trace(result.run_ref)
 
     with pytest.raises(TraceError, match="OUT_OF_SCOPE"):
-        runner.get_trace(result.run_ref, tenant_id="tenant-other")
+        await runner.get_trace(result.run_ref, tenant_id="tenant-other")
 
-    trace = runner.get_trace(result.run_ref, tenant_id="tenant-demo")
+    trace = await runner.get_trace(result.run_ref, tenant_id="tenant-demo")
     assert trace.run_ref == result.run_ref
 
 

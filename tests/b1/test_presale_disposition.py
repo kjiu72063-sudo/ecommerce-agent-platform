@@ -5,13 +5,8 @@ import pytest
 from agent_platform_contracts.policies import canonical_sha256
 from presale.answer import PresaleAnswerGenerator
 from presale.contracts import ProductQuestion
-from presale.disposition import (
-    DispositionError,
-    DispositionType,
-    AnswerDispositionService,
-)
+from presale.disposition import AnswerDispositionService, DispositionError, DispositionType
 from presale.knowledge import EvidenceItem, RetrievalResult, RetrievalStatus
-
 
 QUESTION = ProductQuestion(
     question_id="question-001",
@@ -23,6 +18,8 @@ QUESTION = ProductQuestion(
     idempotency_key="question-001-key",
 )
 RUN_REF = {"kind": "AgentRun", "id": "run_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411"}
+TENANT = "tenant-demo"
+ACTOR = "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411"
 
 
 def draft():
@@ -43,15 +40,14 @@ def draft():
     )
 
 
-def test_accept_records_internal_adoption_without_send_side_effect():
+@pytest.mark.asyncio
+async def test_accept_records_internal_adoption_without_send_side_effect():
     service = AnswerDispositionService()
     original = draft()
     service.register(original)
 
-    result = service.accept(
-        original.answer_id,
-        actor_id="usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
-        reason="客服确认可用",
+    result = await service.accept(
+        original.answer_id, actor_id=ACTOR, reason="客服确认可用", tenant_id=TENANT
     )
 
     assert result.disposition is DispositionType.ACCEPTED
@@ -61,16 +57,18 @@ def test_accept_records_internal_adoption_without_send_side_effect():
     assert result.actor_id.endswith("f411")
 
 
-def test_edit_preserves_original_and_records_new_version():
+@pytest.mark.asyncio
+async def test_edit_preserves_original_and_records_new_version():
     service = AnswerDispositionService()
     original = draft()
     service.register(original)
 
-    result = service.edit(
+    result = await service.edit(
         original.answer_id,
         edited_text="根据商品资料，适合夏季使用。",
-        actor_id="usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+        actor_id=ACTOR,
         reason="补充客服语气",
+        tenant_id=TENANT,
     )
 
     assert result.disposition is DispositionType.EDITED
@@ -83,15 +81,14 @@ def test_edit_preserves_original_and_records_new_version():
     assert service.get_original(original.answer_id) == original
 
 
-def test_escalate_records_reason_without_changing_technical_status():
+@pytest.mark.asyncio
+async def test_escalate_records_reason_without_changing_technical_status():
     service = AnswerDispositionService()
     original = draft()
     service.register(original, technical_status="succeeded")
 
-    result = service.escalate(
-        original.answer_id,
-        actor_id="usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
-        reason="需要人工确认商品政策",
+    result = await service.escalate(
+        original.answer_id, actor_id=ACTOR, reason="需要人工确认商品政策", tenant_id=TENANT
     )
 
     assert result.disposition is DispositionType.ESCALATED
@@ -100,15 +97,14 @@ def test_escalate_records_reason_without_changing_technical_status():
     assert result.sent_to_consumer is False
 
 
-def test_discard_records_non_adoption():
+@pytest.mark.asyncio
+async def test_discard_records_non_adoption():
     service = AnswerDispositionService()
     original = draft()
     service.register(original)
 
-    result = service.discard(
-        original.answer_id,
-        actor_id="usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
-        reason="内容不适用",
+    result = await service.discard(
+        original.answer_id, actor_id=ACTOR, reason="内容不适用", tenant_id=TENANT
     )
 
     assert result.disposition is DispositionType.DISCARDED
@@ -117,36 +113,31 @@ def test_discard_records_non_adoption():
     assert result.sent_to_consumer is False
 
 
-def test_edit_rejects_blank_text_and_already_disposed_draft():
+@pytest.mark.asyncio
+async def test_edit_rejects_blank_text_and_already_disposed_draft():
     service = AnswerDispositionService()
     original = draft()
     service.register(original)
 
     with pytest.raises(DispositionError, match="EMPTY_EDIT"):
-        service.edit(
+        await service.edit(
             original.answer_id,
             edited_text="   ",
-            actor_id="usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+            actor_id=ACTOR,
             reason="无效编辑",
+            tenant_id=TENANT,
         )
 
-    service.accept(
-        original.answer_id,
-        actor_id="usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
-        reason="确认",
-    )
+    await service.accept(original.answer_id, actor_id=ACTOR, reason="确认", tenant_id=TENANT)
     with pytest.raises(DispositionError, match="ALREADY_DISPOSED"):
-        service.discard(
-            original.answer_id,
-            actor_id="usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
-            reason="重复操作",
+        await service.discard(
+            original.answer_id, actor_id=ACTOR, reason="重复操作", tenant_id=TENANT
         )
 
 
-def test_missing_draft_fails_explicitly():
+@pytest.mark.asyncio
+async def test_missing_draft_fails_explicitly():
     with pytest.raises(DispositionError, match="DRAFT_NOT_FOUND"):
-        AnswerDispositionService().accept(
-            "missing-answer",
-            actor_id="usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
-            reason="不存在",
+        await AnswerDispositionService().accept(
+            "missing-answer", actor_id=ACTOR, reason="不存在", tenant_id=TENANT
         )

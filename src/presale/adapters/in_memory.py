@@ -113,6 +113,9 @@ class InMemoryRunTraceRepository(RunTraceRepository):
         _ensure_tenant(trace.tenant_id, tenant_id)
         return trace
 
+    async def list_by_tenant(self, *, tenant_id: str) -> list[PresaleRunTrace]:
+        return [trace for trace in self._traces.values() if trace.tenant_id == tenant_id]
+
     async def mark_disposition(self, run_ref: str, *, tenant_id: str, state: str) -> None:
         trace = await self.get(run_ref, tenant_id=tenant_id)
         self._traces[run_ref] = trace.model_copy(

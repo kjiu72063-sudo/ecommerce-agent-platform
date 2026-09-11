@@ -6,7 +6,6 @@ from presale.contracts import ProductQuestion
 from presale.knowledge import KnowledgeSource
 from presale.runner import PresaleQaRunner, QaRuntimeError
 
-
 QUESTION = ProductQuestion(
     question_id="question-001",
     tenant_id="tenant-demo",
@@ -16,6 +15,8 @@ QUESTION = ProductQuestion(
     requested_at=datetime(2026, 9, 7, tzinfo=timezone.utc),
     idempotency_key="question-001-key",
 )
+TENANT = "tenant-demo"
+ACTOR = "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411"
 
 
 def source(*, source_id="catalog-001", season="适合夏季使用", tenant_id="tenant-demo", product_id="product-001", status="published"):
@@ -29,10 +30,11 @@ def source(*, source_id="catalog-001", season="适合夏季使用", tenant_id="t
     )
 
 
-def test_no_evidence_results_in_human_review_not_fake_success():
+@pytest.mark.asyncio
+async def test_no_evidence_results_in_human_review_not_fake_success():
     runner = PresaleQaRunner(sources=[source(season="仅适合室内收纳", product_id="product-other")])
 
-    result = runner.ask(QUESTION)
+    result = await runner.ask(QUESTION)
 
     assert result.answer_draft.need_human is True
     assert result.answer_draft.evidence_refs == []
@@ -40,7 +42,8 @@ def test_no_evidence_results_in_human_review_not_fake_success():
     assert result.trace.answer_draft_id == result.answer_draft.answer_id
 
 
-def test_conflicting_evidence_results_in_human_review():
+@pytest.mark.asyncio
+async def test_conflicting_evidence_results_in_human_review():
     runner = PresaleQaRunner(
         sources=[
             source(source_id="catalog-a", season="适合夏季使用"),
@@ -48,31 +51,34 @@ def test_conflicting_evidence_results_in_human_review():
         ]
     )
 
-    result = runner.ask(QUESTION)
+    result = await runner.ask(QUESTION)
 
     assert result.answer_draft.need_human is True
     assert result.answer_draft.confidence_signal == "conflicting"
     assert "CONFLICTING_EVIDENCE" in result.answer_draft.reason_codes
 
 
-def test_cross_tenant_and_cross_product_sources_are_out_of_scope():
+@pytest.mark.asyncio
+async def test_cross_tenant_and_cross_product_sources_are_out_of_scope():
     cross_tenant = source(tenant_id="tenant-other")
     cross_product = source(product_id="product-other")
 
     for out_of_scope_source in (cross_tenant, cross_product):
-        result = PresaleQaRunner(sources=[out_of_scope_source]).ask(QUESTION)
+        result = await PresaleQaRunner(sources=[out_of_scope_source]).ask(QUESTION)
         assert result.answer_draft.need_human is True
         assert "OUT_OF_SCOPE" in result.answer_draft.reason_codes
 
 
-def test_context_budget_overflow_is_explicit_failure_with_budget_reason():
+@pytest.mark.asyncio
+async def test_context_budget_overflow_is_explicit_failure_with_budget_reason():
     runner = PresaleQaRunner(sources=[source()], context_budget_tokens=1)
 
     with pytest.raises(QaRuntimeError, match="TOKEN_BUDGET_EXCEEDED"):
-        runner.ask(QUESTION)
+        await runner.ask(QUESTION)
 
 
-def test_generation_failure_is_explicit():
+@pytest.mark.asyncio
+async def test_generation_failure_is_explicit():
     class ExplodingGenerator:
         def generate(self, *args, **kwargs):
             raise RuntimeError("boom")
@@ -80,10 +86,11 @@ def test_generation_failure_is_explicit():
     runner = PresaleQaRunner(sources=[source()], generator=ExplodingGenerator())
 
     with pytest.raises(QaRuntimeError, match="ANSWER_GENERATION_FAILED"):
-        runner.ask(QUESTION)
+        await runner.ask(QUESTION)
 
 
-def test_pipeline_never_invokes_write_side_effects():
+@pytest.mark.asyncio
+async def test_pipeline_never_invokes_write_side_effects():
     calls = []
 
     class ReadOnlyGenerator:
@@ -111,11 +118,12 @@ def test_pipeline_never_invokes_write_side_effects():
     generator = ReadOnlyGenerator()
     runner = PresaleQaRunner(sources=[source()], generator=generator)
 
-    result = runner.ask(QUESTION)
-    runner.accept(
+    result = await runner.ask(QUESTION)
+    await runner.accept(
         result.answer_draft.answer_id,
-        actor_id="usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+        actor_id=ACTOR,
         reason="确认",
+        tenant_id=TENANT,
     )
 
     assert calls == ["generate"], f"write side effects invoked: {calls}"

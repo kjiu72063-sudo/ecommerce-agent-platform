@@ -5,11 +5,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import StrEnum
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict
 
 from .answer import AnswerDraft
 from .contracts import ProductQuestion
+
+if TYPE_CHECKING:
+    from .ports import RunTraceRepository
 
 
 class TraceError(ValueError):
@@ -69,48 +73,30 @@ class PresaleRunTrace(BaseModel):
 
 
 class PresaleRunTracer:
-    """Record and query minimal run provenance for one presale question."""
+    """Coordinate run provenance persistence through a RunTraceRepository.
 
-    def __init__(self, retention_policy: RetentionPolicy | None = None):
-        self._traces: dict[str, PresaleRunTrace] = {}
+    The tracer owns the timeline semantics (stage order, disposition markers)
+    and delegates all storage to an injected repository. It is async because
+    the repository ports are async.
+    """
+
+    def __init__(
+        self,
+        trace_repo: RunTraceRepository | None = None,
+        retention_policy: RetentionPolicy | None = None,
+    ):
+        if trace_repo is None:
+            from .adapters.in_memory import InMemoryRunTraceRepository
+
+            trace_repo = InMemoryRunTraceRepository()
+        self._repo = trace_repo
         self._retention = retention_policy or RetentionPolicy()
+        self._tenants: dict[str, str] = {}
 
     def retention_policy(self) -> RetentionPolicy:
         return self._retention
 
-    def mark_disposition(self, run_ref: str, state: DispositionState) -> None:
-        trace = self._require(run_ref)
-        self._traces[run_ref] = trace.model_copy(update={"disposition_state": state})
-
-    def mark_disposition_complete(self, run_ref: str) -> None:
-        self.mark_disposition(run_ref, DispositionState.COMPLETE)
-
-    def mark_disposition_escalated(self, run_ref: str) -> None:
-        self.mark_disposition(run_ref, DispositionState.ESCALATED)
-
-    def archive_expired(self, *, tenant_id: str, now: datetime) -> list[str]:
-        """Mark expired, completed traces as archived while keeping their history.
-
-        Traces are not physically deleted: stages, events and provenance must
-        survive as historical fact per the V1 spec.
-        """
-        if not tenant_id:
-            raise TraceError("TENANT_ID_REQUIRED")
-        archived: list[str] = []
-        for run_ref, trace in self._traces.items():
-            if trace.tenant_id != tenant_id:
-                continue
-            if trace.disposition_state is not DispositionState.COMPLETE:
-                continue
-            if trace.archived:
-                continue
-            created_at = trace.stages[0].occurred_at
-            if self._retention.is_expired(created_at, now):
-                self._traces[run_ref] = trace.model_copy(update={"archived": True})
-                archived.append(run_ref)
-        return archived
-
-    def start(
+    async def start(
         self,
         *,
         question: ProductQuestion,
@@ -134,63 +120,112 @@ class PresaleRunTracer:
                 )
             ],
         )
-        self._traces[run_ref] = trace
+        self._tenants[run_ref] = question.tenant_id
+        await self._repo.save(trace)
         return run_ref
 
-    def record_stage(self, run_ref: str, stage: str, detail: str) -> None:
-        trace = self._require(run_ref)
-        self._traces[run_ref] = trace.model_copy(
-            update={
-                "stages": [
-                    *trace.stages,
-                    StageRecord(
-                        stage=RunStage(stage),
-                        detail=detail,
-                        occurred_at=datetime.now(timezone.utc),
-                    ),
-                ]
-            }
+    async def record_stage(self, run_ref: str, stage: str, detail: str) -> None:
+        trace = await self._require(run_ref)
+        await self._repo.save(
+            trace.model_copy(
+                update={
+                    "stages": [
+                        *trace.stages,
+                        StageRecord(
+                            stage=RunStage(stage),
+                            detail=detail,
+                            occurred_at=datetime.now(timezone.utc),
+                        ),
+                    ]
+                }
+            )
         )
 
-    def attach_context(self, run_ref: str, context_package: object) -> None:
-        trace = self._require(run_ref)
-        self._traces[run_ref] = trace.model_copy(
-            update={"context_package_ref": context_package.run_ref.id}
+    async def attach_context(self, run_ref: str, context_package: object) -> None:
+        trace = await self._require(run_ref)
+        await self._repo.save(
+            trace.model_copy(update={"context_package_ref": context_package.run_ref.id})
         )
 
-    def attach_answer(self, run_ref: str, answer: AnswerDraft) -> None:
-        trace = self._require(run_ref)
-        self._traces[run_ref] = trace.model_copy(update={"answer_draft_id": answer.answer_id})
+    async def attach_answer(self, run_ref: str, answer: AnswerDraft) -> None:
+        trace = await self._require(run_ref)
+        await self._repo.save(trace.model_copy(update={"answer_draft_id": answer.answer_id}))
 
-    def fail(self, run_ref: str, reason: str) -> None:
-        trace = self._require(run_ref)
-        self._traces[run_ref] = trace.model_copy(
-            update={
-                "failed": True,
-                "failure_reason": reason,
-                "stages": [
-                    *trace.stages,
-                    StageRecord(
-                        stage=RunStage.FAILED,
-                        detail=reason,
-                        occurred_at=datetime.now(timezone.utc),
-                    ),
-                ],
-            }
+    async def fail(self, run_ref: str, reason: str) -> None:
+        trace = await self._require(run_ref)
+        await self._repo.save(
+            trace.model_copy(
+                update={
+                    "failed": True,
+                    "failure_reason": reason,
+                    "stages": [
+                        *trace.stages,
+                        StageRecord(
+                            stage=RunStage.FAILED,
+                            detail=reason,
+                            occurred_at=datetime.now(timezone.utc),
+                        ),
+                    ],
+                }
+            )
         )
 
-    def get(self, run_ref: str, *, tenant_id: str | None = None) -> PresaleRunTrace:
+    async def mark_disposition(self, run_ref: str, state: DispositionState) -> None:
+        tenant_id = self._tenant_of(run_ref)
+        await self._repo.mark_disposition(run_ref, tenant_id=tenant_id, state=str(state.value))
+
+    async def mark_disposition_complete(self, run_ref: str) -> None:
+        await self.mark_disposition(run_ref, DispositionState.COMPLETE)
+
+    async def mark_disposition_escalated(self, run_ref: str) -> None:
+        await self.mark_disposition(run_ref, DispositionState.ESCALATED)
+
+    async def archive_expired(self, *, tenant_id: str, now: datetime) -> list[str]:
+        """Mark expired, completed traces as archived while keeping their history.
+
+        Traces are not physically deleted: stages, events and provenance must
+        survive as historical fact per the V1 spec.
+        """
         if not tenant_id:
             raise TraceError("TENANT_ID_REQUIRED")
-        trace = self._traces.get(run_ref)
-        if trace is None:
-            raise TraceError("TRACE_NOT_FOUND")
-        if trace.tenant_id != tenant_id:
-            raise TraceError("OUT_OF_SCOPE")
-        return trace
+        archived: list[str] = []
+        for trace in await self._repo.list_by_tenant(tenant_id=tenant_id):
+            if trace.disposition_state is not DispositionState.COMPLETE:
+                continue
+            if trace.archived:
+                continue
+            created_at = trace.stages[0].occurred_at
+            if self._retention.is_expired(created_at, now):
+                await self._repo.mark_archived(trace.run_ref, tenant_id=tenant_id)
+                archived.append(trace.run_ref)
+        return archived
 
-    def _require(self, run_ref: str) -> PresaleRunTrace:
-        trace = self._traces.get(run_ref)
-        if trace is None:
+    async def get(self, run_ref: str, *, tenant_id: str | None = None) -> PresaleRunTrace:
+        if not tenant_id:
+            raise TraceError("TENANT_ID_REQUIRED")
+        owner_tenant = self._tenants.get(run_ref)
+        if owner_tenant is None:
             raise TraceError("TRACE_NOT_FOUND")
-        return trace
+        if owner_tenant != tenant_id:
+            raise TraceError("OUT_OF_SCOPE")
+        from .ports import NotFoundError
+
+        try:
+            return await self._repo.get(run_ref, tenant_id=tenant_id)
+        except NotFoundError as exc:
+            raise TraceError("TRACE_NOT_FOUND") from exc
+
+    async def _require(self, run_ref: str) -> PresaleRunTrace:
+        tenant_id = self._tenant_of(run_ref)
+        from .ports import NotFoundError
+
+        try:
+            return await self._repo.get(run_ref, tenant_id=tenant_id)
+        except NotFoundError as exc:
+            raise TraceError("TRACE_NOT_FOUND") from exc
+
+    def _tenant_of(self, run_ref: str) -> str:
+        tenant_id = self._tenants.get(run_ref)
+        if not tenant_id:
+            raise TraceError("TRACE_NOT_FOUND")
+        return tenant_id

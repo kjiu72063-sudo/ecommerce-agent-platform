@@ -18,12 +18,14 @@ Rules every adapter must honour:
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
-from .answer import AnswerDraft
-from .contracts import ProductQuestion
-from .disposition import HumanDispositionRecord
-from .knowledge import EvidenceItem
-from .trace import PresaleRunTrace
+if TYPE_CHECKING:
+    from .answer import AnswerDraft
+    from .contracts import ProductQuestion
+    from .disposition import HumanDispositionRecord
+    from .knowledge import EvidenceItem
+    from .trace import PresaleRunTrace
 
 
 class NotFoundError(LookupError):
@@ -96,6 +98,10 @@ class RunTraceRepository(ABC):
     @abstractmethod
     async def get(self, run_ref: str, *, tenant_id: str) -> PresaleRunTrace:
         """Return a trace within a tenant. Raise NotFoundError if absent."""
+
+    @abstractmethod
+    async def list_by_tenant(self, *, tenant_id: str) -> list[PresaleRunTrace]:
+        """List all traces for a tenant for retention evaluation."""
 
     @abstractmethod
     async def mark_disposition(self, run_ref: str, *, tenant_id: str, state: str) -> None:
