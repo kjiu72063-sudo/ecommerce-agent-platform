@@ -158,7 +158,6 @@ class PresaleQaRunner:
                     [{"evidence": item, "priority": 80} for item in retrieval.evidence_items],
                     run_ref=run_ref,
                     policy_ref=frozen.policy_ref,
-                    artifact_ref=frozen.artifact_ref,
                 )
                 await self._tracer.attach_context(
                     trace_id, tenant_id=question.tenant_id, context_package=context_package

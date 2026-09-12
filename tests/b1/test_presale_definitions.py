@@ -56,7 +56,11 @@ def _stub_source(objects_by_names):
 async def test_static_source_returns_prototype_constants():
     config = await StaticDefinitionSource().resolve(tenant_id=TENANT)
 
-    assert config.configuration_refs == {"agent_spec": "1.0.0", "prompt_package": "1.0.0"}
+    assert config.configuration_refs == {
+        "agent_spec": "1.0.0",
+        "prompt_package": "1.0.0",
+        "context_policy": "1.0.0",
+    }
     assert config.policy_ref["kind"] == "ContextPolicy"
 
 

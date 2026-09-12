@@ -19,7 +19,6 @@ class FrozenConfiguration:
 
     configuration_refs: dict[str, str]
     policy_ref: dict[str, str]
-    artifact_ref: dict[str, str]
 
 
 class DefinitionSource(ABC):
@@ -35,52 +34,44 @@ class StaticDefinitionSource(DefinitionSource):
 
     async def resolve(self, *, tenant_id: str) -> FrozenConfiguration:
         return FrozenConfiguration(
-            configuration_refs={"agent_spec": "1.0.0", "prompt_package": "1.0.0"},
+            configuration_refs={
+                "agent_spec": "1.0.0",
+                "prompt_package": "1.0.0",
+                "context_policy": "1.0.0",
+            },
             policy_ref={
                 "kind": "ContextPolicy",
                 "id": "cpo_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f416",
                 "version": "1.0.0",
                 "digest": canonical_sha256({"policy": "presale"}),
             },
-            artifact_ref={
-                "id": "art_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f427",
-                "digest": canonical_sha256({"artifact": "context"}),
-            },
         )
 
 
 class B1DefinitionSource(DefinitionSource):
-    """Resolve frozen definitions from a B1 DefinitionRepository."""
+    """Resolve one active definition for each configured selector."""
 
     def __init__(
         self,
         repository: Any,
         *,
-        agent_spec_id: str,
-        prompt_package_id: str,
-        context_policy_id: str,
-        artifact_ref: dict[str, str] | None = None,
+        selectors: dict[str, dict[str, str]] | None = None,
+        agent_spec_id: str | None = None,
+        prompt_package_id: str | None = None,
+        context_policy_id: str | None = None,
     ):
         self._repository = repository
+        self._selectors = selectors
         self._ids = {
             "agent_spec": agent_spec_id,
             "prompt_package": prompt_package_id,
             "context_policy": context_policy_id,
         }
-        self._artifact_ref = artifact_ref or {
-            "id": "art_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f427",
-            "digest": canonical_sha256({"artifact": "context"}),
-        }
 
     async def resolve(self, *, tenant_id: str) -> FrozenConfiguration:
         definitions: dict[str, dict] = {}
-        for name, object_id in self._ids.items():
-            definition = await self._repository.get_by_id(object_id)
-            if definition is None:
-                raise DefinitionResolutionError(f"DEFINITION_NOT_FOUND:{name}")
-            self._check_tenant(definition, tenant_id, name)
-            if definition.get("status", {}).get("phase") != "active":
-                raise DefinitionResolutionError(f"DEFINITION_NOT_ACTIVE:{name}")
+        for name in ("agent_spec", "prompt_package", "context_policy"):
+            definition = await self._resolve_one(name, tenant_id)
             definitions[name] = definition
 
         agent = definitions["agent_spec"]
@@ -98,14 +89,44 @@ class B1DefinitionSource(DefinitionSource):
                 "version": policy["metadata"]["version"],
                 "digest": policy["metadata"]["content_digest"],
             },
-            artifact_ref=dict(self._artifact_ref),
         )
+
+    async def _resolve_one(self, name: str, tenant_id: str) -> dict:
+        selector = self._selectors.get(name) if self._selectors else None
+        if selector is not None:
+            from registry.repository import DefinitionFilter
+
+            matches = await self._repository.list_by_filter(
+                DefinitionFilter(
+                    kind=selector["kind"],
+                    namespace=selector["namespace"],
+                    key=selector["key"],
+                    phase="active",
+                    tenant_id=tenant_id,
+                )
+            )
+            if not matches:
+                raise DefinitionResolutionError(f"DEFINITION_NOT_FOUND:{name}")
+            if len(matches) != 1:
+                raise DefinitionResolutionError(f"MULTIPLE_ACTIVE:{name}")
+            return matches[0]
+
+        object_id = self._ids.get(name)
+        if not object_id:
+            raise DefinitionResolutionError(f"DEFINITION_SELECTOR_MISSING:{name}")
+        definition = await self._repository.get_by_id(object_id)
+        if definition is None:
+            raise DefinitionResolutionError(f"DEFINITION_NOT_FOUND:{name}")
+        self._check_tenant(definition, tenant_id, name)
+        if definition.get("status", {}).get("phase") != "active":
+            raise DefinitionResolutionError(f"DEFINITION_NOT_ACTIVE:{name}")
+        return definition
 
     @staticmethod
     def _check_tenant(definition: dict, tenant_id: str, name: str) -> None:
         scope = definition.get("metadata", {}).get("scope", {})
         definition_tenant = scope.get("tenant_id")
-        if definition_tenant and definition_tenant != tenant_id:
+        if not definition_tenant or definition_tenant != tenant_id:
             raise DefinitionResolutionError(f"DEFINITION_OUT_OF_SCOPE:{name}")
 
 
