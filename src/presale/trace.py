@@ -124,8 +124,8 @@ class PresaleRunTracer:
         await self._repo.save(trace)
         return run_ref
 
-    async def record_stage(self, run_ref: str, stage: str, detail: str) -> None:
-        trace = await self._require(run_ref)
+    async def record_stage(self, run_ref: str, *, tenant_id: str, stage: str, detail: str) -> None:
+        trace = await self._require(run_ref, tenant_id=tenant_id)
         await self._repo.save(
             trace.model_copy(
                 update={
@@ -141,18 +141,20 @@ class PresaleRunTracer:
             )
         )
 
-    async def attach_context(self, run_ref: str, context_package: object) -> None:
-        trace = await self._require(run_ref)
+    async def attach_context(
+        self, run_ref: str, *, tenant_id: str, context_package: object
+    ) -> None:
+        trace = await self._require(run_ref, tenant_id=tenant_id)
         await self._repo.save(
             trace.model_copy(update={"context_package_ref": context_package.run_ref.id})
         )
 
-    async def attach_answer(self, run_ref: str, answer: AnswerDraft) -> None:
-        trace = await self._require(run_ref)
+    async def attach_answer(self, run_ref: str, *, tenant_id: str, answer: AnswerDraft) -> None:
+        trace = await self._require(run_ref, tenant_id=tenant_id)
         await self._repo.save(trace.model_copy(update={"answer_draft_id": answer.answer_id}))
 
-    async def fail(self, run_ref: str, reason: str) -> None:
-        trace = await self._require(run_ref)
+    async def fail(self, run_ref: str, *, tenant_id: str, reason: str) -> None:
+        trace = await self._require(run_ref, tenant_id=tenant_id)
         await self._repo.save(
             trace.model_copy(
                 update={
@@ -170,15 +172,16 @@ class PresaleRunTracer:
             )
         )
 
-    async def mark_disposition(self, run_ref: str, state: DispositionState) -> None:
-        tenant_id = self._tenant_of(run_ref)
+    async def mark_disposition(
+        self, run_ref: str, *, tenant_id: str, state: DispositionState
+    ) -> None:
         await self._repo.mark_disposition(run_ref, tenant_id=tenant_id, state=str(state.value))
 
-    async def mark_disposition_complete(self, run_ref: str) -> None:
-        await self.mark_disposition(run_ref, DispositionState.COMPLETE)
+    async def mark_disposition_complete(self, run_ref: str, *, tenant_id: str) -> None:
+        await self.mark_disposition(run_ref, tenant_id=tenant_id, state=DispositionState.COMPLETE)
 
-    async def mark_disposition_escalated(self, run_ref: str) -> None:
-        await self.mark_disposition(run_ref, DispositionState.ESCALATED)
+    async def mark_disposition_escalated(self, run_ref: str, *, tenant_id: str) -> None:
+        await self.mark_disposition(run_ref, tenant_id=tenant_id, state=DispositionState.ESCALATED)
 
     async def get(self, run_ref: str, *, tenant_id: str | None = None) -> PresaleRunTrace:
         if not tenant_id:
@@ -193,16 +196,10 @@ class PresaleRunTracer:
                 raise TraceError("OUT_OF_SCOPE") from exc
             raise TraceError("TRACE_NOT_FOUND") from exc
 
-    async def _require(self, run_ref: str) -> PresaleRunTrace:
+    async def _require(self, run_ref: str, *, tenant_id: str) -> PresaleRunTrace:
         from .ports import NotFoundError
 
         try:
-            return await self._repo.get(run_ref, tenant_id=self._tenant_of(run_ref))
+            return await self._repo.get(run_ref, tenant_id=tenant_id)
         except NotFoundError as exc:
             raise TraceError("TRACE_NOT_FOUND") from exc
-
-    def _tenant_of(self, run_ref: str) -> str:
-        tenant_id = self._tenants.get(run_ref)
-        if not tenant_id:
-            raise TraceError("TRACE_NOT_FOUND")
-        return tenant_id

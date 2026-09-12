@@ -78,6 +78,12 @@ class InMemoryAnswerDraftRepository(AnswerDraftRepository):
     async def save(self, draft: AnswerDraft, *, tenant_id: str) -> None:
         self._drafts[(draft.run_ref.id, tenant_id)] = draft
 
+    async def get_by_id(self, answer_id: str, *, tenant_id: str) -> AnswerDraft:
+        for (run_ref, stored_tenant), draft in self._drafts.items():
+            if stored_tenant == tenant_id and draft.answer_id == answer_id:
+                return draft
+        raise NotFoundError("not found")
+
     async def get_by_run(self, run_ref: str, *, tenant_id: str) -> AnswerDraft | None:
         return self._drafts.get((run_ref, tenant_id))
 

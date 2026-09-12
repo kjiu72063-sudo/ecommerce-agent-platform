@@ -125,6 +125,12 @@ class FakeDraftRepo(AnswerDraftRepository):
     async def save(self, draft, *, tenant_id):
         self.drafts[(draft.run_ref.id, tenant_id)] = draft
 
+    async def get_by_id(self, answer_id, *, tenant_id):
+        for (run_ref, stored_tenant), draft in self.drafts.items():
+            if stored_tenant == tenant_id and draft.answer_id == answer_id:
+                return draft
+        raise NotFoundError("not found")
+
     async def get_by_run(self, run_ref, *, tenant_id):
         return self.drafts.get((run_ref, tenant_id))
 

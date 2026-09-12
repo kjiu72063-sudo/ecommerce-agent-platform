@@ -91,7 +91,8 @@ class PresaleQaRunner:
         self._evidence_repo = evidence_repo or InMemoryEvidenceRepository()
         self._answer_repo = answer_repo or InMemoryAnswerDraftRepository()
         self._dispositions = AnswerDispositionService(
-            disposition_repo or InMemoryDispositionRepository()
+            disposition_repo or InMemoryDispositionRepository(),
+            answer_repo or InMemoryAnswerDraftRepository(),
         )
         self._tracer = PresaleRunTracer(trace_repo or InMemoryRunTraceRepository())
         self._definition_source = definition_source or StaticDefinitionSource()
@@ -132,7 +133,10 @@ class PresaleQaRunner:
         try:
             if retrieval.status.value in {"matched"}:
                 await self._tracer.record_stage(
-                    trace_id, "knowledge_retrieved", retrieval.status.value
+                    trace_id,
+                    tenant_id=question.tenant_id,
+                    stage="knowledge_retrieved",
+                    detail=retrieval.status.value,
                 )
                 await self._evidence_repo.save_evidence(run_id, retrieval.evidence_items)
                 context_package = self._context_builder.build(
@@ -142,9 +146,14 @@ class PresaleQaRunner:
                     policy_ref=frozen.policy_ref,
                     artifact_ref=frozen.artifact_ref,
                 )
-                await self._tracer.attach_context(trace_id, context_package)
+                await self._tracer.attach_context(
+                    trace_id, tenant_id=question.tenant_id, context_package=context_package
+                )
                 await self._tracer.record_stage(
-                    trace_id, "context_built", context_package.run_ref.id
+                    trace_id,
+                    tenant_id=question.tenant_id,
+                    stage="context_built",
+                    detail=context_package.run_ref.id,
                 )
             draft = self._generator.generate(
                 question,
@@ -153,19 +162,26 @@ class PresaleQaRunner:
                 configuration_refs=configuration_refs,
             )
         except AnswerGenerationError as exc:
-            await self._tracer.fail(trace_id, str(exc))
+            await self._tracer.fail(trace_id, tenant_id=question.tenant_id, reason=str(exc))
             raise QaRuntimeError(str(exc)) from exc
         except ContextBuildError as exc:
-            await self._tracer.fail(trace_id, str(exc))
+            await self._tracer.fail(trace_id, tenant_id=question.tenant_id, reason=str(exc))
             raise QaRuntimeError(str(exc)) from exc
         except Exception as exc:
-            await self._tracer.fail(trace_id, "ANSWER_GENERATION_FAILED")
+            await self._tracer.fail(
+                trace_id, tenant_id=question.tenant_id, reason="ANSWER_GENERATION_FAILED"
+            )
             raise QaRuntimeError("ANSWER_GENERATION_FAILED") from exc
 
         await self._answer_repo.save(draft, tenant_id=question.tenant_id)
         self._dispositions.register(draft, technical_status="succeeded")
-        await self._tracer.attach_answer(trace_id, draft)
-        await self._tracer.record_stage(trace_id, "answer_generated", draft.answer_id)
+        await self._tracer.attach_answer(trace_id, tenant_id=question.tenant_id, answer=draft)
+        await self._tracer.record_stage(
+            trace_id,
+            tenant_id=question.tenant_id,
+            stage="answer_generated",
+            detail=draft.answer_id,
+        )
 
         result = PresaleQaResult(
             run_ref=run_id,
@@ -224,9 +240,9 @@ class PresaleQaRunner:
     async def _trace_disposition(self, record: HumanDispositionRecord, *, escalated: bool) -> None:
         run_ref = record.original_answer.run_ref.id
         if escalated:
-            await self._tracer.mark_disposition_escalated(run_ref)
+            await self._tracer.mark_disposition_escalated(run_ref, tenant_id=record.tenant_id)
         else:
-            await self._tracer.mark_disposition_complete(run_ref)
+            await self._tracer.mark_disposition_complete(run_ref, tenant_id=record.tenant_id)
 
     async def get_trace(self, run_ref: str, *, tenant_id: str | None = None):
         if not tenant_id:

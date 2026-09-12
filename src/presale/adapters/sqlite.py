@@ -136,6 +136,16 @@ class SQLiteAnswerDraftRepository(AnswerDraftRepository):
         )
         self._db.commit()
 
+    async def get_by_id(self, answer_id: str, *, tenant_id: str) -> AnswerDraft:
+        rows = self._db.execute(
+            "SELECT content FROM presale_answers WHERE tenant_id = ?", (tenant_id,)
+        ).fetchall()
+        for row in rows:
+            draft = AnswerDraft.model_validate_json(row["content"])
+            if draft.answer_id == answer_id:
+                return draft
+        raise NotFoundError("not found")
+
     async def get_by_run(self, run_ref: str, *, tenant_id: str) -> AnswerDraft | None:
         row = self._db.execute(
             "SELECT content FROM presale_answers WHERE run_ref = ? AND tenant_id = ?",

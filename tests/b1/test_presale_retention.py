@@ -42,7 +42,7 @@ async def test_expired_completed_record_is_archived_not_deleted():
     tracer = PresaleRunTracer()
     run_ref = "run_01111111-1111-7111-8111-111111111111"
     await start_trace(tracer, run_ref, age_days=40)
-    await tracer.mark_disposition_complete(run_ref)
+    await tracer.mark_disposition_complete(run_ref, tenant_id="tenant-demo")
 
     service = RetentionService(tracer._repo)
     now = datetime.now(timezone.utc)
@@ -60,7 +60,7 @@ async def test_archive_is_idempotent():
     tracer = PresaleRunTracer()
     run_ref = "run_01111111-1111-7111-8111-111111111111"
     await start_trace(tracer, run_ref, age_days=40)
-    await tracer.mark_disposition_complete(run_ref)
+    await tracer.mark_disposition_complete(run_ref, tenant_id="tenant-demo")
 
     service = RetentionService(tracer._repo)
     now = datetime.now(timezone.utc)
@@ -76,7 +76,7 @@ async def test_non_expired_completed_record_is_kept():
     tracer = PresaleRunTracer()
     run_ref = "run_01111111-1111-7111-8111-111111111111"
     await start_trace(tracer, run_ref, age_days=5)
-    await tracer.mark_disposition_complete(run_ref)
+    await tracer.mark_disposition_complete(run_ref, tenant_id="tenant-demo")
 
     service = RetentionService(tracer._repo)
     now = datetime.now(timezone.utc)
@@ -93,7 +93,7 @@ async def test_expired_unfinished_or_escalated_record_is_kept():
     tracer = PresaleRunTracer()
     await start_trace(tracer, unfinished, age_days=40)
     await start_trace(tracer, escalated, age_days=40)
-    await tracer.mark_disposition_escalated(escalated)
+    await tracer.mark_disposition_escalated(escalated, tenant_id="tenant-demo")
 
     service = RetentionService(tracer._repo)
     now = datetime.now(timezone.utc)

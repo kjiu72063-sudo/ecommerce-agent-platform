@@ -70,6 +70,10 @@ class AnswerDraftRepository(ABC):
         """Persist a draft within a tenant. Adapter must reject cross-tenant writes."""
 
     @abstractmethod
+    async def get_by_id(self, answer_id: str, *, tenant_id: str) -> AnswerDraft:
+        """Return a draft by answer id within a tenant; raise NotFoundError if absent."""
+
+    @abstractmethod
     async def get_by_run(self, run_ref: str, *, tenant_id: str) -> AnswerDraft | None:
         """Return the draft for a run within a tenant, or None when absent."""
 

@@ -76,12 +76,12 @@ async def test_records_stages_and_attaches_context_and_answer():
     tracer = PresaleRunTracer()
     trace_id = await _start(tracer)
 
-    await tracer.record_stage(trace_id, "knowledge_retrieved", "matched")
+    await tracer.record_stage(trace_id, tenant_id="tenant-demo", stage="knowledge_retrieved", detail="matched")
     context_package = _minimal_context()
-    await tracer.attach_context(trace_id, context_package)
+    await tracer.attach_context(trace_id, tenant_id="tenant-demo", context_package=context_package)
     draft = answer()
-    await tracer.attach_answer(trace_id, draft)
-    await tracer.record_stage(trace_id, "answer_generated", draft.answer_id)
+    await tracer.attach_answer(trace_id, tenant_id="tenant-demo", answer=draft)
+    await tracer.record_stage(trace_id, tenant_id="tenant-demo", stage="answer_generated", detail=draft.answer_id)
 
     trace = await tracer.get(trace_id, tenant_id="tenant-demo")
     stages = [item.stage for item in trace.stages]
@@ -97,7 +97,7 @@ async def test_failure_records_failed_event_and_reason():
     tracer = PresaleRunTracer()
     trace_id = await _start(tracer)
 
-    await tracer.fail(trace_id, "CONTEXT_BUDGET_EXCEEDED")
+    await tracer.fail(trace_id, tenant_id="tenant-demo", reason="CONTEXT_BUDGET_EXCEEDED")
 
     trace = await tracer.get(trace_id, tenant_id="tenant-demo")
     assert trace.failed is True
@@ -125,7 +125,10 @@ async def test_record_on_unknown_trace_fails():
 
     with pytest.raises(TraceError, match="TRACE_NOT_FOUND"):
         await tracer.record_stage(
-            "run_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f999", "generated", "x"
+            "run_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f999",
+            tenant_id="tenant-demo",
+            stage="generated",
+            detail="x",
         )
 
 
