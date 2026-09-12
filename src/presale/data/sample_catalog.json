@@ -1,0 +1,16 @@
+[
+  {
+    "source_id": "catalog-001",
+    "version": "2026.09.01",
+    "tenant_id": "tenant-demo",
+    "product_id": "product-001",
+    "status": "published",
+    "fields": {
+      "spec": {
+        "season": "适合夏季使用",
+        "material": "轻量透气面料",
+        "care": "可机洗，建议冷水轻柔清洗"
+      }
+    }
+  }
+]
