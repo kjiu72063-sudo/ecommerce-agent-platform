@@ -4,11 +4,14 @@ from __future__ import annotations
 
 from uuid import UUID, uuid4
 
-from agent_platform_contracts.policies import canonical_sha256
-
 from .answer import AnswerGenerationError, PresaleAnswerGenerator
 from .context import ContextBuildError, PresaleContextBuilder
 from .contracts import ProductQuestion
+from .definitions import (
+    DefinitionResolutionError,
+    DefinitionSource,
+    StaticDefinitionSource,
+)
 from .disposition import AnswerDispositionService, HumanDispositionRecord
 from .knowledge import DeterministicKnowledgeRetriever, KnowledgeSource
 from .ports import (
@@ -63,8 +66,7 @@ class PresaleQaRunner:
         context_budget_tokens: int = 1000,
         task_id: str | None = None,
         agent_run_id: str | None = None,
-        policy_ref: dict | None = None,
-        artifact_ref: dict | None = None,
+        definition_source: DefinitionSource | None = None,
         question_repo: ProductQuestionRepository | None = None,
         evidence_repo: EvidenceRepository | None = None,
         answer_repo: AnswerDraftRepository | None = None,
@@ -92,19 +94,10 @@ class PresaleQaRunner:
             disposition_repo or InMemoryDispositionRepository()
         )
         self._tracer = PresaleRunTracer(trace_repo or InMemoryRunTraceRepository())
+        self._definition_source = definition_source or StaticDefinitionSource()
         self._idempotency: dict[tuple[str, str], tuple[tuple[str, str], PresaleQaResult]] = {}
         self._task_id = task_id
         self._agent_run_id = agent_run_id
-        self._policy_ref = policy_ref or {
-            "kind": "ContextPolicy",
-            "id": "cpo_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f416",
-            "version": "1.0.0",
-            "digest": canonical_sha256({"policy": "presale"}),
-        }
-        self._artifact_ref = artifact_ref or {
-            "id": "art_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f427",
-            "digest": canonical_sha256({"artifact": "context"}),
-        }
 
     async def ask(self, question: ProductQuestion) -> PresaleQaResult:
         idempotency_key = (question.tenant_id, question.idempotency_key)
@@ -119,7 +112,12 @@ class PresaleQaRunner:
         run_id = self._agent_run_id or f"run_{_uuid7()}"
         task_id = self._task_id or f"tsk_{_uuid7()}"
         run_ref = {"kind": "AgentRun", "id": run_id}
-        configuration_refs = {"agent_spec": "1.0.0", "prompt_package": "1.0.0"}
+
+        try:
+            frozen = await self._definition_source.resolve(tenant_id=question.tenant_id)
+        except DefinitionResolutionError as exc:
+            raise QaRuntimeError(str(exc)) from exc
+        configuration_refs = frozen.configuration_refs
 
         await self._question_repo.save(question)
 
@@ -141,8 +139,8 @@ class PresaleQaRunner:
                     question,
                     [{"evidence": item, "priority": 80} for item in retrieval.evidence_items],
                     run_ref=run_ref,
-                    policy_ref=self._policy_ref,
-                    artifact_ref=self._artifact_ref,
+                    policy_ref=frozen.policy_ref,
+                    artifact_ref=frozen.artifact_ref,
                 )
                 await self._tracer.attach_context(trace_id, context_package)
                 await self._tracer.record_stage(

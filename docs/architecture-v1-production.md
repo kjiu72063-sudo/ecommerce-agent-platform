@@ -172,11 +172,11 @@ AnswerDispositionService dict  →  HumanDispositionRecord model + DispositionRe
 2. ✅ **实现 InMemory + SQLite 适配器**：每个端口两个适配器，验证 seam 真实；
 3. ✅ **改造 runner/tracer/disposition 为依赖注入**：从"内部 new dict"改为注入端口（含 async 转换）；
 4. ✅ **接入保留策略**：RetentionService 通过端口 mark_archived；
-5. **让 presale 依赖平台冻结定义**：从 B1 读取 Agent/Prompt/Policy 版本，而非常量；
+5. ✅ **让 presale 依赖平台冻结定义**：从 B1 读取 Agent/Prompt/Policy 版本，而非常量；
 6. **跑通端到端**：内存与 SQLite 两套适配器下主路径一致；
 7. **再次 code-review**，再决定是否进入真实外部服务/生产数据库阶段。
 
-> 当前进度：1–4 已完成。第 5 步待做——presale 从 B1 读取冻结定义替代常量快照。
+> 当前进度：1–5 已完成。Step 5 通过 `DefinitionSource`/`B1DefinitionSource` 读取租户范围内 active 的 AgentSpec、PromptPackage、ContextPolicy，并在每次运行中冻结版本与摘要。
 
 ### 9.2 门禁
 
