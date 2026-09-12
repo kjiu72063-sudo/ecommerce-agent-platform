@@ -111,7 +111,10 @@ class PresaleQaRunner:
         run_id = self._agent_run_id or f"run_{_uuid7()}"
         task_id = self._task_id or f"tsk_{_uuid7()}"
         run_ref = {"kind": "AgentRun", "id": run_id}
-        claim = await self._idempotency_repo.claim(
+        existing_claim = await self._idempotency_repo.get(
+            question.tenant_id, question.idempotency_key
+        )
+        await self._idempotency_repo.claim(
             IdempotencyRecord(
                 tenant_id=question.tenant_id,
                 idempotency_key=question.idempotency_key,
@@ -120,13 +123,17 @@ class PresaleQaRunner:
                 created_at=question.requested_at,
             )
         )
-        if claim.run_ref != run_id:
-            draft = await self._answer_repo.get_by_run(claim.run_ref, tenant_id=question.tenant_id)
-            trace = await self._tracer.get(claim.run_ref, tenant_id=question.tenant_id)
+        if existing_claim is not None and existing_claim.status == "in_progress":
+            raise QaRuntimeError("IDEMPOTENCY_RESULT_NOT_READY")
+        if existing_claim is not None and existing_claim.status == "succeeded":
+            draft = await self._answer_repo.get_by_run(
+                existing_claim.run_ref, tenant_id=question.tenant_id
+            )
+            trace = await self._tracer.get(existing_claim.run_ref, tenant_id=question.tenant_id)
             if draft is None:
                 raise QaRuntimeError("IDEMPOTENCY_RESULT_NOT_READY")
             self._dispositions.register(draft, technical_status="succeeded")
-            return PresaleQaResult(run_ref=claim.run_ref, answer_draft=draft, trace=trace)
+            return PresaleQaResult(run_ref=existing_claim.run_ref, answer_draft=draft, trace=trace)
 
         try:
             frozen = await self._definition_source.resolve(tenant_id=question.tenant_id)
@@ -212,6 +219,9 @@ class PresaleQaRunner:
             run_ref=run_id,
             answer_draft=draft,
             trace=await self._tracer.get(trace_id, tenant_id=question.tenant_id),
+        )
+        await self._idempotency_repo.update_status(
+            question.tenant_id, question.idempotency_key, "succeeded"
         )
         return result
 
