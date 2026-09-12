@@ -3,12 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
-
-if TYPE_CHECKING:
-    pass
 
 
 class IdempotencyConflictError(ValueError):
@@ -23,7 +20,7 @@ class IdempotencyRecord(BaseModel):
     business_content_digest: str = Field(pattern=r"^sha256:[0-9a-f]{64}$")
     run_ref: str = Field(min_length=1, max_length=256)
     created_at: datetime
-    status: str = Field(default="claimed", min_length=1, max_length=64)
+    status: Literal["in_progress", "succeeded", "failed"] = "in_progress"
 
 
 __all__ = ["IdempotencyConflictError", "IdempotencyRecord"]

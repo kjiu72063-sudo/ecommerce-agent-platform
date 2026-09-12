@@ -62,6 +62,12 @@ class IdempotencyRepository(ABC):
     async def get(self, tenant_id: str, idempotency_key: str) -> IdempotencyRecord | None:
         """Return a tenant/key record, or None when no claim exists."""
 
+    @abstractmethod
+    async def update_status(
+        self, tenant_id: str, idempotency_key: str, status: str
+    ) -> IdempotencyRecord:
+        """Transition a claim to succeeded or failed; raise NotFoundError if absent."""
+
 
 class EvidenceRepository(ABC):
     """Persist EvidenceItems selected during a run."""

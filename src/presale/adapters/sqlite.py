@@ -83,6 +83,16 @@ class SQLiteIdempotencyRepository(IdempotencyRepository):
             existing = IdempotencyRecord.model_validate_json(row["content"])
             if existing.business_content_digest != record.business_content_digest:
                 raise IdempotencyConflictError("IDEMPOTENCY_CONFLICT")
+            if existing.status == "failed":
+                self._db.execute(
+                    (
+                        "UPDATE presale_idempotency SET content = ? "
+                        "WHERE tenant_id = ? AND idempotency_key = ?"
+                    ),
+                    (record.model_dump_json(), record.tenant_id, record.idempotency_key),
+                )
+                self._db.commit()
+                return record
             return existing
         try:
             self._db.execute(
@@ -99,6 +109,8 @@ class SQLiteIdempotencyRepository(IdempotencyRepository):
                 raise
             if existing.business_content_digest != record.business_content_digest:
                 raise IdempotencyConflictError("IDEMPOTENCY_CONFLICT")
+            if existing.status == "failed":
+                return await self.claim(record)
             return existing
         return record
 
@@ -108,6 +120,23 @@ class SQLiteIdempotencyRepository(IdempotencyRepository):
             (tenant_id, idempotency_key),
         ).fetchone()
         return IdempotencyRecord.model_validate_json(row["content"]) if row else None
+
+    async def update_status(
+        self, tenant_id: str, idempotency_key: str, status: str
+    ) -> IdempotencyRecord:
+        existing = await self.get(tenant_id, idempotency_key)
+        if existing is None:
+            raise NotFoundError("not found")
+        updated = existing.model_copy(update={"status": status})
+        self._db.execute(
+            (
+                "UPDATE presale_idempotency SET content = ? "
+                "WHERE tenant_id = ? AND idempotency_key = ?"
+            ),
+            (updated.model_dump_json(), tenant_id, idempotency_key),
+        )
+        self._db.commit()
+        return updated
 
 
 class SQLiteProductQuestionRepository(ProductQuestionRepository):

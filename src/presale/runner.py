@@ -131,6 +131,9 @@ class PresaleQaRunner:
         try:
             frozen = await self._definition_source.resolve(tenant_id=question.tenant_id)
         except DefinitionResolutionError as exc:
+            await self._idempotency_repo.update_status(
+                question.tenant_id, question.idempotency_key, "failed"
+            )
             raise QaRuntimeError(str(exc)) from exc
         configuration_refs = frozen.configuration_refs
 
@@ -176,13 +179,22 @@ class PresaleQaRunner:
             )
         except AnswerGenerationError as exc:
             await self._tracer.fail(trace_id, tenant_id=question.tenant_id, reason=str(exc))
+            await self._idempotency_repo.update_status(
+                question.tenant_id, question.idempotency_key, "failed"
+            )
             raise QaRuntimeError(str(exc)) from exc
         except ContextBuildError as exc:
             await self._tracer.fail(trace_id, tenant_id=question.tenant_id, reason=str(exc))
+            await self._idempotency_repo.update_status(
+                question.tenant_id, question.idempotency_key, "failed"
+            )
             raise QaRuntimeError(str(exc)) from exc
         except Exception as exc:
             await self._tracer.fail(
                 trace_id, tenant_id=question.tenant_id, reason="ANSWER_GENERATION_FAILED"
+            )
+            await self._idempotency_repo.update_status(
+                question.tenant_id, question.idempotency_key, "failed"
             )
             raise QaRuntimeError("ANSWER_GENERATION_FAILED") from exc
 

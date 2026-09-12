@@ -84,6 +84,30 @@ async def test_new_runner_can_continue_disposition_after_restart(tmp_path):
 
 
 @pytest.mark.asyncio
+@pytest.mark.asyncio
+async def test_restarted_runner_rejects_duplicate_disposition(tmp_path):
+    store = SQLitePresaleStore(tmp_path / "restart.sqlite3")
+    first = sqlite_runner(store)
+    result = await first.ask(QUESTION)
+    await first.accept(
+        result.answer_draft.answer_id,
+        actor_id="usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+        reason="首次确认",
+        tenant_id="tenant-demo",
+    )
+
+    restarted = sqlite_runner(store)
+    with pytest.raises(Exception, match="ALREADY_DISPOSED"):
+        await restarted.discard(
+            result.answer_draft.answer_id,
+            actor_id="usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+            reason="重复处置",
+            tenant_id="tenant-demo",
+        )
+    store.close()
+
+
+@pytest.mark.asyncio
 async def test_wrong_tenant_cannot_load_persisted_draft(tmp_path):
     store = SQLitePresaleStore(tmp_path / "restart.sqlite3")
     first = sqlite_runner(store)

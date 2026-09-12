@@ -142,9 +142,10 @@ class AnswerDispositionService:
 
     async def _get_available(self, answer_id: str, *, tenant_id: str) -> AnswerDraft:
         if answer_id in self._records:
-            persisted = await self._repo.get_by_answer(answer_id, tenant_id=tenant_id)
-            if persisted is not None:
-                raise DispositionError("ALREADY_DISPOSED")
+            raise DispositionError("ALREADY_DISPOSED")
+        persisted = await self._repo.get_by_answer(answer_id, tenant_id=tenant_id)
+        if persisted is not None:
+            self._records[answer_id] = persisted
             raise DispositionError("ALREADY_DISPOSED")
         answer = self._drafts.get(answer_id)
         if answer is None:

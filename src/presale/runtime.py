@@ -2,6 +2,15 @@
 
 from __future__ import annotations
 
+from .adapters.sqlite import (
+    SQLiteAnswerDraftRepository,
+    SQLiteDispositionRepository,
+    SQLiteEvidenceRepository,
+    SQLiteIdempotencyRepository,
+    SQLitePresaleStore,
+    SQLiteProductQuestionRepository,
+    SQLiteRunTraceRepository,
+)
 from .definitions import B1DefinitionSource
 from .runner import PresaleQaRunner
 
@@ -31,3 +40,27 @@ class PresaleRuntimeFactory:
             **overrides,
         }
         return PresaleQaRunner(**options)
+
+    @classmethod
+    def create_sqlite(
+        cls,
+        *,
+        database,
+        definition_repository,
+        definition_selectors: dict[str, dict[str, str]],
+        sources,
+    ) -> tuple["PresaleRuntimeFactory", SQLitePresaleStore]:
+        """Create the single local-production assembly with SQLite adapters."""
+        store = SQLitePresaleStore(database)
+        factory = cls(
+            definition_repository=definition_repository,
+            definition_selectors=definition_selectors,
+            sources=sources,
+            question_repo=SQLiteProductQuestionRepository(store),
+            evidence_repo=SQLiteEvidenceRepository(store),
+            answer_repo=SQLiteAnswerDraftRepository(store),
+            disposition_repo=SQLiteDispositionRepository(store),
+            trace_repo=SQLiteRunTraceRepository(store),
+            idempotency_repo=SQLiteIdempotencyRepository(store),
+        )
+        return factory, store

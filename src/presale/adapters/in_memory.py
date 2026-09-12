@@ -42,10 +42,24 @@ class InMemoryIdempotencyRepository(IdempotencyRepository):
             return record
         if existing.business_content_digest != record.business_content_digest:
             raise IdempotencyConflictError("IDEMPOTENCY_CONFLICT")
+        if existing.status == "failed":
+            self._records[key] = record
+            return record
         return existing
 
     async def get(self, tenant_id: str, idempotency_key: str) -> IdempotencyRecord | None:
         return self._records.get((tenant_id, idempotency_key))
+
+    async def update_status(
+        self, tenant_id: str, idempotency_key: str, status: str
+    ) -> IdempotencyRecord:
+        key = (tenant_id, idempotency_key)
+        existing = self._records.get(key)
+        if existing is None:
+            raise NotFoundError("not found")
+        updated = existing.model_copy(update={"status": status})
+        self._records[key] = updated
+        return updated
 
 
 class InMemoryProductQuestionRepository(ProductQuestionRepository):
