@@ -9,11 +9,13 @@ from __future__ import annotations
 from ..answer import AnswerDraft
 from ..contracts import ProductQuestion
 from ..disposition import HumanDispositionRecord
+from ..idempotency import IdempotencyConflictError, IdempotencyRecord
 from ..knowledge import EvidenceItem
 from ..ports import (
     AnswerDraftRepository,
     DispositionRepository,
     EvidenceRepository,
+    IdempotencyRepository,
     NotFoundError,
     ProductQuestionRepository,
     RunTraceRepository,
@@ -24,6 +26,26 @@ from ..trace import DispositionState, PresaleRunTrace
 def _ensure_tenant(entity_tenant: str, tenant_id: str) -> None:
     if entity_tenant != tenant_id:
         raise NotFoundError("entity not found for tenant")
+
+
+class InMemoryIdempotencyRepository(IdempotencyRepository):
+    """In-memory atomic idempotency claims."""
+
+    def __init__(self):
+        self._records: dict[tuple[str, str], IdempotencyRecord] = {}
+
+    async def claim(self, record: IdempotencyRecord) -> IdempotencyRecord:
+        key = (record.tenant_id, record.idempotency_key)
+        existing = self._records.get(key)
+        if existing is None:
+            self._records[key] = record
+            return record
+        if existing.business_content_digest != record.business_content_digest:
+            raise IdempotencyConflictError("IDEMPOTENCY_CONFLICT")
+        return existing
+
+    async def get(self, tenant_id: str, idempotency_key: str) -> IdempotencyRecord | None:
+        return self._records.get((tenant_id, idempotency_key))
 
 
 class InMemoryProductQuestionRepository(ProductQuestionRepository):
@@ -134,6 +156,7 @@ class InMemoryRunTraceRepository(RunTraceRepository):
 
 
 __all__ = [
+    "InMemoryIdempotencyRepository",
     "InMemoryProductQuestionRepository",
     "InMemoryEvidenceRepository",
     "InMemoryAnswerDraftRepository",

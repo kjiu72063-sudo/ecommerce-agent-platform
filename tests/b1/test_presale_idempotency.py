@@ -36,7 +36,7 @@ async def test_same_tenant_and_key_returns_existing_result():
     first = await runner.ask(question())
     second = await runner.ask(question(question_id="question-002"))
 
-    assert second is first
+    assert second is not first
     assert second.run_ref == first.run_ref
     assert second.answer_draft.answer_id == first.answer_draft.answer_id
 

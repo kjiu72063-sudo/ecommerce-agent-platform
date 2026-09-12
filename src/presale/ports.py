@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from .answer import AnswerDraft
     from .contracts import ProductQuestion
     from .disposition import HumanDispositionRecord
+    from .idempotency import IdempotencyRecord
     from .knowledge import EvidenceItem
     from .trace import PresaleRunTrace
 
@@ -48,6 +49,18 @@ class ProductQuestionRepository(ABC):
         self, tenant_id: str, idempotency_key: str
     ) -> ProductQuestion | None:
         """Return the question for a tenant+key, or None when absent."""
+
+
+class IdempotencyRepository(ABC):
+    """Atomically claim a tenant-scoped idempotency key."""
+
+    @abstractmethod
+    async def claim(self, record: IdempotencyRecord) -> IdempotencyRecord:
+        """Return the existing record or persist the new claim atomically."""
+
+    @abstractmethod
+    async def get(self, tenant_id: str, idempotency_key: str) -> IdempotencyRecord | None:
+        """Return a tenant/key record, or None when no claim exists."""
 
 
 class EvidenceRepository(ABC):

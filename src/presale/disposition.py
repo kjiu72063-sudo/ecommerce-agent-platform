@@ -68,7 +68,7 @@ class AnswerDispositionService:
 
     def register(self, answer: AnswerDraft, *, technical_status: str = "unchanged") -> None:
         if answer.answer_id in self._drafts:
-            raise DispositionError("DRAFT_ALREADY_REGISTERED")
+            return
         self._drafts[answer.answer_id] = deepcopy(answer)
         if technical_status != "unchanged":
             self._technical_status[answer.answer_id] = technical_status

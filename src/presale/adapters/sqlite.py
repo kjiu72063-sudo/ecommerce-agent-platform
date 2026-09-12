@@ -14,11 +14,13 @@ from pathlib import Path
 from ..answer import AnswerDraft
 from ..contracts import ProductQuestion
 from ..disposition import HumanDispositionRecord
+from ..idempotency import IdempotencyConflictError, IdempotencyRecord
 from ..knowledge import EvidenceItem
 from ..ports import (
     AnswerDraftRepository,
     DispositionRepository,
     EvidenceRepository,
+    IdempotencyRepository,
     NotFoundError,
     ProductQuestionRepository,
     RunTraceRepository,
@@ -37,7 +39,14 @@ class SQLitePresaleStore:
             """
             CREATE TABLE IF NOT EXISTS presale_questions (
                 id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL,
-                idempotency_key TEXT NOT NULL, content TEXT NOT NULL
+                idempotency_key TEXT NOT NULL, content TEXT NOT NULL,
+                UNIQUE(tenant_id, idempotency_key)
+            );
+            CREATE TABLE IF NOT EXISTS presale_idempotency (
+                tenant_id TEXT NOT NULL,
+                idempotency_key TEXT NOT NULL,
+                content TEXT NOT NULL,
+                PRIMARY KEY(tenant_id, idempotency_key)
             );
             CREATE TABLE IF NOT EXISTS presale_evidence (
                 run_ref TEXT NOT NULL, tenant_id TEXT NOT NULL, content TEXT NOT NULL
@@ -57,6 +66,48 @@ class SQLitePresaleStore:
 
     def close(self) -> None:
         self.db.close()
+
+
+class SQLiteIdempotencyRepository(IdempotencyRepository):
+    """SQLite-backed atomic idempotency claims."""
+
+    def __init__(self, store: SQLitePresaleStore):
+        self._db = store.db
+
+    async def claim(self, record: IdempotencyRecord) -> IdempotencyRecord:
+        row = self._db.execute(
+            "SELECT content FROM presale_idempotency WHERE tenant_id = ? AND idempotency_key = ?",
+            (record.tenant_id, record.idempotency_key),
+        ).fetchone()
+        if row is not None:
+            existing = IdempotencyRecord.model_validate_json(row["content"])
+            if existing.business_content_digest != record.business_content_digest:
+                raise IdempotencyConflictError("IDEMPOTENCY_CONFLICT")
+            return existing
+        try:
+            self._db.execute(
+                (
+                    "INSERT INTO presale_idempotency "
+                    "(tenant_id, idempotency_key, content) VALUES (?, ?, ?)"
+                ),
+                (record.tenant_id, record.idempotency_key, record.model_dump_json()),
+            )
+            self._db.commit()
+        except sqlite3.IntegrityError:
+            existing = await self.get(record.tenant_id, record.idempotency_key)
+            if existing is None:
+                raise
+            if existing.business_content_digest != record.business_content_digest:
+                raise IdempotencyConflictError("IDEMPOTENCY_CONFLICT")
+            return existing
+        return record
+
+    async def get(self, tenant_id: str, idempotency_key: str) -> IdempotencyRecord | None:
+        row = self._db.execute(
+            "SELECT content FROM presale_idempotency WHERE tenant_id = ? AND idempotency_key = ?",
+            (tenant_id, idempotency_key),
+        ).fetchone()
+        return IdempotencyRecord.model_validate_json(row["content"]) if row else None
 
 
 class SQLiteProductQuestionRepository(ProductQuestionRepository):

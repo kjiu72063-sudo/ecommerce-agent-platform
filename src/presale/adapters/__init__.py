@@ -11,12 +11,14 @@ from .in_memory import (
     InMemoryAnswerDraftRepository,
     InMemoryDispositionRepository,
     InMemoryEvidenceRepository,
+    InMemoryIdempotencyRepository,
     InMemoryProductQuestionRepository,
     InMemoryRunTraceRepository,
 )
 
 __all__ = [
     "InMemoryAnswerDraftRepository",
+    "InMemoryIdempotencyRepository",
     "InMemoryDispositionRepository",
     "InMemoryEvidenceRepository",
     "InMemoryProductQuestionRepository",
