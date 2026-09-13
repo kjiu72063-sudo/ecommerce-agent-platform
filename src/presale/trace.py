@@ -41,6 +41,8 @@ class RetentionPolicy:
     retain_days: int = 30
 
     def is_expired(self, created_at: datetime, now: datetime) -> bool:
+        if created_at.tzinfo is None or now.tzinfo is None:
+            raise TraceError("TIMEZONE_REQUIRED")
         return created_at <= now - timedelta(days=self.retain_days)
 
 

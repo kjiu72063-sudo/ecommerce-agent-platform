@@ -1,10 +1,13 @@
 """Maintenance (retention archive) HTTP endpoint tests."""
 
 import asyncio
+import threading
 from datetime import datetime, timedelta, timezone
 
+import pytest
 from fastapi.testclient import TestClient
 
+from presale import maintenance
 from presale.adapters.sqlite import SQLitePresaleStore, SQLiteRunTraceRepository
 from presale.api.main import app
 from presale.contracts import ProductQuestion
@@ -105,3 +108,43 @@ def test_archive_corrupt_database_returns_400(tmp_path, monkeypatch):
     )
 
     assert resp.status_code == 400
+
+
+def test_archive_corrupt_trace_row_returns_400(tmp_path, monkeypatch):
+    # A valid SQLite db whose stored trace row is corrupt must surface as a
+    # controlled 400 (deserialization ValueError), not a 500.
+    root = tmp_path / "root"
+    root.mkdir()
+    monkeypatch.setenv("PRESALE_DB_DIR", str(root))
+    db_path = root / "traces.sqlite3"
+    store = SQLitePresaleStore(db_path)
+    store.db.execute(
+        "INSERT INTO presale_traces (run_ref, tenant_id, content) VALUES (?, ?, ?)",
+        ("run_corrupt", "tenant-demo", "{corrupt json"),
+    )
+    store.db.commit()
+    store.close()
+    client = TestClient(app)
+
+    resp = client.post(
+        "/api/v1/presale/maintenance/retention/archive",
+        params={"tenant_id": "tenant-demo", "database": str(db_path)},
+    )
+
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_archive_expired_facade_runs_blocking_in_worker_thread(monkeypatch):
+    caller_thread = threading.get_ident()
+    seen = {}
+
+    def fake_blocking(*, database, tenant_id, now=None):
+        seen["thread"] = threading.get_ident()
+        return []
+
+    monkeypatch.setattr(maintenance, "archive_expired_sqlite_blocking", fake_blocking)
+
+    await maintenance.archive_expired_sqlite(database="x", tenant_id="t")
+
+    assert seen["thread"] != caller_thread

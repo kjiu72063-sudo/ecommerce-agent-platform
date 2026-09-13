@@ -251,3 +251,94 @@ async def test_success_status_write_failure_replays_existing_answer():
     ).ask(question())
 
     assert retried.answer_draft.answer_id == persisted.answer_id
+
+
+@pytest.mark.asyncio
+async def test_mark_failed_claim_is_set_even_when_trace_cleanup_fails():
+    from presale.trace import PresaleRunTrace
+
+    repo = InMemoryIdempotencyRepository()
+
+    class TraceRepoDown:
+        async def save(self, trace):
+            pass
+
+        async def get(self, run_ref, *, tenant_id):
+            raise RuntimeError("trace repo down")
+
+        async def list_by_tenant(self, *, tenant_id):
+            return []
+
+        async def mark_disposition(self, run_ref, *, tenant_id, state):
+            pass
+
+        async def mark_archived(self, run_ref, *, tenant_id):
+            pass
+
+    runner = PresaleQaRunner(
+        sources=[source()],
+        idempotency_repo=repo,
+        trace_repo=TraceRepoDown(),
+    )
+
+    with pytest.raises(QaRuntimeError, match="ANSWER_GENERATION_FAILED"):
+        await runner.ask(question())
+
+    # tracer.fail reuses the broken trace repo and raises; the independent claim
+    # cleanup must still run so the claim is never left stuck in_progress.
+    claim = await repo.get("tenant-demo", "state-key-001")
+    assert claim is not None
+    assert claim.status == "failed"
+
+
+@pytest.mark.asyncio
+async def test_unconfirmed_trace_after_persist_is_not_marked_succeeded():
+    from presale.trace import PresaleRunTrace
+
+    repo = InMemoryIdempotencyRepository()
+
+    class TraceGetBreaksOnAttach:
+        def __init__(self):
+            self.gets = 0
+
+        async def save(self, trace):
+            pass
+
+        async def get(self, run_ref, *, tenant_id):
+            self.gets += 1
+            if self.gets == 4:  # attach_answer's _require lookup
+                raise RuntimeError("trace get down on attach")
+            return PresaleRunTrace(
+                run_ref=run_ref,
+                tenant_id=tenant_id,
+                question_id="q",
+                task_id="t",
+                agent_run_id=run_ref,
+                configuration_refs={},
+                stages=[],
+            )
+
+        async def list_by_tenant(self, *, tenant_id):
+            return []
+
+        async def mark_disposition(self, run_ref, *, tenant_id, state):
+            pass
+
+        async def mark_archived(self, run_ref, *, tenant_id):
+            pass
+
+    runner = PresaleQaRunner(
+        sources=[source()],
+        idempotency_repo=repo,
+        trace_repo=TraceGetBreaksOnAttach(),
+    )
+
+    with pytest.raises(QaRuntimeError, match="ANSWER_GENERATION_FAILED"):
+        await runner.ask(question())
+
+    # The draft is durable but its trace was not confirmed readable: the claim
+    # must not be marked succeeded (unconsumable) nor failed (forced duplicate),
+    # only in_progress so a retry replays the durable draft.
+    claim = await repo.get("tenant-demo", "state-key-001")
+    assert claim is not None
+    assert claim.status == "in_progress"

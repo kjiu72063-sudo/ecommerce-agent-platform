@@ -40,6 +40,8 @@ class RetentionService:
                 continue
             if trace.archived:
                 continue
+            if not trace.stages:
+                raise TraceError("TRACE_INVALID:NO_STAGES")
             created_at = trace.stages[0].occurred_at
             if self._retention.is_expired(created_at, now):
                 await self._repo.mark_archived(trace.run_ref, tenant_id=tenant_id)

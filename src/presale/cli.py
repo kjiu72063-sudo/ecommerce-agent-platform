@@ -129,6 +129,10 @@ async def _retention_archive(args: argparse.Namespace) -> dict[str, Any]:
 async def _dispatch(args: argparse.Namespace) -> dict[str, Any]:
     if args.archive_expired:
         return await _retention_archive(args)
+    if args.db:
+        # --db is only meaningful for the retention archive; silently ignoring it
+        # in a QA run would mislead an operator into thinking persistence is on.
+        raise SystemExit("--db is only used with --archive-expired")
     if args.trace_file:
         return _query(args)
     missing = [

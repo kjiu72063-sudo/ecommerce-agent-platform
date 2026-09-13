@@ -32,7 +32,7 @@ uv run ruff format --check src
 uv run pre-commit run --all-files   # 本地钩子，非 CI 强制
 ```
 
-当前基线：全量测试 176 passed（以 `开发文档/09-质量基线与门禁台账.md` 的带日期台账为准）。CI 通过 GitHub Actions（`.github/workflows/ci.yml`）在 `main` 与每个 PR 上运行门禁（ruff check/format src + pytest）并带 `concurrency` 取消旧 run；受免费私有仓无分支保护限制，CI 无法硬性拦截合并，合并前需人工核对 PR 的 CI 为 pass。测试规范入口位于 `tests/b1`、`tests/b2`、`tests/b3`；旧 B 目录中的测试保留作阶段迁移参考，不再作为根级默认收集入口。
+当前基线：全量测试 183 passed（以 `开发文档/09-质量基线与门禁台账.md` 的带日期台账为准）。CI 通过 GitHub Actions（`.github/workflows/ci.yml`）在 `main` 与每个 PR 上运行门禁（ruff check/format src + pytest）并带 `concurrency` 取消旧 run；受免费私有仓无分支保护限制，CI 无法硬性拦截合并，合并前需人工核对 PR 的 CI 为 pass。测试规范入口位于 `tests/b1`、`tests/b2`、`tests/b3`；旧 B 目录中的测试保留作阶段迁移参考，不再作为根级默认收集入口。
 
 ## 目录边界
 

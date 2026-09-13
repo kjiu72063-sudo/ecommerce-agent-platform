@@ -136,6 +136,7 @@ class PresaleQaRunner:
 
         trace_id: str | None = None
         answer_persisted = False
+        completed = False
         try:
             frozen = await self._definition_source.resolve(tenant_id=question.tenant_id)
             configuration_refs = frozen.configuration_refs
@@ -196,6 +197,7 @@ class PresaleQaRunner:
                 answer_draft=draft,
                 trace=await self._tracer.get(trace_id, tenant_id=question.tenant_id),
             )
+            completed = True
             await self._idempotency_repo.update_status(
                 question.tenant_id, question.idempotency_key, "succeeded"
             )
@@ -207,12 +209,18 @@ class PresaleQaRunner:
             await self._mark_failed(question, trace_id=trace_id, reason=str(exc), mark_trace=True)
             raise QaRuntimeError(str(exc)) from exc
         except Exception as exc:
-            if answer_persisted:
-                # The answer is already durable and its trace is valid. Confirm
-                # succeeded if possible; if that write fails, leave the claim
-                # in_progress so a retry with the same key replays the existing
-                # draft instead of regenerating a duplicate answer.
+            if completed:
+                # The full result (draft + readable trace) was built; only the
+                # final succeeded write is in doubt. Best-effort confirm it; a
+                # transient failure leaves the claim in_progress and a retry
+                # replays the already-built result.
                 await self._confirm_succeeded(question)
+            elif answer_persisted:
+                # The draft is durable but the trace could not be confirmed
+                # (attach/record/read failed). Do NOT mark succeeded (not
+                # replayable) nor failed (would force a duplicate); leave the
+                # claim in_progress so a retry replays the durable draft.
+                pass
             else:
                 await self._mark_failed(
                     question,
