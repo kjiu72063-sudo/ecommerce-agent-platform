@@ -83,6 +83,27 @@ async def test_existing_in_progress_claim_returns_not_ready():
         await runner.ask(question())
 
 
+@pytest.mark.asyncio
+async def test_succeeded_claim_with_missing_draft_returns_not_ready():
+    repo = InMemoryIdempotencyRepository()
+    await repo.claim(
+        IdempotencyRecord(
+            tenant_id="tenant-demo",
+            idempotency_key="state-key-001",
+            business_content_digest=canonical_sha256(
+                {"product_id": "product-001", "question_text": "这款商品适合夏季使用吗？"}
+            ),
+            run_ref="run_02222222-2222-7222-8222-222222222222",
+            created_at=datetime.now(timezone.utc),
+        )
+    )
+    await repo.update_status("tenant-demo", "state-key-001", "succeeded")
+    runner = PresaleQaRunner(sources=[source()], idempotency_repo=repo)
+
+    with pytest.raises(ValueError, match="IDEMPOTENCY_RESULT_NOT_READY"):
+        await runner.ask(question())
+
+
 class BlockingDefinitionSource:
     """resolve() awaits an event so a run yields at a controlled point.
 

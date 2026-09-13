@@ -141,3 +141,13 @@ async def test_missing_draft_fails_explicitly():
         await AnswerDispositionService().accept(
             "missing-answer", actor_id=ACTOR, reason="不存在", tenant_id=TENANT
         )
+
+
+@pytest.mark.asyncio
+async def test_blank_reason_is_rejected():
+    service = AnswerDispositionService()
+    original = draft()
+    service.register(original)
+
+    with pytest.raises(DispositionError, match="DISPOSITION_REASON_REQUIRED"):
+        await service.accept(original.answer_id, actor_id=ACTOR, reason="   ", tenant_id=TENANT)

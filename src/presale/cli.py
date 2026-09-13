@@ -12,8 +12,10 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from .adapters.sqlite import SQLitePresaleStore, SQLiteRunTraceRepository
 from .contracts import ProductQuestion
 from .knowledge import KnowledgeSource
+from .retention import RetentionService
 from .runner import PresaleQaResult, PresaleQaRunner, QaRuntimeError
 from .trace import PresaleRunTrace, TraceError
 
@@ -86,6 +88,12 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--save-trace", help="Path to append the run trace as JSON")
     parser.add_argument("--trace-file", help="Path to a saved trace file to query")
     parser.add_argument("--trace-run-ref", help="run ref to query from --trace-file")
+    parser.add_argument("--db", help="SQLite database path for the retention archive")
+    parser.add_argument(
+        "--archive-expired",
+        action="store_true",
+        help="Run the 30-day retention archive against --db for --tenant",
+    )
     return parser.parse_args(argv)
 
 
@@ -112,7 +120,23 @@ def _query(args: argparse.Namespace) -> dict[str, Any]:
     return trace.model_dump(mode="json")
 
 
+async def _retention_archive(args: argparse.Namespace) -> dict[str, Any]:
+    if not args.db:
+        raise SystemExit("--archive-expired requires --db")
+    store = SQLitePresaleStore(args.db)
+    try:
+        service = RetentionService(SQLiteRunTraceRepository(store))
+        archived = await service.archive_expired(
+            tenant_id=args.tenant, now=datetime.now(timezone.utc)
+        )
+    finally:
+        store.close()
+    return {"archived": archived}
+
+
 async def _dispatch(args: argparse.Namespace) -> dict[str, Any]:
+    if args.archive_expired:
+        return await _retention_archive(args)
     if args.trace_file:
         return _query(args)
     missing = [

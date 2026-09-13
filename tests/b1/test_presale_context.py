@@ -31,7 +31,14 @@ ARTIFACT_REF = {
 }
 
 
-def evidence(*, content="适合夏季使用", tenant_id="tenant-demo", product_id="product-001", locator="spec.season", digest=None):
+def evidence(
+    *,
+    content="适合夏季使用",
+    tenant_id="tenant-demo",
+    product_id="product-001",
+    locator="spec.season",
+    digest=None,
+):
     return EvidenceItem(
         source_id="catalog-001",
         source_version="2026.09.01",
@@ -71,8 +78,14 @@ def test_deduplicates_same_content_digest_using_highest_priority():
     package = builder.build(
         QUESTION,
         [
-            {"evidence": evidence(content="适合夏季使用", locator="spec.season", digest=digest), "priority": 30},
-            {"evidence": evidence(content="适合夏季使用", locator="faq.1", digest=digest), "priority": 90},
+            {
+                "evidence": evidence(content="适合夏季使用", locator="spec.season", digest=digest),
+                "priority": 30,
+            },
+            {
+                "evidence": evidence(content="适合夏季使用", locator="faq.1", digest=digest),
+                "priority": 90,
+            },
         ],
         run_ref=RUN_REF,
         policy_ref=POLICY_REF,
@@ -126,5 +139,31 @@ def test_rejects_total_budget_overflow():
             [{"evidence": evidence(content="超过总预算的商品说明"), "priority": 80}],
             run_ref=RUN_REF,
             policy_ref=POLICY_REF,
+            artifact_ref=ARTIFACT_REF,
+        )
+
+
+def test_rejects_non_evidence_item():
+    builder = PresaleContextBuilder(total_tokens=100, per_source_tokens={"evidence": 100})
+
+    with pytest.raises(ContextBuildError, match="INVALID_EVIDENCE"):
+        builder.build(
+            QUESTION,
+            [{"evidence": {"content": "not an EvidenceItem"}, "priority": 80}],
+            run_ref=RUN_REF,
+            policy_ref=POLICY_REF,
+            artifact_ref=ARTIFACT_REF,
+        )
+
+
+def test_malformed_policy_ref_raises_contract_invalid():
+    builder = PresaleContextBuilder(total_tokens=100, per_source_tokens={"evidence": 100})
+
+    with pytest.raises(ContextBuildError, match="CONTEXT_CONTRACT_INVALID"):
+        builder.build(
+            QUESTION,
+            [{"evidence": evidence(), "priority": 80}],
+            run_ref=RUN_REF,
+            policy_ref={},  # missing required keys -> service/B0 validation fails
             artifact_ref=ARTIFACT_REF,
         )
