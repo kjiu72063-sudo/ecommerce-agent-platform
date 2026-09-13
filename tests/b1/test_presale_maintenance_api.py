@@ -74,14 +74,34 @@ def test_archive_requires_tenant_id(tmp_path):
     assert resp.status_code == 422  # missing required tenant_id query is rejected
 
 
-def test_archive_rejects_database_outside_allowed_dir(tmp_path):
-    # PRESALE_DB_DIR is unset -> default is cwd; tmp_path is outside it.
+def test_archive_rejects_database_outside_allowed_dir(tmp_path, monkeypatch):
+    # Explicitly pin the whitelist root so the test is independent of the ambient
+    # PRESALE_DB_DIR and working directory.
+    root = tmp_path / "root"
+    monkeypatch.setenv("PRESALE_DB_DIR", str(root))
     client = TestClient(app)
 
     resp = client.post(
         "/api/v1/presale/maintenance/retention/archive",
-        params={"tenant_id": "tenant-demo", "database": str(tmp_path / "x.sqlite3")},
+        params={"tenant_id": "tenant-demo", "database": str(tmp_path / "outside" / "x.sqlite3")},
     )
 
     assert resp.status_code == 400
     assert "PRESALE_DB_DIR" in resp.json()["detail"]
+
+
+def test_archive_corrupt_database_returns_400(tmp_path, monkeypatch):
+    # A non-sqlite file must surface as a controlled 400, not a 500.
+    root = tmp_path / "root"
+    root.mkdir()
+    monkeypatch.setenv("PRESALE_DB_DIR", str(root))
+    bad_db = root / "bad.sqlite3"
+    bad_db.write_text("this is not a sqlite database", encoding="utf-8")
+    client = TestClient(app)
+
+    resp = client.post(
+        "/api/v1/presale/maintenance/retention/archive",
+        params={"tenant_id": "tenant-demo", "database": str(bad_db)},
+    )
+
+    assert resp.status_code == 400

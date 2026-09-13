@@ -157,3 +157,26 @@ async def test_definition_resolution_failure_marks_claim_failed():
     claim = await repo.get(TENANT, "question-001-key")
     assert claim is not None
     assert claim.status == "failed"
+
+
+@pytest.mark.asyncio
+async def test_context_failure_branch_marks_claim_and_trace_failed():
+    from presale.adapters.in_memory import InMemoryRunTraceRepository
+
+    idem = InMemoryIdempotencyRepository()
+    traces = InMemoryRunTraceRepository()
+    runner = PresaleQaRunner(
+        sources=[source()],
+        idempotency_repo=idem,
+        trace_repo=traces,
+        context_budget_tokens=1,  # force ContextBuildError -> TOKEN_BUDGET_EXCEEDED
+    )
+
+    with pytest.raises(QaRuntimeError, match="TOKEN_BUDGET_EXCEEDED"):
+        await runner.ask(QUESTION)
+
+    claim = await idem.get(TENANT, "question-001-key")
+    assert claim is not None
+    assert claim.status == "failed"
+    trace = await traces.get(claim.run_ref, tenant_id=TENANT)
+    assert trace.failed is True
