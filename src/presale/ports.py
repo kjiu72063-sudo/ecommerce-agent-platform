@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from .answer import AnswerDraft
     from .contracts import ProductQuestion
     from .disposition import HumanDispositionRecord
+    from .idempotency import IdempotencyRecord
     from .knowledge import EvidenceItem
     from .trace import PresaleRunTrace
 
@@ -50,6 +51,24 @@ class ProductQuestionRepository(ABC):
         """Return the question for a tenant+key, or None when absent."""
 
 
+class IdempotencyRepository(ABC):
+    """Atomically claim a tenant-scoped idempotency key."""
+
+    @abstractmethod
+    async def claim(self, record: IdempotencyRecord) -> IdempotencyRecord:
+        """Return the existing record or persist the new claim atomically."""
+
+    @abstractmethod
+    async def get(self, tenant_id: str, idempotency_key: str) -> IdempotencyRecord | None:
+        """Return a tenant/key record, or None when no claim exists."""
+
+    @abstractmethod
+    async def update_status(
+        self, tenant_id: str, idempotency_key: str, status: str
+    ) -> IdempotencyRecord:
+        """Transition a claim to succeeded or failed; raise NotFoundError if absent."""
+
+
 class EvidenceRepository(ABC):
     """Persist EvidenceItems selected during a run."""
 
@@ -68,6 +87,10 @@ class AnswerDraftRepository(ABC):
     @abstractmethod
     async def save(self, draft: AnswerDraft, *, tenant_id: str) -> None:
         """Persist a draft within a tenant. Adapter must reject cross-tenant writes."""
+
+    @abstractmethod
+    async def get_by_id(self, answer_id: str, *, tenant_id: str) -> AnswerDraft:
+        """Return a draft by answer id within a tenant; raise NotFoundError if absent."""
 
     @abstractmethod
     async def get_by_run(self, run_ref: str, *, tenant_id: str) -> AnswerDraft | None:

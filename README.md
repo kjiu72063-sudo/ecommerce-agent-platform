@@ -8,6 +8,7 @@
 |---|---|---|
 | B0 | Agent Platform 契约、JSON Schema、Pydantic 模型、状态机和示例 | 已纳入根级包；发布收敛仍在进行 |
 | B1 | 能力注册中心、依赖解析、内存/SQLite 仓储、FastAPI 原型 | 本地闭环；未承诺生产部署 |
+| B1 售前 QA（V1 切片） | 确定性检索→上下文→回答→处置 的只读售前问答；租户隔离、幂等状态机、SQLite 持久化、30 天保留、B1 定义装配 | 已交付 `src/presale` |
 | B2 | Task、AgentRun、Event、Checkpoint 和 SQLite 持久化 | 本地闭环；未承诺分布式一致性 |
 | B3 | 确定性 Context 组装、去重、排序和预算校验 | 最小闭环 |
 | B4–B6 | Harness、Loop、业务 Agent | 尚未实现 |
@@ -31,7 +32,7 @@ uv run ruff format --check src
 uv run pre-commit run --all-files
 ```
 
-当前基线：根级测试 52 passed。测试规范入口位于 `tests/b1`、`tests/b2`、`tests/b3`；旧 B 目录中的测试保留作阶段迁移参考，不再作为根级默认收集入口。
+当前基线：全量测试 156 passed。CI 通过 GitHub Actions（`.github/workflows/ci.yml`）在 `main` 与 PR 上强制执行上述门禁（ruff check/format src + pytest）。测试规范入口位于 `tests/b1`、`tests/b2`、`tests/b3`；旧 B 目录中的测试保留作阶段迁移参考，不再作为根级默认收集入口。
 
 ## 目录边界
 
@@ -40,7 +41,8 @@ src/
 ├── agent_platform_contracts/  # B0 唯一运行时包和契约资产
 ├── registry/                  # B1 能力注册中心
 ├── runtime/                   # B2 状态与持久化
-└── context/                   # B3 Context 引擎
+├── context/                   # B3 Context 引擎
+└── presale/                   # B1 售前商品问答 V1 切片（幂等/SQLite/生产装配）
 
 tests/                         # 根级规范测试
 B0-契约基础/contracts/          # B0 契约包来源与交付材料

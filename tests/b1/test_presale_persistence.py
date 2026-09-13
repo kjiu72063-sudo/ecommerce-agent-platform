@@ -9,6 +9,7 @@ from presale.adapters.sqlite import (
     SQLiteAnswerDraftRepository,
     SQLiteDispositionRepository,
     SQLiteEvidenceRepository,
+    SQLiteIdempotencyRepository,
     SQLitePresaleStore,
     SQLiteProductQuestionRepository,
     SQLiteRunTraceRepository,
@@ -39,27 +40,75 @@ def source():
     )
 
 
-def _sqlite_runner(tmp_path):
-    store = SQLitePresaleStore(tmp_path / "presale.sqlite3")
-    runner = PresaleQaRunner(
+def _sqlite_runner(store):
+    return PresaleQaRunner(
         sources=[source()],
         question_repo=SQLiteProductQuestionRepository(store),
         evidence_repo=SQLiteEvidenceRepository(store),
         answer_repo=SQLiteAnswerDraftRepository(store),
         disposition_repo=SQLiteDispositionRepository(store),
         trace_repo=SQLiteRunTraceRepository(store),
+        idempotency_repo=SQLiteIdempotencyRepository(store),
     )
-    runner._sqlite_store = store
-    return runner
 
 
 @pytest.mark.asyncio
 async def test_ports_persist_main_path(tmp_path):
-    runner = _sqlite_runner(tmp_path)
+    store = SQLitePresaleStore(tmp_path / "presale.sqlite3")
+    runner = _sqlite_runner(store)
     result = await runner.ask(QUESTION)
     assert result.answer_draft.evidence_refs
     assert result.trace.run_ref == result.run_ref
-    runner._sqlite_store.close()
+    store.close()
+
+
+@pytest.mark.asyncio
+async def test_duplicate_submission_after_restart_reuses_existing_result(tmp_path):
+    store = SQLitePresaleStore(tmp_path / "presale.sqlite3")
+    first = _sqlite_runner(store)
+    result = await first.ask(QUESTION)
+
+    restarted = _sqlite_runner(store)
+    replay = await restarted.ask(QUESTION)
+
+    assert replay.run_ref == result.run_ref
+    assert replay.answer_draft.answer_id == result.answer_draft.answer_id
+    store.close()
+
+
+@pytest.mark.asyncio
+async def test_failed_claim_can_be_retried(tmp_path):
+    store = SQLitePresaleStore(tmp_path / "presale.sqlite3")
+
+    class FailingGenerator:
+        def generate(self, *args, **kwargs):
+            raise RuntimeError("temporary")
+
+    first = PresaleQaRunner(
+        sources=[source()],
+        generator=FailingGenerator(),
+        question_repo=SQLiteProductQuestionRepository(store),
+        evidence_repo=SQLiteEvidenceRepository(store),
+        answer_repo=SQLiteAnswerDraftRepository(store),
+        disposition_repo=SQLiteDispositionRepository(store),
+        trace_repo=SQLiteRunTraceRepository(store),
+        idempotency_repo=SQLiteIdempotencyRepository(store),
+    )
+    with pytest.raises(Exception, match="ANSWER_GENERATION_FAILED"):
+        await first.ask(QUESTION)
+
+    retry = PresaleQaRunner(
+        sources=[source()],
+        question_repo=SQLiteProductQuestionRepository(store),
+        evidence_repo=SQLiteEvidenceRepository(store),
+        answer_repo=SQLiteAnswerDraftRepository(store),
+        disposition_repo=SQLiteDispositionRepository(store),
+        trace_repo=SQLiteRunTraceRepository(store),
+        idempotency_repo=SQLiteIdempotencyRepository(store),
+    )
+    result = await retry.ask(QUESTION)
+    assert result.answer_draft.need_human is False
+    store.close()
 
 
 @pytest.mark.asyncio

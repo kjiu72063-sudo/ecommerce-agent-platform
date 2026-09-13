@@ -7,6 +7,7 @@ from typing import Any
 from agent_platform_contracts.models import ContextPackage
 from context.context_service import ContextService, TokenBudgetExceeded, estimate_tokens
 
+from .artifact import InMemoryContextArtifactStore
 from .contracts import ProductQuestion
 from .knowledge import EvidenceItem
 
@@ -18,9 +19,16 @@ class ContextBuildError(ValueError):
 class PresaleContextBuilder:
     """Validate presale evidence and delegate package validation to B3."""
 
-    def __init__(self, *, total_tokens: int, per_source_tokens: dict[str, int]):
+    def __init__(
+        self,
+        *,
+        total_tokens: int,
+        per_source_tokens: dict[str, int],
+        artifact_store: InMemoryContextArtifactStore | None = None,
+    ):
         self.total_tokens = total_tokens
         self.per_source_tokens = dict(per_source_tokens)
+        self.artifact_store = artifact_store or InMemoryContextArtifactStore()
 
     def build(
         self,
@@ -29,7 +37,7 @@ class PresaleContextBuilder:
         *,
         run_ref: dict[str, str],
         policy_ref: dict[str, str],
-        artifact_ref: dict[str, str],
+        artifact_ref: dict[str, str] | None = None,
     ) -> Any:
         if not evidence_sources:
             raise ContextBuildError("NO_EVIDENCE")
@@ -84,11 +92,14 @@ class PresaleContextBuilder:
             }
         }
         service = ContextService(policy)
+        artifact = self.artifact_store.create_context_artifact(
+            {"sections": descriptor_sources, "total_tokens": total}
+        )
         descriptor = {
             "run_ref": run_ref,
             "model_call_sequence": 1,
             "policy_ref": policy_ref,
-            "artifact_ref": artifact_ref,
+            "artifact_ref": artifact.model_dump(mode="json"),
             "redaction_summary": {"secret_count": 0, "pii_count": 0},
             "sources": descriptor_sources,
         }

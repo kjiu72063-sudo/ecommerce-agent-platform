@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from uuid import UUID, uuid4
 
+from agent_platform_contracts.policies import canonical_sha256
+
 from .answer import AnswerGenerationError, PresaleAnswerGenerator
 from .context import ContextBuildError, PresaleContextBuilder
 from .contracts import ProductQuestion
@@ -13,11 +15,14 @@ from .definitions import (
     StaticDefinitionSource,
 )
 from .disposition import AnswerDispositionService, HumanDispositionRecord
+from .idempotency import IdempotencyConflictError as IdempotencyConflictError
+from .idempotency import IdempotencyRecord
 from .knowledge import DeterministicKnowledgeRetriever, KnowledgeSource
 from .ports import (
     AnswerDraftRepository,
     DispositionRepository,
     EvidenceRepository,
+    IdempotencyRepository,
     ProductQuestionRepository,
     RunTraceRepository,
 )
@@ -26,10 +31,6 @@ from .trace import PresaleRunTracer, TraceError
 
 class QaRuntimeError(ValueError):
     """A presale QA run failed without a trustworthy result."""
-
-
-class IdempotencyConflictError(ValueError):
-    """The same idempotency key was reused with different business content."""
 
 
 def _uuid7() -> UUID:
@@ -72,11 +73,13 @@ class PresaleQaRunner:
         answer_repo: AnswerDraftRepository | None = None,
         disposition_repo: DispositionRepository | None = None,
         trace_repo: RunTraceRepository | None = None,
+        idempotency_repo: IdempotencyRepository | None = None,
     ):
         from .adapters.in_memory import (
             InMemoryAnswerDraftRepository,
             InMemoryDispositionRepository,
             InMemoryEvidenceRepository,
+            InMemoryIdempotencyRepository,
             InMemoryProductQuestionRepository,
             InMemoryRunTraceRepository,
         )
@@ -91,48 +94,67 @@ class PresaleQaRunner:
         self._evidence_repo = evidence_repo or InMemoryEvidenceRepository()
         self._answer_repo = answer_repo or InMemoryAnswerDraftRepository()
         self._dispositions = AnswerDispositionService(
-            disposition_repo or InMemoryDispositionRepository()
+            disposition_repo or InMemoryDispositionRepository(),
+            answer_repo or InMemoryAnswerDraftRepository(),
         )
         self._tracer = PresaleRunTracer(trace_repo or InMemoryRunTraceRepository())
+        self._idempotency_repo = idempotency_repo or InMemoryIdempotencyRepository()
         self._definition_source = definition_source or StaticDefinitionSource()
-        self._idempotency: dict[tuple[str, str], tuple[tuple[str, str], PresaleQaResult]] = {}
         self._task_id = task_id
         self._agent_run_id = agent_run_id
 
     async def ask(self, question: ProductQuestion) -> PresaleQaResult:
-        idempotency_key = (question.tenant_id, question.idempotency_key)
         business_content = (question.product_id, question.question_text)
-        existing = self._idempotency.get(idempotency_key)
-        if existing:
-            previous_content, previous_result = existing
-            if previous_content != business_content:
-                raise IdempotencyConflictError("IDEMPOTENCY_CONFLICT")
-            return previous_result
-
+        business_digest = canonical_sha256(
+            {"product_id": business_content[0], "question_text": business_content[1]}
+        )
         run_id = self._agent_run_id or f"run_{_uuid7()}"
         task_id = self._task_id or f"tsk_{_uuid7()}"
         run_ref = {"kind": "AgentRun", "id": run_id}
+        claim = await self._idempotency_repo.claim(
+            IdempotencyRecord(
+                tenant_id=question.tenant_id,
+                idempotency_key=question.idempotency_key,
+                business_content_digest=business_digest,
+                run_ref=run_id,
+                created_at=question.requested_at,
+            )
+        )
+        # claim() returns the authoritative record: a fresh insert returns the new
+        # record, while an existing in_progress/succeeded record is returned
+        # unchanged (still pointing at its original run). A different run_ref means
+        # another (possibly concurrent) run owns the key, so we must replay or wait
+        # instead of generating a second answer. A succeeded claim also replays even
+        # when a fixed agent_run_id made run_ref equal again.
+        if claim.run_ref != run_id or claim.status == "succeeded":
+            draft = await self._answer_repo.get_by_run(claim.run_ref, tenant_id=question.tenant_id)
+            if draft is None:
+                raise QaRuntimeError("IDEMPOTENCY_RESULT_NOT_READY")
+            trace = await self._tracer.get(claim.run_ref, tenant_id=question.tenant_id)
+            self._dispositions.register(draft, technical_status="succeeded")
+            return PresaleQaResult(run_ref=claim.run_ref, answer_draft=draft, trace=trace)
 
+        trace_id: str | None = None
         try:
             frozen = await self._definition_source.resolve(tenant_id=question.tenant_id)
-        except DefinitionResolutionError as exc:
-            raise QaRuntimeError(str(exc)) from exc
-        configuration_refs = frozen.configuration_refs
+            configuration_refs = frozen.configuration_refs
 
-        await self._question_repo.save(question)
+            await self._question_repo.save(question)
 
-        trace_id = await self._tracer.start(
-            question=question,
-            task_id=task_id,
-            agent_run_id=run_id,
-            configuration_refs=configuration_refs,
-        )
+            trace_id = await self._tracer.start(
+                question=question,
+                task_id=task_id,
+                agent_run_id=run_id,
+                configuration_refs=configuration_refs,
+            )
 
-        retrieval = self._retriever.retrieve(question)
-        try:
+            retrieval = self._retriever.retrieve(question)
             if retrieval.status.value in {"matched"}:
                 await self._tracer.record_stage(
-                    trace_id, "knowledge_retrieved", retrieval.status.value
+                    trace_id,
+                    tenant_id=question.tenant_id,
+                    stage="knowledge_retrieved",
+                    detail=retrieval.status.value,
                 )
                 await self._evidence_repo.save_evidence(run_id, retrieval.evidence_items)
                 context_package = self._context_builder.build(
@@ -140,11 +162,15 @@ class PresaleQaRunner:
                     [{"evidence": item, "priority": 80} for item in retrieval.evidence_items],
                     run_ref=run_ref,
                     policy_ref=frozen.policy_ref,
-                    artifact_ref=frozen.artifact_ref,
                 )
-                await self._tracer.attach_context(trace_id, context_package)
+                await self._tracer.attach_context(
+                    trace_id, tenant_id=question.tenant_id, context_package=context_package
+                )
                 await self._tracer.record_stage(
-                    trace_id, "context_built", context_package.run_ref.id
+                    trace_id,
+                    tenant_id=question.tenant_id,
+                    stage="context_built",
+                    detail=context_package.run_ref.id,
                 )
             draft = self._generator.generate(
                 question,
@@ -152,28 +178,47 @@ class PresaleQaRunner:
                 run_ref=run_ref,
                 configuration_refs=configuration_refs,
             )
-        except AnswerGenerationError as exc:
-            await self._tracer.fail(trace_id, str(exc))
+
+            await self._answer_repo.save(draft, tenant_id=question.tenant_id)
+            self._dispositions.register(draft, technical_status="succeeded")
+            await self._tracer.attach_answer(trace_id, tenant_id=question.tenant_id, answer=draft)
+            await self._tracer.record_stage(
+                trace_id,
+                tenant_id=question.tenant_id,
+                stage="answer_generated",
+                detail=draft.answer_id,
+            )
+
+            result = PresaleQaResult(
+                run_ref=run_id,
+                answer_draft=draft,
+                trace=await self._tracer.get(trace_id, tenant_id=question.tenant_id),
+            )
+            await self._idempotency_repo.update_status(
+                question.tenant_id, question.idempotency_key, "succeeded"
+            )
+            return result
+        except DefinitionResolutionError as exc:
+            await self._idempotency_repo.update_status(
+                question.tenant_id, question.idempotency_key, "failed"
+            )
             raise QaRuntimeError(str(exc)) from exc
-        except ContextBuildError as exc:
-            await self._tracer.fail(trace_id, str(exc))
+        except (AnswerGenerationError, ContextBuildError) as exc:
+            if trace_id is not None:
+                await self._tracer.fail(trace_id, tenant_id=question.tenant_id, reason=str(exc))
+            await self._idempotency_repo.update_status(
+                question.tenant_id, question.idempotency_key, "failed"
+            )
             raise QaRuntimeError(str(exc)) from exc
         except Exception as exc:
-            await self._tracer.fail(trace_id, "ANSWER_GENERATION_FAILED")
+            if trace_id is not None:
+                await self._tracer.fail(
+                    trace_id, tenant_id=question.tenant_id, reason="ANSWER_GENERATION_FAILED"
+                )
+            await self._idempotency_repo.update_status(
+                question.tenant_id, question.idempotency_key, "failed"
+            )
             raise QaRuntimeError("ANSWER_GENERATION_FAILED") from exc
-
-        await self._answer_repo.save(draft, tenant_id=question.tenant_id)
-        self._dispositions.register(draft, technical_status="succeeded")
-        await self._tracer.attach_answer(trace_id, draft)
-        await self._tracer.record_stage(trace_id, "answer_generated", draft.answer_id)
-
-        result = PresaleQaResult(
-            run_ref=run_id,
-            answer_draft=draft,
-            trace=await self._tracer.get(trace_id, tenant_id=question.tenant_id),
-        )
-        self._idempotency[idempotency_key] = (business_content, result)
-        return result
 
     async def accept(
         self, answer_id: str, *, actor_id: str, reason: str, tenant_id: str
@@ -224,11 +269,14 @@ class PresaleQaRunner:
     async def _trace_disposition(self, record: HumanDispositionRecord, *, escalated: bool) -> None:
         run_ref = record.original_answer.run_ref.id
         if escalated:
-            await self._tracer.mark_disposition_escalated(run_ref)
+            await self._tracer.mark_disposition_escalated(run_ref, tenant_id=record.tenant_id)
         else:
-            await self._tracer.mark_disposition_complete(run_ref)
+            await self._tracer.mark_disposition_complete(run_ref, tenant_id=record.tenant_id)
 
     async def get_trace(self, run_ref: str, *, tenant_id: str | None = None):
         if not tenant_id:
             raise TraceError("TENANT_ID_REQUIRED")
         return await self._tracer.get(run_ref, tenant_id=tenant_id)
+
+
+__all__ = ["IdempotencyConflictError", "PresaleQaResult", "PresaleQaRunner", "QaRuntimeError"]

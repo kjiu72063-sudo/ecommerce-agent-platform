@@ -1,0 +1,66 @@
+"""Production composition root for the presale application."""
+
+from __future__ import annotations
+
+from .adapters.sqlite import (
+    SQLiteAnswerDraftRepository,
+    SQLiteDispositionRepository,
+    SQLiteEvidenceRepository,
+    SQLiteIdempotencyRepository,
+    SQLitePresaleStore,
+    SQLiteProductQuestionRepository,
+    SQLiteRunTraceRepository,
+)
+from .definitions import B1DefinitionSource
+from .runner import PresaleQaRunner
+
+
+class PresaleRuntimeFactory:
+    """Build runners wired to B1 definitions and optional persistence ports."""
+
+    def __init__(
+        self,
+        *,
+        definition_repository,
+        definition_selectors: dict[str, dict[str, str]],
+        sources,
+        **persistence_ports,
+    ):
+        self._definition_source = B1DefinitionSource(
+            definition_repository, selectors=definition_selectors
+        )
+        self._sources = sources
+        self._persistence_ports = persistence_ports
+
+    def create_runner(self, **overrides) -> PresaleQaRunner:
+        options = {
+            "sources": self._sources,
+            "definition_source": self._definition_source,
+            **self._persistence_ports,
+            **overrides,
+        }
+        return PresaleQaRunner(**options)
+
+    @classmethod
+    def create_sqlite(
+        cls,
+        *,
+        database,
+        definition_repository,
+        definition_selectors: dict[str, dict[str, str]],
+        sources,
+    ) -> tuple["PresaleRuntimeFactory", SQLitePresaleStore]:
+        """Create the single local-production assembly with SQLite adapters."""
+        store = SQLitePresaleStore(database)
+        factory = cls(
+            definition_repository=definition_repository,
+            definition_selectors=definition_selectors,
+            sources=sources,
+            question_repo=SQLiteProductQuestionRepository(store),
+            evidence_repo=SQLiteEvidenceRepository(store),
+            answer_repo=SQLiteAnswerDraftRepository(store),
+            disposition_repo=SQLiteDispositionRepository(store),
+            trace_repo=SQLiteRunTraceRepository(store),
+            idempotency_repo=SQLiteIdempotencyRepository(store),
+        )
+        return factory, store

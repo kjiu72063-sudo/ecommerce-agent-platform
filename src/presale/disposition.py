@@ -9,7 +9,7 @@ from enum import StrEnum
 from pydantic import BaseModel, ConfigDict, Field
 
 from .contracts import AnswerDraft
-from .ports import DispositionRepository
+from .ports import AnswerDraftRepository, DispositionRepository
 
 
 class DispositionError(ValueError):
@@ -47,19 +47,28 @@ class AnswerDispositionService:
     DispositionRepository. Methods are async because the repository is async.
     """
 
-    def __init__(self, disposition_repo: DispositionRepository | None = None):
-        if disposition_repo is None:
-            from .adapters.in_memory import InMemoryDispositionRepository
+    def __init__(
+        self,
+        disposition_repo: DispositionRepository | None = None,
+        answer_repo: AnswerDraftRepository | None = None,
+    ):
+        if disposition_repo is None or answer_repo is None:
+            from .adapters.in_memory import (
+                InMemoryAnswerDraftRepository,
+                InMemoryDispositionRepository,
+            )
 
-            disposition_repo = InMemoryDispositionRepository()
+            disposition_repo = disposition_repo or InMemoryDispositionRepository()
+            answer_repo = answer_repo or InMemoryAnswerDraftRepository()
         self._repo = disposition_repo
+        self._answer_repo = answer_repo
         self._drafts: dict[str, AnswerDraft] = {}
         self._records: dict[str, HumanDispositionRecord] = {}
         self._technical_status: dict[str, str] = {}
 
     def register(self, answer: AnswerDraft, *, technical_status: str = "unchanged") -> None:
         if answer.answer_id in self._drafts:
-            raise DispositionError("DRAFT_ALREADY_REGISTERED")
+            return
         self._drafts[answer.answer_id] = deepcopy(answer)
         if technical_status != "unchanged":
             self._technical_status[answer.answer_id] = technical_status
@@ -92,7 +101,7 @@ class AnswerDispositionService:
     ) -> HumanDispositionRecord:
         if not edited_text.strip():
             raise DispositionError("EMPTY_EDIT")
-        original = self._get_available(answer_id)
+        original = await self._get_available(answer_id, tenant_id=tenant_id)
         edited = original.model_copy(
             update={
                 "answer_id": f"{original.answer_id}:edited",
@@ -131,12 +140,21 @@ class AnswerDispositionService:
             tenant_id=tenant_id,
         )
 
-    def _get_available(self, answer_id: str) -> AnswerDraft:
-        if answer_id not in self._drafts:
-            raise DispositionError("DRAFT_NOT_FOUND")
+    async def _get_available(self, answer_id: str, *, tenant_id: str) -> AnswerDraft:
         if answer_id in self._records:
             raise DispositionError("ALREADY_DISPOSED")
-        return self.get_original(answer_id)
+        persisted = await self._repo.get_by_answer(answer_id, tenant_id=tenant_id)
+        if persisted is not None:
+            self._records[answer_id] = persisted
+            raise DispositionError("ALREADY_DISPOSED")
+        answer = self._drafts.get(answer_id)
+        if answer is None:
+            try:
+                answer = await self._answer_repo.get_by_id(answer_id, tenant_id=tenant_id)
+            except LookupError as exc:
+                raise DispositionError("DRAFT_NOT_FOUND") from exc
+            self._drafts[answer_id] = deepcopy(answer)
+        return deepcopy(answer)
 
     async def _record(
         self,
@@ -148,7 +166,7 @@ class AnswerDispositionService:
         tenant_id: str,
         edited_answer: AnswerDraft | None = None,
     ) -> HumanDispositionRecord:
-        original = self._get_available(answer_id)
+        original = await self._get_available(answer_id, tenant_id=tenant_id)
         if not reason.strip():
             raise DispositionError("DISPOSITION_REASON_REQUIRED")
         record = HumanDispositionRecord(
