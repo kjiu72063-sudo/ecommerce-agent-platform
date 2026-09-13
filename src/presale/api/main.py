@@ -2,15 +2,21 @@
 
 Retention archive is a maintenance operation that an external scheduler
 (cron/APScheduler/k8s CronJob) triggers over HTTP instead of running inline
-in a request path. The endpoint delegates to the shared backend-aware helper
-so it stays consistent with the CLI.
+in a request path. Routes are sync ``def`` so FastAPI runs them in a thread
+pool: the archive drives synchronous sqlite I/O and must not stall the event
+loop. The database path is restricted to a configured root directory so an
+unauthenticated caller cannot touch arbitrary files.
 """
 
 from __future__ import annotations
 
+import os
+import sqlite3
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException, Query
 
-from presale.maintenance import archive_expired_sqlite
+from presale.maintenance import archive_expired_sqlite_blocking
 from presale.trace import TraceError
 
 app = FastAPI(
@@ -20,18 +26,35 @@ app = FastAPI(
 )
 
 
+def _allowed_database(database: str) -> str:
+    """Resolve a database path and require it be under the configured root."""
+    if not database:
+        raise HTTPException(status_code=400, detail="database path required")
+    root = Path(os.environ.get("PRESALE_DB_DIR", ".")).resolve()
+    target = Path(database).resolve()
+    try:
+        target.relative_to(root)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"database must reside under PRESALE_DB_DIR ({root})",
+        )
+    return str(target)
+
+
 @app.get("/api/v1/presale/maintenance/health")
 def health() -> dict[str, str]:
     return {"status": "healthy"}
 
 
 @app.post("/api/v1/presale/maintenance/retention/archive")
-async def archive_expired(
+def archive_expired(
     tenant_id: str = Query(..., min_length=1, description="要归档的租户 id"),
-    database: str = Query("presale.sqlite3", description="SQLite 数据库路径"),
+    database: str = Query("presale.sqlite3", min_length=1, description="SQLite 数据库路径"),
 ) -> dict:
+    db = _allowed_database(database)
     try:
-        archived = await archive_expired_sqlite(database=database, tenant_id=tenant_id)
-    except TraceError as exc:
+        archived = archive_expired_sqlite_blocking(database=db, tenant_id=tenant_id)
+    except (TraceError, sqlite3.Error) as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return {"tenant_id": tenant_id, "archived": archived}

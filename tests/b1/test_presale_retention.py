@@ -122,3 +122,41 @@ async def test_archive_requires_tenant_scope():
     service = RetentionService(repo)
     with pytest.raises(TraceError, match="TENANT_ID_REQUIRED"):
         await service.archive_expired(tenant_id="", now=datetime.now(timezone.utc))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("backend", ["memory", "sqlite"])
+async def test_archive_expired_is_isolated_per_tenant(backend, tmp_path):
+    repo = make_repo(backend, tmp_path)
+    tracer = PresaleRunTracer(trace_repo=repo)
+    run_a = "run_01111111-1111-7111-8111-111111111111"
+    run_b = "run_02222222-2222-7222-8222-222222222222"
+
+    async def start_tenant(run_ref, tenant_id):
+        await tracer.start(
+            question=ProductQuestion(
+                question_id=f"q-{tenant_id}",
+                tenant_id=tenant_id,
+                submitted_by={"actor_type": "user", "actor_id": "usr_seed"},
+                product_id="product-001",
+                question_text="这款商品适合夏季使用吗？",
+                requested_at=datetime.now(timezone.utc) - timedelta(days=40),
+                idempotency_key=f"{tenant_id}-key",
+            ),
+            task_id="tsk_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f421",
+            agent_run_id=run_ref,
+            configuration_refs={},
+        )
+        await tracer.mark_disposition_complete(run_ref, tenant_id=tenant_id)
+
+    await start_tenant(run_a, "tenant-a")
+    await start_tenant(run_b, "tenant-b")
+
+    service = RetentionService(repo)
+    now = datetime.now(timezone.utc)
+    archived_a = await service.archive_expired(tenant_id="tenant-a", now=now)
+
+    assert archived_a == [run_a]
+    assert (await tracer.get(run_a, tenant_id="tenant-a")).archived is True
+    # tenant-b's trace must be untouched by tenant-a's archive run.
+    assert (await tracer.get(run_b, tenant_id="tenant-b")).archived is False

@@ -199,3 +199,32 @@ async def test_answer_persist_failure_marks_claim_failed_not_stuck():
     assert retried.answer_draft.answer_id
     final = await repo.get("tenant-demo", "state-key-001")
     assert final.status == "succeeded"
+
+
+@pytest.mark.asyncio
+async def test_success_status_write_failure_marks_claim_failed():
+    base = InMemoryIdempotencyRepository()
+
+    class SucceedWriteFailsRepository:
+        async def claim(self, record):
+            return await base.claim(record)
+
+        async def get(self, tenant_id, idempotency_key):
+            return await base.get(tenant_id, idempotency_key)
+
+        async def update_status(self, tenant_id, idempotency_key, status):
+            if status == "succeeded":
+                raise RuntimeError("db down while writing succeeded")
+            return await base.update_status(tenant_id, idempotency_key, status)
+
+    runner = PresaleQaRunner(
+        sources=[source()],
+        idempotency_repo=SucceedWriteFailsRepository(),
+    )
+
+    with pytest.raises(QaRuntimeError, match="ANSWER_GENERATION_FAILED"):
+        await runner.ask(question())
+
+    claim = await base.get("tenant-demo", "state-key-001")
+    assert claim is not None
+    assert claim.status == "failed", "claim must not be left stuck in_progress"
