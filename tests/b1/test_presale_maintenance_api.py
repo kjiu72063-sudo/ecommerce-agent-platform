@@ -47,9 +47,10 @@ def test_health():
     assert resp.json()["status"] == "healthy"
 
 
-def test_archive_expired_marks_old_complete_trace(tmp_path):
+def test_archive_expired_marks_old_complete_trace(tmp_path, monkeypatch):
     db_path = tmp_path / "retention.sqlite3"
     seed(str(db_path))
+    monkeypatch.setenv("PRESALE_DB_DIR", str(tmp_path))
     client = TestClient(app)
 
     resp = client.post(
@@ -71,3 +72,16 @@ def test_archive_requires_tenant_id(tmp_path):
     )
 
     assert resp.status_code == 422  # missing required tenant_id query is rejected
+
+
+def test_archive_rejects_database_outside_allowed_dir(tmp_path):
+    # PRESALE_DB_DIR is unset -> default is cwd; tmp_path is outside it.
+    client = TestClient(app)
+
+    resp = client.post(
+        "/api/v1/presale/maintenance/retention/archive",
+        params={"tenant_id": "tenant-demo", "database": str(tmp_path / "x.sqlite3")},
+    )
+
+    assert resp.status_code == 400
+    assert "PRESALE_DB_DIR" in resp.json()["detail"]

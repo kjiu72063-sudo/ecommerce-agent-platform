@@ -2,7 +2,9 @@ from datetime import datetime, timezone
 
 import pytest
 
+from presale.adapters.in_memory import InMemoryIdempotencyRepository
 from presale.contracts import ProductQuestion
+from presale.definitions import DefinitionResolutionError
 from presale.knowledge import KnowledgeSource
 from presale.runner import PresaleQaRunner, QaRuntimeError
 
@@ -19,7 +21,14 @@ TENANT = "tenant-demo"
 ACTOR = "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411"
 
 
-def source(*, source_id="catalog-001", season="适合夏季使用", tenant_id="tenant-demo", product_id="product-001", status="published"):
+def source(
+    *,
+    source_id="catalog-001",
+    season="适合夏季使用",
+    tenant_id="tenant-demo",
+    product_id="product-001",
+    status="published",
+):
     return KnowledgeSource(
         source_id=source_id,
         version="2026.09.01",
@@ -127,3 +136,24 @@ async def test_pipeline_never_invokes_write_side_effects():
     )
 
     assert calls == ["generate"], f"write side effects invoked: {calls}"
+
+
+@pytest.mark.asyncio
+async def test_definition_resolution_failure_marks_claim_failed():
+    class FailingDefinitionSource:
+        async def resolve(self, *, tenant_id):
+            raise DefinitionResolutionError("DEFINITION_NOT_FOUND:agent_spec")
+
+    repo = InMemoryIdempotencyRepository()
+    runner = PresaleQaRunner(
+        sources=[source()],
+        idempotency_repo=repo,
+        definition_source=FailingDefinitionSource(),
+    )
+
+    with pytest.raises(QaRuntimeError, match="DEFINITION_NOT_FOUND"):
+        await runner.ask(QUESTION)
+
+    claim = await repo.get(TENANT, "question-001-key")
+    assert claim is not None
+    assert claim.status == "failed"
