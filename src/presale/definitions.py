@@ -109,6 +109,9 @@ class B1DefinitionSource(DefinitionSource):
                 raise DefinitionResolutionError(f"DEFINITION_NOT_FOUND:{name}")
             if len(matches) != 1:
                 raise DefinitionResolutionError(f"MULTIPLE_ACTIVE:{name}")
+            self._check_tenant(matches[0], tenant_id, name)
+            if matches[0].get("status", {}).get("phase") != "active":
+                raise DefinitionResolutionError(f"DEFINITION_NOT_ACTIVE:{name}")
             return matches[0]
 
         object_id = self._ids.get(name)

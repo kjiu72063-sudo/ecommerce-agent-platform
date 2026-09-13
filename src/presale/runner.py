@@ -111,10 +111,7 @@ class PresaleQaRunner:
         run_id = self._agent_run_id or f"run_{_uuid7()}"
         task_id = self._task_id or f"tsk_{_uuid7()}"
         run_ref = {"kind": "AgentRun", "id": run_id}
-        existing_claim = await self._idempotency_repo.get(
-            question.tenant_id, question.idempotency_key
-        )
-        await self._idempotency_repo.claim(
+        claim = await self._idempotency_repo.claim(
             IdempotencyRecord(
                 tenant_id=question.tenant_id,
                 idempotency_key=question.idempotency_key,
@@ -123,38 +120,35 @@ class PresaleQaRunner:
                 created_at=question.requested_at,
             )
         )
-        if existing_claim is not None and existing_claim.status == "in_progress":
-            raise QaRuntimeError("IDEMPOTENCY_RESULT_NOT_READY")
-        if existing_claim is not None and existing_claim.status == "succeeded":
-            draft = await self._answer_repo.get_by_run(
-                existing_claim.run_ref, tenant_id=question.tenant_id
-            )
-            trace = await self._tracer.get(existing_claim.run_ref, tenant_id=question.tenant_id)
+        # claim() returns the authoritative record: a fresh insert returns the new
+        # record, while an existing in_progress/succeeded record is returned
+        # unchanged (still pointing at its original run). A different run_ref means
+        # another (possibly concurrent) run owns the key, so we must replay or wait
+        # instead of generating a second answer. A succeeded claim also replays even
+        # when a fixed agent_run_id made run_ref equal again.
+        if claim.run_ref != run_id or claim.status == "succeeded":
+            draft = await self._answer_repo.get_by_run(claim.run_ref, tenant_id=question.tenant_id)
             if draft is None:
                 raise QaRuntimeError("IDEMPOTENCY_RESULT_NOT_READY")
+            trace = await self._tracer.get(claim.run_ref, tenant_id=question.tenant_id)
             self._dispositions.register(draft, technical_status="succeeded")
-            return PresaleQaResult(run_ref=existing_claim.run_ref, answer_draft=draft, trace=trace)
+            return PresaleQaResult(run_ref=claim.run_ref, answer_draft=draft, trace=trace)
 
+        trace_id: str | None = None
         try:
             frozen = await self._definition_source.resolve(tenant_id=question.tenant_id)
-        except DefinitionResolutionError as exc:
-            await self._idempotency_repo.update_status(
-                question.tenant_id, question.idempotency_key, "failed"
+            configuration_refs = frozen.configuration_refs
+
+            await self._question_repo.save(question)
+
+            trace_id = await self._tracer.start(
+                question=question,
+                task_id=task_id,
+                agent_run_id=run_id,
+                configuration_refs=configuration_refs,
             )
-            raise QaRuntimeError(str(exc)) from exc
-        configuration_refs = frozen.configuration_refs
 
-        await self._question_repo.save(question)
-
-        trace_id = await self._tracer.start(
-            question=question,
-            task_id=task_id,
-            agent_run_id=run_id,
-            configuration_refs=configuration_refs,
-        )
-
-        retrieval = self._retriever.retrieve(question)
-        try:
+            retrieval = self._retriever.retrieve(question)
             if retrieval.status.value in {"matched"}:
                 await self._tracer.record_stage(
                     trace_id,
@@ -184,46 +178,47 @@ class PresaleQaRunner:
                 run_ref=run_ref,
                 configuration_refs=configuration_refs,
             )
-        except AnswerGenerationError as exc:
-            await self._tracer.fail(trace_id, tenant_id=question.tenant_id, reason=str(exc))
+
+            await self._answer_repo.save(draft, tenant_id=question.tenant_id)
+            self._dispositions.register(draft, technical_status="succeeded")
+            await self._tracer.attach_answer(trace_id, tenant_id=question.tenant_id, answer=draft)
+            await self._tracer.record_stage(
+                trace_id,
+                tenant_id=question.tenant_id,
+                stage="answer_generated",
+                detail=draft.answer_id,
+            )
+
+            result = PresaleQaResult(
+                run_ref=run_id,
+                answer_draft=draft,
+                trace=await self._tracer.get(trace_id, tenant_id=question.tenant_id),
+            )
+            await self._idempotency_repo.update_status(
+                question.tenant_id, question.idempotency_key, "succeeded"
+            )
+            return result
+        except DefinitionResolutionError as exc:
             await self._idempotency_repo.update_status(
                 question.tenant_id, question.idempotency_key, "failed"
             )
             raise QaRuntimeError(str(exc)) from exc
-        except ContextBuildError as exc:
-            await self._tracer.fail(trace_id, tenant_id=question.tenant_id, reason=str(exc))
+        except (AnswerGenerationError, ContextBuildError) as exc:
+            if trace_id is not None:
+                await self._tracer.fail(trace_id, tenant_id=question.tenant_id, reason=str(exc))
             await self._idempotency_repo.update_status(
                 question.tenant_id, question.idempotency_key, "failed"
             )
             raise QaRuntimeError(str(exc)) from exc
         except Exception as exc:
-            await self._tracer.fail(
-                trace_id, tenant_id=question.tenant_id, reason="ANSWER_GENERATION_FAILED"
-            )
+            if trace_id is not None:
+                await self._tracer.fail(
+                    trace_id, tenant_id=question.tenant_id, reason="ANSWER_GENERATION_FAILED"
+                )
             await self._idempotency_repo.update_status(
                 question.tenant_id, question.idempotency_key, "failed"
             )
             raise QaRuntimeError("ANSWER_GENERATION_FAILED") from exc
-
-        await self._answer_repo.save(draft, tenant_id=question.tenant_id)
-        self._dispositions.register(draft, technical_status="succeeded")
-        await self._tracer.attach_answer(trace_id, tenant_id=question.tenant_id, answer=draft)
-        await self._tracer.record_stage(
-            trace_id,
-            tenant_id=question.tenant_id,
-            stage="answer_generated",
-            detail=draft.answer_id,
-        )
-
-        result = PresaleQaResult(
-            run_ref=run_id,
-            answer_draft=draft,
-            trace=await self._tracer.get(trace_id, tenant_id=question.tenant_id),
-        )
-        await self._idempotency_repo.update_status(
-            question.tenant_id, question.idempotency_key, "succeeded"
-        )
-        return result
 
     async def accept(
         self, answer_id: str, *, actor_id: str, reason: str, tenant_id: str

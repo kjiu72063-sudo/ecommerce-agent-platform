@@ -71,3 +71,50 @@ async def test_selector_rejects_multiple_active_definitions():
 
     with pytest.raises(DefinitionResolutionError, match="MULTIPLE_ACTIVE"):
         await source.resolve(tenant_id="tenant-demo")
+
+
+@pytest.mark.asyncio
+async def test_selector_defensively_rejects_cross_tenant_definition():
+    # Adapter that leaks a foreign-tenant definition despite the requested tenant_id,
+    # simulating a compromised/incorrect list_by_filter; selector must still reject it.
+    class LeakySelectorRepo(SelectorRepo):
+        async def list_by_filter(self, filter, limit=100, offset=0):
+            return [
+                obj for obj in self.objects
+                if obj["kind"] == filter.kind
+                and obj["metadata"]["namespace"] == filter.namespace
+                and obj["metadata"]["key"] == filter.key
+                and obj["status"]["phase"] == filter.phase
+            ]
+
+    objects = [
+        definition(
+            "AgentSpec",
+            "agt_01111111-1111-7111-8111-111111111111",
+            "presale-agent",
+            tenant_id="tenant-other",
+        ),
+        definition(
+            "PromptPackage",
+            "prm_01111111-1111-7111-8111-111111111111",
+            "presale-prompt",
+            version="2.0.0",
+        ),
+        definition(
+            "ContextPolicy",
+            "cpo_01111111-1111-7111-8111-111111111111",
+            "presale-context",
+            version="3.0.0",
+        ),
+    ]
+    source = B1DefinitionSource(
+        LeakySelectorRepo(objects),
+        selectors={
+            "agent_spec": {"kind": "AgentSpec", "namespace": "presale", "key": "presale-agent"},
+            "prompt_package": {"kind": "PromptPackage", "namespace": "presale", "key": "presale-prompt"},
+            "context_policy": {"kind": "ContextPolicy", "namespace": "presale", "key": "presale-context"},
+        },
+    )
+
+    with pytest.raises(DefinitionResolutionError, match="DEFINITION_OUT_OF_SCOPE"):
+        await source.resolve(tenant_id="tenant-demo")
