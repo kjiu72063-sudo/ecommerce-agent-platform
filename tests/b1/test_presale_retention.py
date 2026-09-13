@@ -6,7 +6,7 @@ from presale.adapters.in_memory import InMemoryRunTraceRepository
 from presale.adapters.sqlite import SQLitePresaleStore, SQLiteRunTraceRepository
 from presale.contracts import ProductQuestion
 from presale.retention import RetentionService
-from presale.trace import PresaleRunTracer, TraceError
+from presale.trace import DispositionState, PresaleRunTrace, PresaleRunTracer, TraceError
 
 
 def question(*, age_days=0):
@@ -160,3 +160,38 @@ async def test_archive_expired_is_isolated_per_tenant(backend, tmp_path):
     assert (await tracer.get(run_a, tenant_id="tenant-a")).archived is True
     # tenant-b's trace must be untouched by tenant-a's archive run.
     assert (await tracer.get(run_b, tenant_id="tenant-b")).archived is False
+
+
+@pytest.mark.asyncio
+async def test_naive_now_is_rejected_with_timezone_error():
+    repo = InMemoryRunTraceRepository()
+    tracer = PresaleRunTracer(trace_repo=repo)
+    run_ref = "run_01111111-1111-7111-8111-111111111111"
+    await start_trace(tracer, run_ref, age_days=40)
+    await tracer.mark_disposition_complete(run_ref, tenant_id="tenant-demo")
+
+    with pytest.raises(TraceError, match="TIMEZONE_REQUIRED"):
+        await RetentionService(repo).archive_expired(tenant_id="tenant-demo", now=datetime.now())
+
+
+@pytest.mark.asyncio
+async def test_empty_trace_stages_are_rejected():
+    repo = InMemoryRunTraceRepository()
+    run_ref = "run_01111111-1111-7111-8111-111111111111"
+    await repo.save(
+        PresaleRunTrace(
+            run_ref=run_ref,
+            tenant_id="tenant-demo",
+            question_id="question-empty-stages",
+            task_id="task-empty-stages",
+            agent_run_id=run_ref,
+            configuration_refs={},
+            stages=[],
+            disposition_state=DispositionState.COMPLETE,
+        )
+    )
+
+    with pytest.raises(TraceError, match="TRACE_INVALID:NO_STAGES"):
+        await RetentionService(repo).archive_expired(
+            tenant_id="tenant-demo", now=datetime.now(timezone.utc)
+        )

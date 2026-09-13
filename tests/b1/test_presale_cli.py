@@ -288,3 +288,29 @@ def test_archive_expired_requires_db_path(tmp_path):
     buffer = io.StringIO()
     with pytest.raises(SystemExit), redirect_stderr(io.StringIO()), redirect_stdout(buffer):
         main(["--tenant", "tenant-demo", "--archive-expired"])
+
+
+def test_db_without_archive_expired_is_rejected(tmp_path):
+    # --db is only meaningful with --archive-expired; silently ignoring it would
+    # mislead an operator, so it must be rejected in a normal QA run.
+    path = tmp_path / "catalog.json"
+    path.write_text(json.dumps(SAMPLE_CATALOG), encoding="utf-8")
+    buffer = io.StringIO()
+
+    with pytest.raises(SystemExit), redirect_stderr(io.StringIO()), redirect_stdout(buffer):
+        main(
+            [
+                "--catalog",
+                str(path),
+                "--tenant",
+                "tenant-demo",
+                "--product",
+                "product-001",
+                "--question",
+                "这款商品适合夏季使用吗？",
+                "--idempotency-key",
+                "cli-key-006",
+                "--db",
+                str(tmp_path / "x.sqlite3"),
+            ]
+        )
