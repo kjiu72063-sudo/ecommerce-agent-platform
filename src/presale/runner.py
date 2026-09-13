@@ -181,6 +181,7 @@ class PresaleQaRunner:
             )
 
             await self._answer_repo.save(draft, tenant_id=question.tenant_id)
+            answer_persisted = True
             self._dispositions.register(draft, technical_status="succeeded")
             await self._tracer.attach_answer(trace_id, tenant_id=question.tenant_id, answer=draft)
             await self._tracer.record_stage(
@@ -189,7 +190,6 @@ class PresaleQaRunner:
                 stage="answer_generated",
                 detail=draft.answer_id,
             )
-            answer_persisted = True
 
             result = PresaleQaResult(
                 run_ref=run_id,
@@ -207,15 +207,19 @@ class PresaleQaRunner:
             await self._mark_failed(question, trace_id=trace_id, reason=str(exc), mark_trace=True)
             raise QaRuntimeError(str(exc)) from exc
         except Exception as exc:
-            # If the answer already reached the durable pipeline, do not corrupt
-            # its valid trace by marking it failed; still flip the claim to failed
-            # so a caller can retry instead of hitting a stuck in_progress.
-            await self._mark_failed(
-                question,
-                trace_id=trace_id,
-                reason="ANSWER_GENERATION_FAILED",
-                mark_trace=not answer_persisted,
-            )
+            if answer_persisted:
+                # The answer is already durable and its trace is valid. Confirm
+                # succeeded if possible; if that write fails, leave the claim
+                # in_progress so a retry with the same key replays the existing
+                # draft instead of regenerating a duplicate answer.
+                await self._confirm_succeeded(question)
+            else:
+                await self._mark_failed(
+                    question,
+                    trace_id=trace_id,
+                    reason="ANSWER_GENERATION_FAILED",
+                    mark_trace=True,
+                )
             raise QaRuntimeError("ANSWER_GENERATION_FAILED") from exc
 
     async def _mark_failed(
@@ -226,16 +230,31 @@ class PresaleQaRunner:
         reason: str,
         mark_trace: bool,
     ) -> None:
-        """Best-effort failure cleanup that must never mask the original error."""
-        try:
-            if mark_trace and trace_id is not None:
+        """Best-effort failure cleanup that must never mask the original error.
+
+        Trace marking and claim (idempotency) marking are independent: a failure
+        in one must not prevent the other, so the claim can never be left stuck
+        in_progress because the trace cleanup raised.
+        """
+        if mark_trace and trace_id is not None:
+            try:
                 await self._tracer.fail(trace_id, tenant_id=question.tenant_id, reason=reason)
+            except Exception:
+                pass
+        try:
             await self._idempotency_repo.update_status(
                 question.tenant_id, question.idempotency_key, "failed"
             )
         except Exception:
-            # Cleanup is secondary to surfacing the original failure; swallow so
-            # the caller's QaRuntimeError always propagates.
+            pass
+
+    async def _confirm_succeeded(self, question: ProductQuestion) -> None:
+        """Best-effort mark a completed run as succeeded (already durable)."""
+        try:
+            await self._idempotency_repo.update_status(
+                question.tenant_id, question.idempotency_key, "succeeded"
+            )
+        except Exception:
             pass
 
     async def accept(

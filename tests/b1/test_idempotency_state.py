@@ -202,8 +202,15 @@ async def test_answer_persist_failure_marks_claim_failed_not_stuck():
 
 
 @pytest.mark.asyncio
-async def test_success_status_write_failure_marks_claim_failed():
+async def test_success_status_write_failure_replays_existing_answer():
+    from presale.adapters.in_memory import (
+        InMemoryAnswerDraftRepository,
+        InMemoryRunTraceRepository,
+    )
+
     base = InMemoryIdempotencyRepository()
+    answers = InMemoryAnswerDraftRepository()
+    traces = InMemoryRunTraceRepository()
 
     class SucceedWriteFailsRepository:
         async def claim(self, record):
@@ -220,6 +227,8 @@ async def test_success_status_write_failure_marks_claim_failed():
     runner = PresaleQaRunner(
         sources=[source()],
         idempotency_repo=SucceedWriteFailsRepository(),
+        answer_repo=answers,
+        trace_repo=traces,
     )
 
     with pytest.raises(QaRuntimeError, match="ANSWER_GENERATION_FAILED"):
@@ -227,4 +236,18 @@ async def test_success_status_write_failure_marks_claim_failed():
 
     claim = await base.get("tenant-demo", "state-key-001")
     assert claim is not None
-    assert claim.status == "failed", "claim must not be left stuck in_progress"
+    # The answer is already durable: do NOT mark the claim failed, which would
+    # force a retry to regenerate a duplicate. Leave it in_progress instead.
+    assert claim.status == "in_progress"
+    persisted = await answers.get_by_run(claim.run_ref, tenant_id="tenant-demo")
+    assert persisted is not None
+
+    # A retry with the same key must replay the persisted draft, not regenerate.
+    retried = await PresaleQaRunner(
+        sources=[source()],
+        idempotency_repo=SucceedWriteFailsRepository(),
+        answer_repo=answers,
+        trace_repo=traces,
+    ).ask(question())
+
+    assert retried.answer_draft.answer_id == persisted.answer_id
