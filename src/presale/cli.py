@@ -12,10 +12,9 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from .adapters.sqlite import SQLitePresaleStore, SQLiteRunTraceRepository
 from .contracts import ProductQuestion
 from .knowledge import KnowledgeSource
-from .retention import RetentionService
+from .maintenance import archive_expired_sqlite
 from .runner import PresaleQaResult, PresaleQaRunner, QaRuntimeError
 from .trace import PresaleRunTrace, TraceError
 
@@ -123,14 +122,7 @@ def _query(args: argparse.Namespace) -> dict[str, Any]:
 async def _retention_archive(args: argparse.Namespace) -> dict[str, Any]:
     if not args.db:
         raise SystemExit("--archive-expired requires --db")
-    store = SQLitePresaleStore(args.db)
-    try:
-        service = RetentionService(SQLiteRunTraceRepository(store))
-        archived = await service.archive_expired(
-            tenant_id=args.tenant, now=datetime.now(timezone.utc)
-        )
-    finally:
-        store.close()
+    archived = await archive_expired_sqlite(database=args.db, tenant_id=args.tenant)
     return {"archived": archived}
 
 
