@@ -22,18 +22,18 @@
 
 ## 2. 门禁（Gate）
 
-合并到 `main` 前必须通过以下全部检查（由 CI 在 PR 上强制执行）：
+合并到 `main` 前必须通过以下全部检查。**CI 在 `main` 与每个 PR 上强制执行前三条**（ruff check/format src + pytest）；`pre-commit` 是本地便捷钩子，内部运行的正是前三条的等价内容，非 CI 强制：
 
 ```bash
-uv run pytest -q            # 全量测试（tests/）
-uv run ruff check src       # lint（仅 src 为门禁范围）
-uv run ruff format --check src
-uv run pre-commit run --all-files   # 本地预提交钩子（ruff + pytest）
+uv run pytest -q            # 全量测试（tests/）          <- CI 强制
+uv run ruff check src       # lint（仅 src 为门禁范围）   <- CI 强制
+uv run ruff format --check src                          <- CI 强制
+uv run pre-commit run --all-files   # 本地钩子，非 CI 强制
 ```
 
 - **契约优先**：实现必须遵守 B0 契约模型、JSON Schema 与状态机。
 - **测试先行**：先补测试再改实现；覆盖错误路径与跨租户/并发等安全语义。
-- 门禁是**强制**的：CI 为 `main` 与每个 PR 运行上述检查，未通过不得合并。
+- 门禁是**强制**的：CI 为 `main` 与每个 PR 运行上述前三条，未通过不得合并。
 
 ## 3. 分支、提交与 PR
 

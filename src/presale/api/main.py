@@ -55,6 +55,9 @@ def archive_expired(
     db = _allowed_database(database)
     try:
         archived = archive_expired_sqlite_blocking(database=db, tenant_id=tenant_id)
-    except (TraceError, sqlite3.Error) as exc:
+    except (TraceError, sqlite3.Error, ValueError) as exc:
+        # ValueError covers corrupt-row JSON/pydantic deserialization errors so a
+        # malformed database surfaces as a controlled 4xx, not a 500 with driver
+        # internals leaked to an external scheduler.
         raise HTTPException(status_code=400, detail=str(exc))
     return {"tenant_id": tenant_id, "archived": archived}

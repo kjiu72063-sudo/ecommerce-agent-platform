@@ -135,6 +135,7 @@ class PresaleQaRunner:
             return PresaleQaResult(run_ref=claim.run_ref, answer_draft=draft, trace=trace)
 
         trace_id: str | None = None
+        answer_persisted = False
         try:
             frozen = await self._definition_source.resolve(tenant_id=question.tenant_id)
             configuration_refs = frozen.configuration_refs
@@ -188,6 +189,7 @@ class PresaleQaRunner:
                 stage="answer_generated",
                 detail=draft.answer_id,
             )
+            answer_persisted = True
 
             result = PresaleQaResult(
                 run_ref=run_id,
@@ -199,26 +201,42 @@ class PresaleQaRunner:
             )
             return result
         except DefinitionResolutionError as exc:
-            await self._idempotency_repo.update_status(
-                question.tenant_id, question.idempotency_key, "failed"
-            )
+            await self._mark_failed(question, trace_id=None, reason=str(exc), mark_trace=False)
             raise QaRuntimeError(str(exc)) from exc
         except (AnswerGenerationError, ContextBuildError) as exc:
-            if trace_id is not None:
-                await self._tracer.fail(trace_id, tenant_id=question.tenant_id, reason=str(exc))
-            await self._idempotency_repo.update_status(
-                question.tenant_id, question.idempotency_key, "failed"
-            )
+            await self._mark_failed(question, trace_id=trace_id, reason=str(exc), mark_trace=True)
             raise QaRuntimeError(str(exc)) from exc
         except Exception as exc:
-            if trace_id is not None:
-                await self._tracer.fail(
-                    trace_id, tenant_id=question.tenant_id, reason="ANSWER_GENERATION_FAILED"
-                )
+            # If the answer already reached the durable pipeline, do not corrupt
+            # its valid trace by marking it failed; still flip the claim to failed
+            # so a caller can retry instead of hitting a stuck in_progress.
+            await self._mark_failed(
+                question,
+                trace_id=trace_id,
+                reason="ANSWER_GENERATION_FAILED",
+                mark_trace=not answer_persisted,
+            )
+            raise QaRuntimeError("ANSWER_GENERATION_FAILED") from exc
+
+    async def _mark_failed(
+        self,
+        question: ProductQuestion,
+        *,
+        trace_id: str | None,
+        reason: str,
+        mark_trace: bool,
+    ) -> None:
+        """Best-effort failure cleanup that must never mask the original error."""
+        try:
+            if mark_trace and trace_id is not None:
+                await self._tracer.fail(trace_id, tenant_id=question.tenant_id, reason=reason)
             await self._idempotency_repo.update_status(
                 question.tenant_id, question.idempotency_key, "failed"
             )
-            raise QaRuntimeError("ANSWER_GENERATION_FAILED") from exc
+        except Exception:
+            # Cleanup is secondary to surfacing the original failure; swallow so
+            # the caller's QaRuntimeError always propagates.
+            pass
 
     async def accept(
         self, answer_id: str, *, actor_id: str, reason: str, tenant_id: str
