@@ -2,6 +2,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from presale.adapters.in_memory import InMemoryRunTraceRepository
+from presale.adapters.sqlite import SQLitePresaleStore, SQLiteRunTraceRepository
 from presale.contracts import ProductQuestion
 from presale.retention import RetentionService
 from presale.trace import PresaleRunTracer, TraceError
@@ -19,6 +21,12 @@ def question(*, age_days=0):
     )
 
 
+def make_repo(backend, tmp_path):
+    if backend == "sqlite":
+        return SQLiteRunTraceRepository(SQLitePresaleStore(tmp_path / "retention.sqlite3"))
+    return InMemoryRunTraceRepository()
+
+
 async def start_trace(tracer, run_ref, *, age_days=0):
     await tracer.start(
         question=question(age_days=age_days),
@@ -30,21 +38,21 @@ async def start_trace(tracer, run_ref, *, age_days=0):
 
 @pytest.mark.asyncio
 async def test_default_retention_is_30_days():
-    tracer = PresaleRunTracer()
-    await start_trace(tracer, "run_01111111-1111-7111-8111-111111111111")
-
-    service = RetentionService(tracer._repo)
+    repo = InMemoryRunTraceRepository()
+    service = RetentionService(repo)
     assert service.retention_policy().retain_days == 30
 
 
 @pytest.mark.asyncio
-async def test_expired_completed_record_is_archived_not_deleted():
-    tracer = PresaleRunTracer()
+@pytest.mark.parametrize("backend", ["memory", "sqlite"])
+async def test_expired_completed_record_is_archived_not_deleted(backend, tmp_path):
+    repo = make_repo(backend, tmp_path)
+    tracer = PresaleRunTracer(trace_repo=repo)
     run_ref = "run_01111111-1111-7111-8111-111111111111"
     await start_trace(tracer, run_ref, age_days=40)
     await tracer.mark_disposition_complete(run_ref, tenant_id="tenant-demo")
 
-    service = RetentionService(tracer._repo)
+    service = RetentionService(repo)
     now = datetime.now(timezone.utc)
     archived = await service.archive_expired(tenant_id="tenant-demo", now=now)
 
@@ -56,13 +64,15 @@ async def test_expired_completed_record_is_archived_not_deleted():
 
 
 @pytest.mark.asyncio
-async def test_archive_is_idempotent():
-    tracer = PresaleRunTracer()
+@pytest.mark.parametrize("backend", ["memory", "sqlite"])
+async def test_archive_is_idempotent(backend, tmp_path):
+    repo = make_repo(backend, tmp_path)
+    tracer = PresaleRunTracer(trace_repo=repo)
     run_ref = "run_01111111-1111-7111-8111-111111111111"
     await start_trace(tracer, run_ref, age_days=40)
     await tracer.mark_disposition_complete(run_ref, tenant_id="tenant-demo")
 
-    service = RetentionService(tracer._repo)
+    service = RetentionService(repo)
     now = datetime.now(timezone.utc)
     first = await service.archive_expired(tenant_id="tenant-demo", now=now)
     second = await service.archive_expired(tenant_id="tenant-demo", now=now)
@@ -73,12 +83,13 @@ async def test_archive_is_idempotent():
 
 @pytest.mark.asyncio
 async def test_non_expired_completed_record_is_kept():
-    tracer = PresaleRunTracer()
+    repo = InMemoryRunTraceRepository()
+    tracer = PresaleRunTracer(trace_repo=repo)
     run_ref = "run_01111111-1111-7111-8111-111111111111"
     await start_trace(tracer, run_ref, age_days=5)
     await tracer.mark_disposition_complete(run_ref, tenant_id="tenant-demo")
 
-    service = RetentionService(tracer._repo)
+    service = RetentionService(repo)
     now = datetime.now(timezone.utc)
     archived = await service.archive_expired(tenant_id="tenant-demo", now=now)
 
@@ -90,12 +101,13 @@ async def test_non_expired_completed_record_is_kept():
 async def test_expired_unfinished_or_escalated_record_is_kept():
     unfinished = "run_01111111-1111-7111-8111-111111111111"
     escalated = "run_02222222-2222-7222-8222-222222222222"
-    tracer = PresaleRunTracer()
+    repo = InMemoryRunTraceRepository()
+    tracer = PresaleRunTracer(trace_repo=repo)
     await start_trace(tracer, unfinished, age_days=40)
     await start_trace(tracer, escalated, age_days=40)
     await tracer.mark_disposition_escalated(escalated, tenant_id="tenant-demo")
 
-    service = RetentionService(tracer._repo)
+    service = RetentionService(repo)
     now = datetime.now(timezone.utc)
     archived = await service.archive_expired(tenant_id="tenant-demo", now=now)
 
@@ -106,9 +118,7 @@ async def test_expired_unfinished_or_escalated_record_is_kept():
 
 @pytest.mark.asyncio
 async def test_archive_requires_tenant_scope():
-    tracer = PresaleRunTracer()
-    await start_trace(tracer, "run_01111111-1111-7111-8111-111111111111")
-
-    service = RetentionService(tracer._repo)
+    repo = InMemoryRunTraceRepository()
+    service = RetentionService(repo)
     with pytest.raises(TraceError, match="TENANT_ID_REQUIRED"):
         await service.archive_expired(tenant_id="", now=datetime.now(timezone.utc))
