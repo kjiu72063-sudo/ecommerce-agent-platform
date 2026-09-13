@@ -32,7 +32,7 @@ uv run ruff format --check src
 uv run pre-commit run --all-files
 ```
 
-当前基线：全量测试 156 passed。CI 通过 GitHub Actions（`.github/workflows/ci.yml`）在 `main` 与 PR 上强制执行上述门禁（ruff check/format src + pytest）。测试规范入口位于 `tests/b1`、`tests/b2`、`tests/b3`；旧 B 目录中的测试保留作阶段迁移参考，不再作为根级默认收集入口。
+当前基线：全量测试 166 passed（以 `开发文档/09-质量基线与门禁台账.md` 的带日期台账为准）。CI 通过 GitHub Actions（`.github/workflows/ci.yml`）在 `main` 与 PR 上强制执行上述门禁（ruff check/format src + pytest）。测试规范入口位于 `tests/b1`、`tests/b2`、`tests/b3`；旧 B 目录中的测试保留作阶段迁移参考，不再作为根级默认收集入口。
 
 ## 目录边界
 
@@ -59,3 +59,9 @@ B0-契约基础/从零实现/            # 历史/教学实现，不是运行时
 - 阶段隔离：B4 之前不引入模型调用、完整 Harness 或 Loop 策略。
 - 本地边界：当前只承诺单进程本地内存/SQLite 闭环，不承诺 PostgreSQL、消息队列、分布式事务或多进程一致性。
 - 不把 `B0-契约基础/从零实现/` 当作新代码依赖；它用于教学、历史追溯和对照。
+
+## 贡献与维护
+
+- 开发流程、门禁与分支/PR 规范见 [`CONTRIBUTING.md`](CONTRIBUTING.md)。
+- 后台维护（30 天保留归档）的调度入口（HTTP 端点 + CLI）见 [`开发文档/09-质量基线与门禁台账.md`](开发文档/09-质量基线与门禁台账.md)。
+
