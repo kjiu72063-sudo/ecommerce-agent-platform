@@ -242,15 +242,19 @@ async def test_success_status_write_failure_replays_existing_answer():
     persisted = await answers.get_by_run(claim.run_ref, tenant_id="tenant-demo")
     assert persisted is not None
 
-    # A retry with the same key must replay the persisted draft, not regenerate.
+    # A retry with the same key must replay the persisted draft (not regenerate),
+    # and — once the transient write failure is gone — finalize the claim to
+    # succeeded so it does not remain in_progress forever.
     retried = await PresaleQaRunner(
         sources=[source()],
-        idempotency_repo=SucceedWriteFailsRepository(),
+        idempotency_repo=base,  # healthy repo now: replay should finalize succeeded
         answer_repo=answers,
         trace_repo=traces,
     ).ask(question())
 
     assert retried.answer_draft.answer_id == persisted.answer_id
+    final = await base.get("tenant-demo", "state-key-001")
+    assert final.status == "succeeded"
 
 
 @pytest.mark.asyncio
@@ -297,17 +301,20 @@ async def test_unconfirmed_trace_after_persist_is_not_marked_succeeded():
 
     repo = InMemoryIdempotencyRepository()
 
-    class TraceGetBreaksOnAttach:
+    class TraceGetBreaksOnceAttached:
+        # Semantic discriminator: reads of an already-attached trace fail. This
+        # targets the post-persist "trace not confirmed" branch without coupling
+        # to how many times the pipeline calls get() before attach_answer.
         def __init__(self):
-            self.gets = 0
+            self.attached = set()
 
         async def save(self, trace):
-            pass
+            if trace.answer_draft_id:
+                self.attached.add(trace.run_ref)
 
         async def get(self, run_ref, *, tenant_id):
-            self.gets += 1
-            if self.gets == 4:  # attach_answer's _require lookup
-                raise RuntimeError("trace get down on attach")
+            if run_ref in self.attached:
+                raise RuntimeError("trace get down after attach")
             return PresaleRunTrace(
                 run_ref=run_ref,
                 tenant_id=tenant_id,
@@ -330,7 +337,7 @@ async def test_unconfirmed_trace_after_persist_is_not_marked_succeeded():
     runner = PresaleQaRunner(
         sources=[source()],
         idempotency_repo=repo,
-        trace_repo=TraceGetBreaksOnAttach(),
+        trace_repo=TraceGetBreaksOnceAttached(),
     )
 
     with pytest.raises(QaRuntimeError, match="ANSWER_GENERATION_FAILED"):
