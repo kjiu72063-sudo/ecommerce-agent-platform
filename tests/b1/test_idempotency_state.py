@@ -349,3 +349,191 @@ async def test_unconfirmed_trace_after_persist_is_not_marked_succeeded():
     claim = await repo.get("tenant-demo", "state-key-001")
     assert claim is not None
     assert claim.status == "in_progress"
+
+
+async def seed_state(*, claim, draft, attached, key="state-key-001"):
+    """Seed a durable draft/trace/claim and return the shared repos + run_ref."""
+    from presale.adapters.in_memory import (
+        InMemoryAnswerDraftRepository,
+        InMemoryRunTraceRepository,
+    )
+    from presale.answer import PresaleAnswerGenerator
+    from presale.knowledge import EvidenceItem, RetrievalResult, RetrievalStatus
+    from presale.trace import PresaleRunTrace, RunStage, StageRecord
+
+    answers = InMemoryAnswerDraftRepository()
+    traces = InMemoryRunTraceRepository()
+    idem = InMemoryIdempotencyRepository()
+    run_ref = "run_01111111-1111-7111-8111-111111111111"
+
+    if draft:
+        q = question()
+        evidence = EvidenceItem(
+            source_id="catalog-001",
+            source_version="2026.09.01",
+            locator="spec.season",
+            content_digest=canonical_sha256({"content": "适合夏季"}),
+            tenant_id="tenant-demo",
+            product_id="product-001",
+            content="适合夏季使用",
+        )
+        retrieval = RetrievalResult(status=RetrievalStatus.MATCHED, evidence_items=[evidence])
+        ans = PresaleAnswerGenerator().generate(
+            q, retrieval, run_ref={"kind": "AgentRun", "id": run_ref}, configuration_refs={}
+        )
+        await answers.save(ans, tenant_id="tenant-demo")
+        trace = PresaleRunTrace(
+            run_ref=run_ref,
+            tenant_id="tenant-demo",
+            question_id=q.question_id,
+            task_id="task",
+            agent_run_id=run_ref,
+            configuration_refs={},
+            stages=[
+                StageRecord(
+                    stage=RunStage.SUBMITTED, detail=q.question_id, occurred_at=q.requested_at
+                )
+            ],
+            answer_draft_id=ans.answer_id if attached else None,
+        )
+        await traces.save(trace)
+
+    if claim is not None:
+        record = IdempotencyRecord(
+            tenant_id="tenant-demo",
+            idempotency_key=key,
+            business_content_digest=canonical_sha256(
+                {"product_id": "product-001", "question_text": "这款商品适合夏季使用吗？"}
+            ),
+            run_ref=run_ref,
+            created_at=datetime.now(timezone.utc),
+        )
+        await idem.claim(record)
+        if claim == "succeeded":
+            await idem.update_status("tenant-demo", key, "succeeded")
+        elif claim == "failed":
+            await idem.update_status("tenant-demo", key, "failed")
+
+    return answers, traces, idem, run_ref
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "case",
+    [
+        pytest.param(
+            {
+                "claim": None,
+                "draft": False,
+                "attached": False,
+                "expect_status": "succeeded",
+                "expect_error": None,
+            },
+            id="fresh",
+        ),
+        pytest.param(
+            {
+                "claim": "in_progress",
+                "draft": False,
+                "attached": False,
+                "expect_status": "in_progress",
+                "expect_error": "IDEMPOTENCY_RESULT_NOT_READY",
+            },
+            id="in_progress_no_draft",
+        ),
+        pytest.param(
+            {
+                "claim": "in_progress",
+                "draft": True,
+                "attached": False,
+                "expect_status": "in_progress",
+                "expect_error": None,
+            },
+            id="in_progress_draft_unattached",
+        ),
+        pytest.param(
+            {
+                "claim": "in_progress",
+                "draft": True,
+                "attached": True,
+                "expect_status": "succeeded",
+                "expect_error": None,
+            },
+            id="in_progress_draft_attached",
+        ),
+        pytest.param(
+            {
+                "claim": "succeeded",
+                "draft": True,
+                "attached": True,
+                "expect_status": "succeeded",
+                "expect_error": None,
+            },
+            id="succeeded",
+        ),
+        pytest.param(
+            {
+                "claim": "failed",
+                "draft": True,
+                "attached": True,
+                "expect_status": "succeeded",
+                "expect_error": None,
+            },
+            id="failed_retry",
+        ),
+    ],
+)
+async def test_idempotency_state_transition_matrix(case):
+    answers, traces, idem, _ = await seed_state(
+        claim=case["claim"], draft=case["draft"], attached=case["attached"]
+    )
+    runner = PresaleQaRunner(
+        sources=[source()], idempotency_repo=idem, answer_repo=answers, trace_repo=traces
+    )
+
+    error = None
+    try:
+        result = await runner.ask(question())
+    except QaRuntimeError as exc:
+        error = str(exc)
+        result = None
+
+    if case["expect_error"]:
+        assert error is not None and case["expect_error"] in error
+        assert result is None
+    else:
+        assert error is None, f"unexpected error: {error}"
+        assert result is not None
+
+    final = await idem.get("tenant-demo", "state-key-001")
+    assert final.status == case["expect_status"]
+
+
+@pytest.mark.asyncio
+async def test_replay_confirm_failure_keeps_claim_in_progress():
+    answers, traces, base, _ = await seed_state(claim="in_progress", draft=True, attached=True)
+
+    class FailingSucceed:
+        async def claim(self, record):
+            return await base.claim(record)
+
+        async def get(self, tenant_id, key):
+            return await base.get(tenant_id, key)
+
+        async def update_status(self, tenant_id, key, status):
+            if status == "succeeded":
+                raise RuntimeError("db down while writing succeeded")
+            return await base.update_status(tenant_id, key, status)
+
+    runner = PresaleQaRunner(
+        sources=[source()],
+        idempotency_repo=FailingSucceed(),
+        answer_repo=answers,
+        trace_repo=traces,
+    )
+
+    result = await runner.ask(question())
+
+    assert result.answer_draft.answer_id  # replay returned the durable draft
+    claim = await base.get("tenant-demo", "state-key-001")
+    assert claim.status == "in_progress"  # confirm failed -> not finalized
