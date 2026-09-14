@@ -132,6 +132,10 @@ class PresaleQaRunner:
                 raise QaRuntimeError("IDEMPOTENCY_RESULT_NOT_READY")
             trace = await self._tracer.get(claim.run_ref, tenant_id=question.tenant_id)
             self._dispositions.register(draft, technical_status="succeeded")
+            # A replay served a durable, readable result, so the run is genuinely
+            # complete: finalize an in_progress claim to succeeded so idempotency
+            # rows do not accumulate as permanently in_progress.
+            await self._confirm_succeeded(question)
             return PresaleQaResult(run_ref=claim.run_ref, answer_draft=draft, trace=trace)
 
         trace_id: str | None = None
