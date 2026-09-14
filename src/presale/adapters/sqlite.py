@@ -71,8 +71,12 @@ class SQLitePresaleStore:
 class SQLiteIdempotencyRepository(IdempotencyRepository):
     """SQLite-backed atomic idempotency claims."""
 
-    def __init__(self, store: SQLitePresaleStore):
+    def __init__(self, store: SQLitePresaleStore, *, claim_barrier=None):
         self._db = store.db
+        # Test seam: awaited between this claim's existence check and its INSERT,
+        # letting a test land a conflicting row through another connection to
+        # drive the IntegrityError recovery deterministically. No-op in production.
+        self._claim_barrier = claim_barrier
 
     async def claim(self, record: IdempotencyRecord) -> IdempotencyRecord:
         row = self._db.execute(
@@ -93,7 +97,9 @@ class SQLiteIdempotencyRepository(IdempotencyRepository):
                 )
                 self._db.commit()
                 return record
-            return existing
+                return existing
+        if self._claim_barrier is not None:
+            await self._claim_barrier()
         try:
             self._db.execute(
                 (

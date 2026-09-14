@@ -46,3 +46,102 @@ async def test_sqlite_claim_survives_new_repository_instance(tmp_path):
     assert found is not None
     assert found.run_ref == claimed.run_ref
     store.close()
+
+
+async def barrier_store(store, injected):
+    """Return a barrier that inserts `injected` through a second connection."""
+
+    async def _barrier():
+        s2 = SQLitePresaleStore(store.database)
+        try:
+            await SQLiteIdempotencyRepository(s2).claim(injected)
+        finally:
+            s2.close()
+
+    return _barrier
+
+
+@pytest.mark.asyncio
+async def test_sqlite_claim_integrity_error_recovery(tmp_path):
+    # The claim_barrier seam lets us deterministically land a row between the
+    # original claim's SELECT and INSERT, driving the IntegrityError rescue.
+    store = SQLitePresaleStore(tmp_path / "race.sqlite3")
+    injected = record(run_ref="run_injected")
+    ours = record(run_ref="run_ours")  # same digest
+
+    repo = SQLiteIdempotencyRepository(store, claim_barrier=await barrier_store(store, injected))
+    claimed = await repo.claim(ours)
+
+    assert claimed.run_ref == injected.run_ref  # recovery returned the existing
+    store.close()
+
+
+@pytest.mark.asyncio
+async def test_sqlite_claim_integrity_error_conflict(tmp_path):
+    store = SQLitePresaleStore(tmp_path / "race2.sqlite3")
+    injected = record(run_ref="run_injected", digest="sha256:" + "b" * 64)
+    ours = record(run_ref="run_ours", digest="sha256:" + "a" * 64)
+
+    repo = SQLiteIdempotencyRepository(store, claim_barrier=await barrier_store(store, injected))
+    with pytest.raises(IdempotencyConflictError, match="IDEMPOTENCY_CONFLICT"):
+        await repo.claim(ours)
+    store.close()
+
+
+@pytest.mark.asyncio
+async def test_sqlite_claim_integrity_error_failed_recurs_to_replace(tmp_path):
+    store = SQLitePresaleStore(tmp_path / "race3.sqlite3")
+    from presale.idempotency import IdempotencyRecord
+
+    injected = record(run_ref="run_injected").model_copy(update={"status": "failed"})
+    ours = record(run_ref="run_ours")
+
+    repo = SQLiteIdempotencyRepository(store, claim_barrier=await barrier_store(store, injected))
+    claimed = await repo.claim(ours)
+
+    assert claimed.run_ref == ours.run_ref  # recursive recovery replaced the failed row
+    store.close()
+
+
+async def _make_barrier(database, injected):
+    async def barrier():
+        # Land a conflicting row through a second connection between the original
+        # claim's existence check and its own INSERT (drives IntegrityError).
+        s2 = SQLitePresaleStore(database)
+        try:
+            await SQLiteIdempotencyRepository(s2).claim(injected)
+        finally:
+            s2.close()
+
+    return barrier
+
+
+@pytest.mark.asyncio
+async def test_sqlite_claim_integrity_error_recovery_same_digest(tmp_path):
+    store = SQLitePresaleStore(tmp_path / "concurrent.sqlite3")
+    injected = record(digest="sha256:" + "a" * 64, run_ref="run_injected")
+    ours = record(digest="sha256:" + "a" * 64, run_ref="run_ours")
+
+    repo = SQLiteIdempotencyRepository(
+        store, claim_barrier=await _make_barrier(store.database, injected)
+    )
+    result = await repo.claim(ours)
+
+    # The concurrent insert won the race with the same digest: recovery returns
+    # the existing record rather than raising.
+    assert result.run_ref == injected.run_ref
+    store.close()
+
+
+@pytest.mark.asyncio
+async def test_sqlite_claim_integrity_error_recovery_conflict(tmp_path):
+    store = SQLitePresaleStore(tmp_path / "concurrent2.sqlite3")
+    injected = record(digest="sha256:" + "a" * 64, run_ref="run_injected")
+    ours = record(digest="sha256:" + "b" * 64, run_ref="run_ours")
+
+    repo = SQLiteIdempotencyRepository(
+        store, claim_barrier=await _make_barrier(store.database, injected)
+    )
+    with pytest.raises(IdempotencyConflictError, match="IDEMPOTENCY_CONFLICT"):
+        await repo.claim(ours)
+    store.close()
