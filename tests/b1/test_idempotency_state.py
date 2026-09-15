@@ -604,3 +604,41 @@ async def test_replay_answer_read_failure_surfaces_clean_error():
     # A storage fault while reading the durable draft leaves the claim unchanged.
     claim = await idem.get("tenant-demo", "state-key-001")
     assert claim.status == "in_progress"
+
+
+@pytest.mark.asyncio
+async def test_fixed_agent_run_id_with_in_progress_claim_regenerates():
+    # Known limitation (see quality ledger §4): with a fixed agent_run_id,
+    # run_ref == run_id, so an in_progress claim is indistinguishable from a
+    # fresh one and the runner takes the fresh path, regenerating instead of
+    # replaying. This lock-in documents that behavior so a change is intentional.
+    answers, traces, idem, run_ref = await seed_state(
+        claim="in_progress", draft=True, attached=True
+    )
+
+    class CountingGenerator:
+        def __init__(self):
+            self.calls = 0
+
+        def generate(self, *args, **kwargs):
+            self.calls += 1
+            from presale.answer import PresaleAnswerGenerator
+
+            return PresaleAnswerGenerator().generate(*args, **kwargs)
+
+    generator = CountingGenerator()
+    runner = PresaleQaRunner(
+        sources=[source()],
+        idempotency_repo=idem,
+        answer_repo=answers,
+        trace_repo=traces,
+        agent_run_id=run_ref,  # fixed run id equals the in_progress claim's run_ref
+        generator=generator,
+    )
+    result = await runner.ask(question())
+
+    # Regenerated on the fresh path (generator invoked), NOT replayed.
+    assert generator.calls == 1
+    assert result.answer_draft.answer_id
+    claim = await idem.get("tenant-demo", "state-key-001")
+    assert claim.status == "succeeded"

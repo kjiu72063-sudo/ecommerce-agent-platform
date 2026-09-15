@@ -148,3 +148,21 @@ async def test_archive_expired_facade_runs_blocking_in_worker_thread(monkeypatch
     await maintenance.archive_expired_sqlite(database="x", tenant_id="t")
 
     assert seen["thread"] != caller_thread
+
+
+def test_archive_empty_database_returns_no_archived(tmp_path, monkeypatch):
+    root = tmp_path / "root"
+    root.mkdir()
+    monkeypatch.setenv("PRESALE_DB_DIR", str(root))
+    db_path = root / "empty.sqlite3"
+    store = SQLitePresaleStore(db_path)
+    store.close()
+    client = TestClient(app)
+
+    resp = client.post(
+        "/api/v1/presale/maintenance/retention/archive",
+        params={"tenant_id": "tenant-demo", "database": str(db_path)},
+    )
+
+    assert resp.status_code == 200
+    assert resp.json()["archived"] == []
