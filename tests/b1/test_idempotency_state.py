@@ -481,6 +481,36 @@ async def seed_state(*, claim, draft, attached, key="state-key-001"):
             },
             id="failed_retry",
         ),
+        pytest.param(
+            {
+                "claim": "succeeded",
+                "draft": True,
+                "attached": False,
+                "expect_status": "succeeded",
+                "expect_error": None,
+            },
+            id="succeeded_unattached",
+        ),
+        pytest.param(
+            {
+                "claim": "failed",
+                "draft": True,
+                "attached": False,
+                "expect_status": "succeeded",
+                "expect_error": None,
+            },
+            id="failed_unattached",
+        ),
+        pytest.param(
+            {
+                "claim": "failed",
+                "draft": False,
+                "attached": False,
+                "expect_status": "succeeded",
+                "expect_error": None,
+            },
+            id="failed_no_draft",
+        ),
     ],
 )
 async def test_idempotency_state_transition_matrix(case):
@@ -514,6 +544,9 @@ async def test_replay_confirm_failure_keeps_claim_in_progress():
     answers, traces, base, _ = await seed_state(claim="in_progress", draft=True, attached=True)
 
     class FailingSucceed:
+        def __init__(self):
+            self.succeeded_attempts = 0
+
         async def claim(self, record):
             return await base.claim(record)
 
@@ -522,12 +555,14 @@ async def test_replay_confirm_failure_keeps_claim_in_progress():
 
         async def update_status(self, tenant_id, key, status):
             if status == "succeeded":
+                self.succeeded_attempts += 1  # spy: confirm was actually attempted
                 raise RuntimeError("db down while writing succeeded")
             return await base.update_status(tenant_id, key, status)
 
+    failing = FailingSucceed()
     runner = PresaleQaRunner(
         sources=[source()],
-        idempotency_repo=FailingSucceed(),
+        idempotency_repo=failing,
         answer_repo=answers,
         trace_repo=traces,
     )
@@ -535,5 +570,44 @@ async def test_replay_confirm_failure_keeps_claim_in_progress():
     result = await runner.ask(question())
 
     assert result.answer_draft.answer_id  # replay returned the durable draft
+    assert failing.succeeded_attempts >= 1, "replay must attempt to finalize succeeded"
     claim = await base.get("tenant-demo", "state-key-001")
     assert claim.status == "in_progress"  # confirm failed -> not finalized
+
+
+@pytest.mark.asyncio
+async def test_replay_trace_read_failure_surfaces_clean_error():
+    from presale.trace import TraceError
+
+    answers, traces, idem, _ = await seed_state(claim="in_progress", draft=True, attached=True)
+
+    class TraceGetDown:
+        async def save(self, trace):
+            pass
+
+        async def get(self, run_ref, *, tenant_id):
+            raise TraceError("TRACE_NOT_FOUND")
+
+        async def list_by_tenant(self, *, tenant_id):
+            return []
+
+        async def mark_disposition(self, run_ref, *, tenant_id, state):
+            pass
+
+        async def mark_archived(self, run_ref, *, tenant_id):
+            pass
+
+    runner = PresaleQaRunner(
+        sources=[source()],
+        idempotency_repo=idem,
+        answer_repo=answers,
+        trace_repo=TraceGetDown(),
+    )
+
+    with pytest.raises(QaRuntimeError, match="TRACE_NOT_FOUND"):
+        await runner.ask(question())
+
+    # The claim is left unchanged (in_progress) so a later retry can replay once
+    # the trace is readable again.
+    claim = await idem.get("tenant-demo", "state-key-001")
+    assert claim.status == "in_progress"

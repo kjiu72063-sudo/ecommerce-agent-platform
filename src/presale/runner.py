@@ -130,7 +130,12 @@ class PresaleQaRunner:
             draft = await self._answer_repo.get_by_run(claim.run_ref, tenant_id=question.tenant_id)
             if draft is None:
                 raise QaRuntimeError("IDEMPOTENCY_RESULT_NOT_READY")
-            trace = await self._tracer.get(claim.run_ref, tenant_id=question.tenant_id)
+            try:
+                trace = await self._tracer.get(claim.run_ref, tenant_id=question.tenant_id)
+            except TraceError as exc:
+                # Leave the claim as-is (in_progress/succeeded); a later retry can
+                # replay once the trace is readable again. Surface a clean error.
+                raise QaRuntimeError(str(exc)) from exc
             self._dispositions.register(draft, technical_status="succeeded")
             # Only finalize an in_progress claim to succeeded once the replayed
             # trace actually carries the answer, mirroring the fresh path's
