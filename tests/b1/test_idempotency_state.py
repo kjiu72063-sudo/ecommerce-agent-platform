@@ -584,6 +584,42 @@ async def test_replay_trace_read_failure_surfaces_clean_error():
 
 
 @pytest.mark.asyncio
+async def test_replay_trace_read_non_trace_error_surfaces_clean_error():
+    # A real sqlite/deserialization read fault (not a TraceError) during replay
+    # must also surface as a clean QaRuntimeError instead of propagating raw.
+    answers, traces, idem, _ = await seed_state(claim="in_progress", draft=True, attached=True)
+
+    class TraceGetRaisesRuntimeError:
+        async def save(self, trace):
+            pass
+
+        async def get(self, run_ref, *, tenant_id):
+            raise RuntimeError("trace deserialize boom")
+
+        async def list_by_tenant(self, *, tenant_id):
+            return []
+
+        async def mark_disposition(self, run_ref, *, tenant_id, state):
+            pass
+
+        async def mark_archived(self, run_ref, *, tenant_id):
+            pass
+
+    runner = PresaleQaRunner(
+        sources=[source()],
+        idempotency_repo=idem,
+        answer_repo=answers,
+        trace_repo=TraceGetRaisesRuntimeError(),
+    )
+
+    with pytest.raises(QaRuntimeError, match="trace deserialize boom"):
+        await runner.ask(question())
+
+    claim = await idem.get("tenant-demo", "state-key-001")
+    assert claim.status == "in_progress"
+
+
+@pytest.mark.asyncio
 async def test_replay_answer_read_failure_surfaces_clean_error():
     answers, traces, idem, _ = await seed_state(claim="in_progress", draft=True, attached=True)
 
@@ -607,14 +643,15 @@ async def test_replay_answer_read_failure_surfaces_clean_error():
 
 
 @pytest.mark.asyncio
-async def test_fixed_agent_run_id_with_in_progress_claim_regenerates():
-    # Known limitation (see quality ledger §4): with a fixed agent_run_id,
-    # run_ref == run_id, so an in_progress claim is indistinguishable from a
-    # fresh one and the runner takes the fresh path, regenerating instead of
-    # replaying. This lock-in documents that behavior so a change is intentional.
+async def test_fixed_agent_run_id_with_in_progress_and_draft_replays():
+    # A fixed agent_run_id makes claim.run_ref == run_id, but when a durable
+    # draft already exists for that run, the runner replays it instead of
+    # regenerating a duplicate.
     answers, traces, idem, run_ref = await seed_state(
         claim="in_progress", draft=True, attached=True
     )
+    persisted = await answers.get_by_run(run_ref, tenant_id="tenant-demo")
+    assert persisted is not None
 
     class CountingGenerator:
         def __init__(self):
@@ -637,8 +674,56 @@ async def test_fixed_agent_run_id_with_in_progress_claim_regenerates():
     )
     result = await runner.ask(question())
 
-    # Regenerated on the fresh path (generator invoked), NOT replayed.
-    assert generator.calls == 1
-    assert result.answer_draft.answer_id
+    # Replayed the existing durable draft (generator not invoked), no duplicate.
+    assert generator.calls == 0
+    assert result.answer_draft.answer_id == persisted.answer_id
     claim = await idem.get("tenant-demo", "state-key-001")
     assert claim.status == "succeeded"
+
+
+@pytest.mark.asyncio
+async def test_mark_failed_double_failure_leaves_claim_in_progress():
+    # Full storage double-fault: both the trace cleanup and the failed-status
+    # write fail. There is no reliable third persistence path, so the claim is
+    # left in_progress; the original error still surfaces as a clean QaRuntimeError.
+    base = InMemoryIdempotencyRepository()
+
+    class FailingFailedWrite:
+        async def claim(self, record):
+            return await base.claim(record)
+
+        async def get(self, tenant_id, key):
+            return await base.get(tenant_id, key)
+
+        async def update_status(self, tenant_id, key, status):
+            if status == "failed":
+                raise RuntimeError("failed-write down")
+            return await base.update_status(tenant_id, key, status)
+
+    class TraceGetDown:
+        async def save(self, trace):
+            pass
+
+        async def get(self, run_ref, *, tenant_id):
+            raise RuntimeError("trace get down")
+
+        async def list_by_tenant(self, *, tenant_id):
+            return []
+
+        async def mark_disposition(self, run_ref, *, tenant_id, state):
+            pass
+
+        async def mark_archived(self, run_ref, *, tenant_id):
+            pass
+
+    runner = PresaleQaRunner(
+        sources=[source()],
+        idempotency_repo=FailingFailedWrite(),
+        trace_repo=TraceGetDown(),
+    )
+
+    with pytest.raises(QaRuntimeError, match="ANSWER_GENERATION_FAILED"):
+        await runner.ask(question())
+
+    claim = await base.get("tenant-demo", "state-key-001")
+    assert claim.status == "in_progress"  # both cleanup writes failed
