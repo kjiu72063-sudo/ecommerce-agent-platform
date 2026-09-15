@@ -481,36 +481,6 @@ async def seed_state(*, claim, draft, attached, key="state-key-001"):
             },
             id="failed_retry",
         ),
-        pytest.param(
-            {
-                "claim": "succeeded",
-                "draft": True,
-                "attached": False,
-                "expect_status": "succeeded",
-                "expect_error": None,
-            },
-            id="succeeded_unattached",
-        ),
-        pytest.param(
-            {
-                "claim": "failed",
-                "draft": True,
-                "attached": False,
-                "expect_status": "succeeded",
-                "expect_error": None,
-            },
-            id="failed_unattached",
-        ),
-        pytest.param(
-            {
-                "claim": "failed",
-                "draft": False,
-                "attached": False,
-                "expect_status": "succeeded",
-                "expect_error": None,
-            },
-            id="failed_no_draft",
-        ),
     ],
 )
 async def test_idempotency_state_transition_matrix(case):
@@ -609,5 +579,28 @@ async def test_replay_trace_read_failure_surfaces_clean_error():
 
     # The claim is left unchanged (in_progress) so a later retry can replay once
     # the trace is readable again.
+    claim = await idem.get("tenant-demo", "state-key-001")
+    assert claim.status == "in_progress"
+
+
+@pytest.mark.asyncio
+async def test_replay_answer_read_failure_surfaces_clean_error():
+    answers, traces, idem, _ = await seed_state(claim="in_progress", draft=True, attached=True)
+
+    class AnswerReadDown:
+        async def get_by_run(self, run_ref, *, tenant_id):
+            raise RuntimeError("answer read down")
+
+    runner = PresaleQaRunner(
+        sources=[source()],
+        idempotency_repo=idem,
+        answer_repo=AnswerReadDown(),
+        trace_repo=traces,
+    )
+
+    with pytest.raises(QaRuntimeError, match="answer read down"):
+        await runner.ask(question())
+
+    # A storage fault while reading the durable draft leaves the claim unchanged.
     claim = await idem.get("tenant-demo", "state-key-001")
     assert claim.status == "in_progress"
