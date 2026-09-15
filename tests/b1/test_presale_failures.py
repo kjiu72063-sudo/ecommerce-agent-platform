@@ -180,3 +180,76 @@ async def test_context_failure_branch_marks_claim_and_trace_failed():
     assert claim.status == "failed"
     trace = await traces.get(claim.run_ref, tenant_id=TENANT)
     assert trace.failed is True
+
+
+@pytest.mark.asyncio
+async def test_question_save_failure_marks_claim_failed():
+    repo = InMemoryIdempotencyRepository()
+
+    class QuestionSaveDown:
+        async def save(self, question):
+            raise RuntimeError("question save down")
+
+        async def get(self, question_id, *, tenant_id):
+            raise RuntimeError("question read down")
+
+        async def find_by_idempotency(self, tenant_id, idempotency_key):
+            return None
+
+    runner = PresaleQaRunner(
+        sources=[source()], idempotency_repo=repo, question_repo=QuestionSaveDown()
+    )
+
+    with pytest.raises(QaRuntimeError, match="ANSWER_GENERATION_FAILED"):
+        await runner.ask(QUESTION)
+
+    claim = await repo.get(TENANT, "question-001-key")
+    assert claim.status == "failed"
+
+
+@pytest.mark.asyncio
+async def test_trace_start_failure_marks_claim_failed():
+    repo = InMemoryIdempotencyRepository()
+
+    class TraceStartDown:
+        async def save(self, trace):
+            raise RuntimeError("trace start down")
+
+        async def get(self, run_ref, *, tenant_id):
+            raise RuntimeError("trace read down")
+
+        async def list_by_tenant(self, *, tenant_id):
+            return []
+
+        async def mark_disposition(self, run_ref, *, tenant_id, state):
+            pass
+
+        async def mark_archived(self, run_ref, *, tenant_id):
+            pass
+
+    runner = PresaleQaRunner(sources=[source()], idempotency_repo=repo, trace_repo=TraceStartDown())
+
+    with pytest.raises(QaRuntimeError, match="ANSWER_GENERATION_FAILED"):
+        await runner.ask(QUESTION)
+
+    claim = await repo.get(TENANT, "question-001-key")
+    assert claim.status == "failed"
+
+
+@pytest.mark.asyncio
+async def test_evidence_save_failure_marks_claim_failed():
+    repo = InMemoryIdempotencyRepository()
+
+    class EvidenceSaveDown:
+        async def save_evidence(self, run_id, items):
+            raise RuntimeError("evidence save down")
+
+    runner = PresaleQaRunner(
+        sources=[source()], idempotency_repo=repo, evidence_repo=EvidenceSaveDown()
+    )
+
+    with pytest.raises(QaRuntimeError, match="ANSWER_GENERATION_FAILED"):
+        await runner.ask(QUESTION)
+
+    claim = await repo.get(TENANT, "question-001-key")
+    assert claim.status == "failed"
