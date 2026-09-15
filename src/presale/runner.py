@@ -120,29 +120,25 @@ class PresaleQaRunner:
                 created_at=question.requested_at,
             )
         )
-        # claim() returns the authoritative record: a fresh insert returns the new
-        # record, while an existing in_progress/succeeded record is returned
-        # unchanged (still pointing at its original run). A different run_ref means
-        # another (possibly concurrent) run owns the key, so we must replay or wait
-        # instead of generating a second answer. A succeeded claim also replays even
-        # when a fixed agent_run_id made run_ref equal again.
-        if claim.run_ref != run_id or claim.status == "succeeded":
-            try:
-                draft = await self._answer_repo.get_by_run(
-                    claim.run_ref, tenant_id=question.tenant_id
-                )
-            except Exception as exc:
-                # A storage fault while reading the durable draft must surface
-                # cleanly and leave the claim unchanged (retryable), not propagate
-                # raw out of ask().
-                raise QaRuntimeError(str(exc)) from exc
+        # A durable draft for the claimed run means a prior attempt produced an
+        # answer; replay it instead of generating again, even when a fixed
+        # agent_run_id makes claim.run_ref == run_id.
+        try:
+            draft = await self._answer_repo.get_by_run(claim.run_ref, tenant_id=question.tenant_id)
+        except Exception as exc:
+            # A storage fault while reading the durable draft must surface
+            # cleanly and leave the claim unchanged (retryable), not propagate
+            # raw out of ask().
+            raise QaRuntimeError(str(exc)) from exc
+        if claim.run_ref != run_id or claim.status == "succeeded" or draft is not None:
             if draft is None:
                 raise QaRuntimeError("IDEMPOTENCY_RESULT_NOT_READY")
             try:
                 trace = await self._tracer.get(claim.run_ref, tenant_id=question.tenant_id)
-            except TraceError as exc:
-                # Leave the claim as-is (in_progress/succeeded); a later retry can
-                # replay once the trace is readable again. Surface a clean error.
+            except Exception as exc:
+                # Mirror the answer-read guard: any storage/deserialization fault
+                # while reading the trace must surface cleanly and leave the claim
+                # unchanged (retryable), not propagate raw out of ask().
                 raise QaRuntimeError(str(exc)) from exc
             self._dispositions.register(draft, technical_status="succeeded")
             # Only finalize an in_progress claim to succeeded once the replayed
