@@ -127,7 +127,15 @@ class PresaleQaRunner:
         # instead of generating a second answer. A succeeded claim also replays even
         # when a fixed agent_run_id made run_ref equal again.
         if claim.run_ref != run_id or claim.status == "succeeded":
-            draft = await self._answer_repo.get_by_run(claim.run_ref, tenant_id=question.tenant_id)
+            try:
+                draft = await self._answer_repo.get_by_run(
+                    claim.run_ref, tenant_id=question.tenant_id
+                )
+            except Exception as exc:
+                # A storage fault while reading the durable draft must surface
+                # cleanly and leave the claim unchanged (retryable), not propagate
+                # raw out of ask().
+                raise QaRuntimeError(str(exc)) from exc
             if draft is None:
                 raise QaRuntimeError("IDEMPOTENCY_RESULT_NOT_READY")
             try:
