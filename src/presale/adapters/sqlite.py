@@ -97,7 +97,7 @@ class SQLiteIdempotencyRepository(IdempotencyRepository):
                 )
                 self._db.commit()
                 return record
-                return existing
+            return existing
         if self._claim_barrier is not None:
             await self._claim_barrier()
         try:
