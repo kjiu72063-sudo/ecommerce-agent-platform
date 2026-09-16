@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 
 from .contracts import AnswerDraft, ProductQuestion
@@ -12,7 +13,26 @@ class AnswerGenerationError(ValueError):
     """Answer generation failed without producing a trustworthy draft."""
 
 
-class PresaleAnswerGenerator:
+class GeneratorPort(ABC):
+    """Port that turns scoped evidence into a tenant-scoped AnswerDraft."""
+
+    @abstractmethod
+    def generate(
+        self,
+        question: ProductQuestion,
+        retrieval: RetrievalResult,
+        *,
+        run_ref: dict[str, str],
+        configuration_refs: dict[str, str],
+    ) -> AnswerDraft:
+        """Produce an AnswerDraft scoped to the question's tenant, or raise.
+
+        Must not leak another tenant's content; on failure raise
+        AnswerGenerationError instead of returning an untrustworthy draft.
+        """
+
+
+class PresaleAnswerGenerator(GeneratorPort):
     """Generate deterministic answer drafts for internal review."""
 
     def generate(

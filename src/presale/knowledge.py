@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from abc import ABC, abstractmethod
 from enum import StrEnum
 from typing import Any, Literal
 
@@ -11,6 +12,17 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from agent_platform_contracts.policies import canonical_sha256
 
 from .contracts import EvidenceRef, ProductQuestion
+
+
+class RetrievalPort(ABC):
+    """Port that turns a tenant-scoped question into scoped, verified evidence."""
+
+    @abstractmethod
+    def retrieve(self, question: ProductQuestion) -> RetrievalResult:
+        """Return a RetrievalResult scoped to the question's tenant and product.
+
+        Must never return evidence belonging to another tenant/product.
+        """
 
 
 class KnowledgeSource(BaseModel):
@@ -58,7 +70,7 @@ class RetrievalResult(BaseModel):
         return self
 
 
-class DeterministicKnowledgeRetriever:
+class DeterministicKnowledgeRetriever(RetrievalPort):
     """Match question terms against published, in-scope knowledge fields."""
 
     def __init__(self, sources: list[KnowledgeSource]):
