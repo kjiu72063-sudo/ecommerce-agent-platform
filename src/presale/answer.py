@@ -4,8 +4,11 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
+from typing import Literal
 
-from .contracts import AnswerDraft, ProductQuestion
+from agent_platform_contracts.models import ObjectRef, ResourceKind
+
+from .contracts import AnswerDraft, EvidenceRef, ProductQuestion
 from .knowledge import EvidenceItem, RetrievalResult, RetrievalStatus
 
 
@@ -77,10 +80,10 @@ class PresaleAnswerGenerator(GeneratorPort):
         return AnswerDraft(
             answer_id=f"answer-{run_ref['id']}",
             question_id=question.question_id,
-            run_ref=run_ref,
+            run_ref=ObjectRef(kind=ResourceKind(run_ref["kind"]), id=run_ref["id"]),
             answer_text=answer_text,
             evidence_refs=[
-                item.model_dump(exclude={"tenant_id", "product_id", "content"})
+                EvidenceRef(**item.model_dump(exclude={"tenant_id", "product_id", "content"}))
                 for item in retrieval.evidence_items
             ],
             confidence_signal="supported",
@@ -98,15 +101,15 @@ class PresaleAnswerGenerator(GeneratorPort):
         configuration_refs: dict[str, str],
         reason_codes: list[str],
         *,
-        confidence_signal: str,
+        confidence_signal: Literal["supported", "uncertain", "conflicting", "unavailable"],
     ) -> AnswerDraft:
         return AnswerDraft(
             answer_id=f"answer-{run_ref['id']}",
             question_id=question.question_id,
-            run_ref=run_ref,
+            run_ref=ObjectRef(kind=ResourceKind(run_ref["kind"]), id=run_ref["id"]),
             answer_text="当前无法确认，请转人工处理。",
             evidence_refs=[
-                item.model_dump(exclude={"tenant_id", "product_id", "content"})
+                EvidenceRef(**item.model_dump(exclude={"tenant_id", "product_id", "content"}))
                 for item in evidence_items
             ],
             confidence_signal=confidence_signal,

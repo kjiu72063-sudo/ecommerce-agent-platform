@@ -12,6 +12,8 @@ from typing import Any
 
 from pydantic import ValidationError
 
+from agent_platform_contracts.models import ActorRef, ActorType
+
 from .contracts import ProductQuestion
 from .knowledge import KnowledgeSource
 from .maintenance import archive_expired_sqlite
@@ -101,7 +103,7 @@ async def _run(args: argparse.Namespace) -> dict[str, Any]:
     question = ProductQuestion(
         question_id=args.question_id,
         tenant_id=args.tenant,
-        submitted_by={"actor_type": "user", "actor_id": args.user_id},
+        submitted_by=ActorRef(actor_type=ActorType.USER, actor_id=args.user_id),
         product_id=args.product,
         question_text=args.question,
         requested_at=datetime.now(timezone.utc),

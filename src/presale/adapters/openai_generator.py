@@ -11,6 +11,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any, Callable
 
+from agent_platform_contracts.models import ObjectRef, ResourceKind
+
 from ..answer import AnswerGenerationError, GeneratorPort
 from ..contracts import AnswerDraft, EvidenceRef, ProductQuestion
 from ..knowledge import RetrievalResult, RetrievalStatus
@@ -133,7 +135,7 @@ class OpenAICompatibleGenerator(GeneratorPort):
         return AnswerDraft(
             answer_id=f"answer-{run_ref['id']}",
             question_id=question.question_id,
-            run_ref=run_ref,
+            run_ref=ObjectRef(kind=ResourceKind(run_ref["kind"]), id=run_ref["id"]),
             answer_text=llm_text,
             evidence_refs=evidence_refs,
             confidence_signal=confidence,

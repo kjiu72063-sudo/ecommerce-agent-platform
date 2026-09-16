@@ -22,18 +22,19 @@
 
 ## 2. 门禁（Gate）
 
-合并到 `main` 前必须通过以下全部检查。**CI 在 `main` 与每个 PR 上强制执行前三条**（ruff check/format src + pytest）；`pre-commit` 是本地便捷钩子，内部运行的正是前三条的等价内容，非 CI 强制：
+合并到 `main` 前必须通过以下全部检查。**CI 在 `main` 与每个 PR 上强制执行前三条**（ruff check/format src + pytest）；`pre-commit` 是本地便捷钩子，除前三条外还运行 pyright（其 CI step 待补 `workflow` scope）：
 
 ```bash
 uv run pytest -q            # 全量测试（tests/）          <- CI 强制
 uv run ruff check src       # lint（仅 src 为门禁范围）   <- CI 强制
 uv run ruff format --check src                          <- CI 强制
+uv run pyright              # 类型（src/presale+agent_runtime）<- 本地钩子，CI step 待补
 uv run pre-commit run --all-files   # 本地钩子，非 CI 强制
 ```
 
 - **契约优先**：实现必须遵守 B0 契约模型、JSON Schema 与状态机。
 - **测试先行**：先补测试再改实现；覆盖错误路径与跨租户/并发等安全语义。
-- **门禁纪律（平台强制）**：仓库已公开，`main` 启用 branch protection——直接推送/强制推送/删除被禁（含管理员）、必须走 PR、要求 `lint + format + test` CI 通过、强制线性历史。因此合并纪律由平台硬性执行，不再是人工核对。合并前仍请确认该 PR 的 CI `pass`；`pending/queued` 时等待，未通过不能合并（平台会拦截）。
+- **门禁纪律（平台强制）**：仓库已公开，`main` 启用 branch protection——直接推送/强制推送/删除被禁（含管理员）、必须走 PR、要求 `lint + format + typecheck + test` CI 通过、强制线性历史。因此合并纪律由平台硬性执行，不再是人工核对。合并前仍请确认该 PR 的 CI `pass`；`pending/queued` 时等待，未通过不能合并（平台会拦截）。
 - **已知例外（历史）**：2026-09-13 PR #9/#10 曾因免费层 runner 排队过久、在 CI 尚未跑完时被合并（事后 CI 均通过）。这是 branch protection 启用前的一次纪律记录，现在平台已无法再出现该情形。
 
 ## 3. 分支、提交与 PR
