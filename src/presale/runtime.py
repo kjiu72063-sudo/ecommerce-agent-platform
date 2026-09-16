@@ -11,6 +11,7 @@ from .adapters.sqlite import (
     SQLiteProductQuestionRepository,
     SQLiteRunTraceRepository,
 )
+from .agent import PresaleAgent
 from .definitions import B1DefinitionSource
 from .runner import PresaleQaRunner
 
@@ -40,6 +41,10 @@ class PresaleRuntimeFactory:
             **overrides,
         }
         return PresaleQaRunner(**options)
+
+    def create_agent(self, **overrides) -> PresaleAgent:
+        """Create a Harness-drivable Agent over the same wiring as a runner."""
+        return PresaleAgent(self.create_runner(**overrides))
 
     @classmethod
     def create_sqlite(
