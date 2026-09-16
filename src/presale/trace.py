@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import StrEnum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, ConfigDict
 
@@ -143,9 +143,7 @@ class PresaleRunTracer:
             )
         )
 
-    async def attach_context(
-        self, run_ref: str, *, tenant_id: str, context_package: object
-    ) -> None:
+    async def attach_context(self, run_ref: str, *, tenant_id: str, context_package: Any) -> None:
         trace = await self._require(run_ref, tenant_id=tenant_id)
         await self._repo.save(
             trace.model_copy(update={"context_package_ref": context_package.run_ref.id})
