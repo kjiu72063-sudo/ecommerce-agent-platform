@@ -86,3 +86,32 @@ async def test_presale_runner_ask_still_usable_directly():
 
     assert result.answer_draft.answer_text
     assert result.answer_draft.need_human is False
+
+
+@pytest.mark.asyncio
+async def test_matched_step_records_retrieve_tool_call():
+    runner = PresaleQaRunner(sources=[source()])
+
+    outcome = await Harness().execute(question(), PresaleAgent(runner))
+
+    tool_calls = outcome.steps[0].tool_calls
+    assert len(tool_calls) == 1
+    tc = tool_calls[0]
+    assert tc["tool"] == "retrieve"
+    assert tc["tenant_id"] == "tenant-demo"
+    assert tc["product_id"] == "product-001"
+    assert tc["status"] == "matched"
+    assert tc["evidence_count"] >= 1
+
+
+@pytest.mark.asyncio
+async def test_out_of_scope_step_records_no_evidence_status():
+    runner = PresaleQaRunner(sources=[source(product_id="product-other")])
+
+    outcome = await Harness().execute(question(), PresaleAgent(runner))
+
+    tc = outcome.steps[0].tool_calls[0]
+    assert tc["tool"] == "retrieve"
+    assert tc["status"] == "out_of_scope"
+    assert tc["evidence_count"] == 0
+    assert outcome.answer_draft.need_human is True
