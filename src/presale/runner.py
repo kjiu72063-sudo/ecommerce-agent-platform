@@ -6,7 +6,7 @@ from uuid import UUID, uuid4
 
 from agent_platform_contracts.policies import canonical_sha256
 
-from .answer import AnswerGenerationError, PresaleAnswerGenerator
+from .answer import AnswerGenerationError, GeneratorPort, PresaleAnswerGenerator
 from .context import ContextBuildError, PresaleContextBuilder
 from .contracts import ProductQuestion
 from .definitions import (
@@ -17,7 +17,7 @@ from .definitions import (
 from .disposition import AnswerDispositionService, HumanDispositionRecord
 from .idempotency import IdempotencyConflictError as IdempotencyConflictError
 from .idempotency import IdempotencyRecord
-from .knowledge import DeterministicKnowledgeRetriever, KnowledgeSource
+from .knowledge import DeterministicKnowledgeRetriever, KnowledgeSource, RetrievalPort
 from .ports import (
     AnswerDraftRepository,
     DispositionRepository,
@@ -63,7 +63,8 @@ class PresaleQaRunner:
         self,
         *,
         sources: list[KnowledgeSource],
-        generator: object | None = None,
+        retriever: RetrievalPort | None = None,
+        generator: GeneratorPort | None = None,
         context_budget_tokens: int = 1000,
         task_id: str | None = None,
         agent_run_id: str | None = None,
@@ -84,7 +85,9 @@ class PresaleQaRunner:
             InMemoryRunTraceRepository,
         )
 
-        self._retriever = DeterministicKnowledgeRetriever(sources)
+        self._retriever = (
+            retriever if retriever is not None else DeterministicKnowledgeRetriever(sources)
+        )
         self._context_builder = PresaleContextBuilder(
             total_tokens=context_budget_tokens,
             per_source_tokens={"evidence": context_budget_tokens},
