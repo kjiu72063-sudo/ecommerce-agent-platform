@@ -118,4 +118,22 @@ __all__ = [
     "Loop",
     "LoopDecision",
     "TerminalDecision",
+    "format_outcome",
 ]
+
+
+def format_outcome(outcome: AgentOutcome) -> dict[str, Any]:
+    """Render an AgentOutcome as observable, machine-readable output."""
+    return {
+        "run_ref": outcome.run_ref,
+        "terminal": outcome.terminal.value,
+        "steps": [
+            {
+                "index": step.index,
+                "need_human": step.need_human,
+                "tool_calls": step.tool_calls,
+            }
+            for step in outcome.steps
+        ],
+        "answer_id": outcome.answer_draft.answer_id if outcome.answer_draft else None,
+    }

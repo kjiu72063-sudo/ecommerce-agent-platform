@@ -9,6 +9,7 @@ from .harness import (
     Loop,
     LoopDecision,
     TerminalDecision,
+    format_outcome,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "Loop",
     "LoopDecision",
     "TerminalDecision",
+    "format_outcome",
 ]
