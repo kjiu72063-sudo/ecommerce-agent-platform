@@ -26,6 +26,12 @@ V1 不执行改价、下单、库存写入、支付、订单操作或站外触�
 - **HumanDisposition / 人工处置**：接受、编辑、转人工或丢弃回答草稿的业务动作。
 - **Task**：一次可调度的技术任务，不等于 ProductQuestion。
 - **AgentRun**：Task 的一次具体执行尝试。
+- **Agent**：可复用的业务能力（例如售前问答 Agent）；一个 AgentRun 通过 Harness 执行 Agent。
+- **Harness（Agent 执行器）**：运行 Agent 实例的执行壳——维护工具集、执行一个 AgentRun、记录 ToolCall/Event 与步骤、暴露每步可观察输出。
+- **AgentStep**：一次 AgentRun 中的单次执行步（一次工具调用或一次决策检查）。
+- **Loop（循环决策）**：每个 AgentStep 后决定 continue / finalize / need_human 的决策策略，受 max_steps 约束。
+- **max_steps**：一次 AgentRun 允许的最大步数上限。
+- **Terminal decision（终态决策）**：finalize(输出) 或 need_human(转人工)，达到即终止本 AgentRun 的循环。
 - **ContextPackage**：一次回答生成所使用的结构化上下文快照。
 - **ToolCall**：AgentRun 对已声明工具的一次调用事实。
 - **Provenance**：说明数据、上下文或回答事实来自哪个来源版本和位置的信息。
@@ -44,3 +50,4 @@ V1 不执行改价、下单、库存写入、支付、订单操作或站外触�
 8. `accepted` 和 `edited` 只表示内部采用，不表示已发送给消费者；编辑必须保留原始与编辑后版本。
 9. V1 原型运行记录固定保留 30 天。
 10. “支持实时价格/库存”只有在明确接入权威只读来源并记录快照时间后才成立；V1 当前不接入真实实时系统。
+11. B4–B6 引入 Harness 与 Loop 作为可复用的执行与决策层；本轮只驱动只读售前问答，不新增有副作用的工具；Loop 受 max_steps 约束，need_human 即终态，不会在已需人工时继续循环。

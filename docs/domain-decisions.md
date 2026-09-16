@@ -117,3 +117,22 @@ ProductQuestion
 ```
 
 暂不进入完整 B4/B5 实现，也不接入真实生产副作用。
+
+---
+
+# B4–B6（Harness / Loop / Agent）领域决策
+
+> 对应新里程碑：可复用的 Agent 执行与决策循环层。
+
+| 编号 | 决策 | 当前结论 |
+|---|---|---|
+| D-B1 | 里程碑目标 | 最小可观察 Agent 闭环：Harness 执行 Agent + Loop 决策，驱动现有售前问答 |
+| D-B2 | Loop 终态 | need_human 或达到 max_steps 即终态；不再在已需人工时继续循环 |
+| D-B3 | 首实例 | 复用现有售前 QA，暴露 `retrieve` 工具（只读） |
+| D-B4 | 本轮循环语义 | 单步终态：continue 分支结构性保留但不触发；多步重查留待后续加工具 |
+| D-B5 | max_steps | 默认 5（有界，防失控） |
+| D-B6 | Harness 与现有 runner 关系 | **分层包装**：Harness 是通用执行壳，把售前问答作为 Agent 实例驱动一个 AgentRun + Loop；`PresaleQaRunner.ask` 内部业务流不变 |
+| D-B7 | 时序 | 同步、请求内直连（无异步队列） |
+| D-B8 | 副作用 | 本轮工具为只读检索，不新增有副作用的工具 |
+
+领域模型见 `docs/domain-model-b4b6.md`。
