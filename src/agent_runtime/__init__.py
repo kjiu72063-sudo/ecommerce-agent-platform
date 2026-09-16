@@ -7,6 +7,7 @@ from .harness import (
     AgentStep,
     Harness,
     Loop,
+    LoopDecision,
     TerminalDecision,
 )
 
@@ -17,5 +18,6 @@ __all__ = [
     "AgentStep",
     "Harness",
     "Loop",
+    "LoopDecision",
     "TerminalDecision",
 ]

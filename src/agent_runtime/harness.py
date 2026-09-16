@@ -13,6 +13,12 @@ class TerminalDecision(StrEnum):
     MAX_STEPS = "max_steps"
 
 
+class LoopDecision(StrEnum):
+    CONTINUE = "continue"
+    FINALIZE = "finalize"
+    NEED_HUMAN = "need_human"
+
+
 @dataclass
 class AgentRunResult:
     """The raw result an Agent produces from one execution."""
@@ -51,18 +57,17 @@ class Agent(Protocol):
 
 
 class Loop:
-    """Decide the terminal outcome after each AgentStep.
+    """Decide, after each AgentStep, whether to continue or reach a terminal.
 
-    Bounded and safe: a step that needs human review is terminal (no further
-    loop); otherwise the step finalizes. Multi-step ``continue`` is structurally
-    reserved for later tools and is not triggered by the single-step presale
-    agent.
+    Safe by default: a step that needs human review is terminal (never loops
+    again); a completed step finalizes. The single-step presale agent never
+    triggers ``CONTINUE``; multi-step looping is exercised by other agents.
     """
 
-    def decide(self, step: AgentStep) -> TerminalDecision:
+    def decide(self, step: AgentStep) -> LoopDecision:
         if step.need_human:
-            return TerminalDecision.NEED_HUMAN
-        return TerminalDecision.FINALIZE
+            return LoopDecision.NEED_HUMAN
+        return LoopDecision.FINALIZE
 
 
 class Harness:
@@ -73,24 +78,34 @@ class Harness:
         self._max_steps = max_steps
 
     async def execute(self, question: Any, agent: Agent) -> AgentOutcome:
-        run = await agent.run(question)
-        steps = [
-            AgentStep(
-                index=1,
-                need_human=run.need_human,
-                tool_calls=list(run.tool_calls),
+        steps: list[AgentStep] = []
+        last: AgentRunResult | None = None
+        for _ in range(self._max_steps):
+            last = await agent.run(question)
+            steps.append(
+                AgentStep(
+                    index=len(steps) + 1,
+                    need_human=last.need_human,
+                    tool_calls=list(last.tool_calls),
+                )
             )
-        ]
-        if len(steps) >= self._max_steps:
-            terminal = TerminalDecision.MAX_STEPS
+            decision = self._loop.decide(steps[-1])
+            if decision is LoopDecision.FINALIZE:
+                terminal = TerminalDecision.FINALIZE
+                break
+            if decision is LoopDecision.NEED_HUMAN:
+                terminal = TerminalDecision.NEED_HUMAN
+                break
+            # CONTINUE: run another step (bounded by the range / max_steps).
         else:
-            terminal = self._loop.decide(steps[0])
+            terminal = TerminalDecision.MAX_STEPS
+        assert last is not None
         return AgentOutcome(
-            run_ref=run.run_ref,
+            run_ref=last.run_ref,
             steps=steps,
             terminal=terminal,
-            answer_draft=run.answer_draft,
-            trace=run.trace,
+            answer_draft=last.answer_draft,
+            trace=last.trace,
         )
 
 
@@ -101,5 +116,6 @@ __all__ = [
     "AgentStep",
     "Harness",
     "Loop",
+    "LoopDecision",
     "TerminalDecision",
 ]
