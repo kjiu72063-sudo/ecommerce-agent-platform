@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from .adapters.openai_generator import OpenAICompatibleGenerator
 from .adapters.sqlite import (
     SQLiteAnswerDraftRepository,
     SQLiteDispositionRepository,
@@ -45,6 +46,26 @@ class PresaleRuntimeFactory:
     def create_agent(self, **overrides) -> PresaleAgent:
         """Create a Harness-drivable Agent over the same wiring as a runner."""
         return PresaleAgent(self.create_runner(**overrides))
+
+    def create_openai_agent(
+        self,
+        *,
+        model: str,
+        base_url: str,
+        api_key: str,
+        transport=None,
+        **overrides,
+    ) -> PresaleAgent:
+        """Create a Harness-drivable Agent whose generation ring calls an
+        OpenAI-compatible chat completion.
+
+        Explicit assembly: external LLM calls only happen through this entry
+        (or by injecting a generator); the default remains deterministic.
+        """
+        generator = OpenAICompatibleGenerator(
+            model=model, base_url=base_url, api_key=api_key, transport=transport
+        )
+        return self.create_agent(generator=generator, **overrides)
 
     @classmethod
     def create_sqlite(
