@@ -130,3 +130,23 @@ async def test_create_runner_remains_usable_directly():
 
     assert result.answer_draft.answer_text
     assert result.answer_draft.need_human is False
+
+
+@pytest.mark.asyncio
+async def test_create_openai_agent_wires_llm_ring_with_injected_transport():
+    def fake_transport(*, api_key, base_url, model, messages, timeout_s):
+        return {"choices": [{"message": {"content": "根据资料，适合夏季使用。"}}]}
+
+    f = factory()
+    agent = f.create_openai_agent(
+        model="gpt-test",
+        base_url="https://example.test/v1",
+        api_key="test-key",
+        transport=fake_transport,
+    )
+
+    outcome = await Harness().execute(question(idempotency_key="assembly-key-0007"), agent)
+
+    assert outcome.terminal is TerminalDecision.FINALIZE
+    assert outcome.answer_draft.answer_text == "根据资料，适合夏季使用。"
+    assert outcome.answer_draft.evidence_refs  # scoped evidence still carried
