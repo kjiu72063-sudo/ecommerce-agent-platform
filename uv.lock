@@ -84,6 +84,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
+    { name = "httpx" },
     { name = "pydantic" },
 ]
 
@@ -102,6 +103,7 @@ test = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115,<1.0" },
+    { name = "httpx", specifier = ">=0.27,<0.28" },
     { name = "httpx", marker = "extra == 'test'", specifier = ">=0.27,<0.28" },
     { name = "jsonschema", marker = "extra == 'test'", specifier = ">=4.20,<5.0" },
     { name = "pre-commit", marker = "extra == 'quality'", specifier = ">=3.7,<5.0" },
