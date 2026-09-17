@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 from .adapters.openai_generator import OpenAICompatibleGenerator
 from .adapters.sqlite import (
     SQLiteAnswerDraftRepository,
@@ -15,6 +17,21 @@ from .adapters.sqlite import (
 from .agent import PresaleAgent
 from .definitions import B1DefinitionSource
 from .runner import PresaleQaRunner
+
+
+def openai_generator_from_env() -> OpenAICompatibleGenerator | None:
+    """Build the OpenAI-compatible generator from environment configuration.
+
+    Reads PRESALE_LLM_BASE_URL / PRESALE_LLM_MODEL / PRESALE_LLM_API_KEY; returns
+    None when any is missing so the default (deterministic) assembly is preserved.
+    The API key is never stored in code or docs.
+    """
+    base_url = os.environ.get("PRESALE_LLM_BASE_URL")
+    model = os.environ.get("PRESALE_LLM_MODEL")
+    api_key = os.environ.get("PRESALE_LLM_API_KEY")
+    if not (base_url and model and api_key):
+        return None
+    return OpenAICompatibleGenerator(model=model, base_url=base_url, api_key=api_key)
 
 
 class PresaleRuntimeFactory:
@@ -75,18 +92,29 @@ class PresaleRuntimeFactory:
         definition_repository,
         definition_selectors: dict[str, dict[str, str]],
         sources,
+        generator=None,
     ) -> tuple["PresaleRuntimeFactory", SQLitePresaleStore]:
-        """Create the single local-production assembly with SQLite adapters."""
+        """Create the single local-production assembly with SQLite adapters.
+
+        ``generator`` may be injected explicitly, or read from environment
+        (PRESALE_LLM_*) when None; otherwise the deterministic generator is used.
+        """
         store = SQLitePresaleStore(database)
+        ports = {
+            "question_repo": SQLiteProductQuestionRepository(store),
+            "evidence_repo": SQLiteEvidenceRepository(store),
+            "answer_repo": SQLiteAnswerDraftRepository(store),
+            "disposition_repo": SQLiteDispositionRepository(store),
+            "trace_repo": SQLiteRunTraceRepository(store),
+            "idempotency_repo": SQLiteIdempotencyRepository(store),
+        }
+        generator = generator if generator is not None else openai_generator_from_env()
+        if generator is not None:
+            ports["generator"] = generator
         factory = cls(
             definition_repository=definition_repository,
             definition_selectors=definition_selectors,
             sources=sources,
-            question_repo=SQLiteProductQuestionRepository(store),
-            evidence_repo=SQLiteEvidenceRepository(store),
-            answer_repo=SQLiteAnswerDraftRepository(store),
-            disposition_repo=SQLiteDispositionRepository(store),
-            trace_repo=SQLiteRunTraceRepository(store),
-            idempotency_repo=SQLiteIdempotencyRepository(store),
+            **ports,
         )
         return factory, store
