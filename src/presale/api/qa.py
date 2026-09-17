@@ -9,14 +9,17 @@ Run with ``presale-qa-api`` (uvicorn) or ``python -m presale.api.qa``.
 
 from __future__ import annotations
 
+import logging
 import os
+import time
 from datetime import datetime, timezone
+from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from agent_platform_contracts.models import ActorRef, ActorType
-from agent_runtime.harness import Harness, format_outcome
+from agent_runtime.harness import Harness, TerminalDecision, format_outcome
 
 from ..agent import PresaleAgent
 from ..cli import load_catalog
@@ -25,6 +28,8 @@ from ..knowledge import KnowledgeSource
 from ..runner import PresaleQaRunner
 from ..runtime import external_retriever_from_env, openai_generator_from_env
 
+logger = logging.getLogger("presale.qa")
+
 app = FastAPI(
     title="Presale QA 服务",
     description="同步只读售前商品问答；env 配置 LLM/检索/持久化。",
@@ -32,6 +37,12 @@ app = FastAPI(
 )
 
 _runner: PresaleQaRunner | None = None
+_metrics: dict[str, Any] = {
+    "requests": 0,
+    "terminal": {decision.value: 0 for decision in TerminalDecision},
+    "errors": 0,
+    "last_run_seconds": None,
+}
 
 
 class QaRequest(BaseModel):
@@ -76,9 +87,13 @@ def build_runner() -> PresaleQaRunner:
 
 
 def reset_qa_runner() -> None:
-    """Drop the cached runner so the next request rebuilds it (used by tests)."""
+    """Drop the cached runner and metrics so the next request rebuilds (tests)."""
     global _runner
     _runner = None
+    _metrics["requests"] = 0
+    _metrics["terminal"] = {decision.value: 0 for decision in TerminalDecision}
+    _metrics["errors"] = 0
+    _metrics["last_run_seconds"] = None
 
 
 def get_runner() -> PresaleQaRunner:
@@ -93,6 +108,11 @@ def health() -> dict[str, str]:
     return {"status": "healthy"}
 
 
+@app.get("/api/v1/presale/qa/metrics")
+def metrics() -> dict[str, object]:
+    return dict(_metrics)
+
+
 @app.post("/api/v1/presale/qa")
 async def qa(req: QaRequest) -> dict:
     question = ProductQuestion(
@@ -104,10 +124,19 @@ async def qa(req: QaRequest) -> dict:
         requested_at=datetime.now(timezone.utc),
         idempotency_key=req.idempotency_key,
     )
+    start = time.monotonic()
+    _metrics["requests"] = int(_metrics["requests"]) + 1
     try:
         outcome = await Harness().execute(question, PresaleAgent(get_runner()))
     except Exception as exc:  # surface cleanly; never leak internals
+        _metrics["errors"] = int(_metrics["errors"]) + 1
+        _metrics["last_run_seconds"] = time.monotonic() - start
+        logger.exception("qa run failed: %s", type(exc).__name__)
         raise HTTPException(status_code=502, detail=f"QA run failed: {type(exc).__name__}")
+    terminal = outcome.terminal.value
+    _metrics["terminal"][terminal] = int(_metrics["terminal"][terminal]) + 1
+    _metrics["last_run_seconds"] = time.monotonic() - start
+    logger.info("qa ok run_ref=%s terminal=%s", outcome.run_ref, terminal)
     return format_outcome(outcome)
 
 
