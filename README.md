@@ -35,6 +35,18 @@ uv run pre-commit run --all-files   # 本地钩子，非 CI 强制
 
 当前基线：全量测试 242 passed（以 `开发文档/09-质量基线与门禁台账.md` 的带日期台账为准）。CI 通过 GitHub Actions（`.github/workflows/ci.yml`）在 `main` 与每个 PR 上运行门禁（ruff check/format src + pyright + pytest）并带 `concurrency` 取消旧 run。仓库已公开，`main` 启用分支保护：直接/强制推送与删除被禁（含管理员）、必须走 PR、要求 CI 通过、强制线性历史——合并纪律由平台强制。测试规范入口位于 `tests/b1`、`tests/b2`、`tests/b3`；旧 B 目录中的测试保留作阶段迁移参考，不再作为根级默认收集入口。
 
+## 运行 QA 服务
+
+同步售前问答服务（FastAPI）。配置经环境变量（见 `.env.example`）：
+```bash
+export PRESALE_CATALOG=./catalog.json        # 商品知识（JSON 数组）
+# 可选：真实 LLM / 外部检索 / SQLite 持久化
+export PRESALE_LLM_BASE_URL=...; export PRESALE_LLM_MODEL=...; export PRESALE_LLM_API_KEY=...
+# export PRESALE_RETRIEVAL_BASE_URL=... ; export PRESALE_DB=./presale.sqlite3
+presale-qa-api            # 默认 127.0.0.1:8000（可用 PRESALE_QA_HOST/PRESALE_QA_PORT 改）
+```
+端点：`POST /api/v1/presale/qa`（body: question/product_id/tenant_id/idempotency_key）→ 返回 `format_outcome`（终态 + 答案 + 证据）；`GET /api/v1/presale/qa/health`。
+
 ## 目录边界
 
 ```text
