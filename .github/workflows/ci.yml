@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   gate:
-    name: lint + format + test
+    name: lint + format + typecheck + test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,6 +28,9 @@ jobs:
 
       - name: Ruff format
         run: uv run ruff format --check src
+
+      - name: Pyright
+        run: uv run pyright
 
       - name: Test
         run: uv run pytest -q

@@ -22,13 +22,13 @@
 
 ## 2. 门禁（Gate）
 
-合并到 `main` 前必须通过以下全部检查。**CI 在 `main` 与每个 PR 上强制执行前三条**（ruff check/format src + pytest）；`pre-commit` 是本地便捷钩子，除前三条外还运行 pyright（其 CI step 待补 `workflow` scope）：
+合并到 `main` 前必须通过以下全部检查。**CI 在 `main` 与每个 PR 上强制执行前四条**（ruff check/format src + pyright + pytest）；`pre-commit` 是本地便捷钩子，内部运行的正是前四条的等价内容，非 CI 强制：
 
 ```bash
 uv run pytest -q            # 全量测试（tests/）          <- CI 强制
 uv run ruff check src       # lint（仅 src 为门禁范围）   <- CI 强制
 uv run ruff format --check src                          <- CI 强制
-uv run pyright              # 类型（src/presale+agent_runtime）<- 本地钩子，CI step 待补
+uv run pyright              # 类型（src/presale+agent_runtime）<- CI 强制
 uv run pre-commit run --all-files   # 本地钩子，非 CI 强制
 ```
 
