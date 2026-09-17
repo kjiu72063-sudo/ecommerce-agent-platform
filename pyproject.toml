@@ -30,6 +30,7 @@ quality = [
 
 [project.scripts]
 presale-qa-api = "presale.api.qa:main"
+presale-index = "presale.adapters.qdrant_retrieval:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

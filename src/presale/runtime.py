@@ -36,10 +36,16 @@ def openai_generator_from_env() -> OpenAICompatibleGenerator | None:
 
 
 def external_retriever_from_env() -> ExternalRetrieval | None:
-    """Build an external retrieval adapter from PRESALE_RETRIEVAL_BASE_URL.
+    """Build an external retrieval adapter from environment configuration.
 
-    Returns None when unset so the deterministic retriever remains the default.
+    Prefers Qdrant (PRESALE_QDRANT_URL) when set, else falls back to a generic
+    search endpoint (PRESALE_RETRIEVAL_BASE_URL). None keeps the deterministic
+    retriever as the default.
     """
+    from .adapters.qdrant_retrieval import qdrant_retriever_from_env
+
+    if os.environ.get("PRESALE_QDRANT_URL"):
+        return qdrant_retriever_from_env()
     if not os.environ.get("PRESALE_RETRIEVAL_BASE_URL"):
         return None
     return ExternalRetrieval()
