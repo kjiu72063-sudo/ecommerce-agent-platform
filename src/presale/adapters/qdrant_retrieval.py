@@ -9,7 +9,9 @@ product_id returns evidence payloads that satisfy the existing
 
 from __future__ import annotations
 
+import hashlib
 import os
+import uuid
 from typing import Any, Callable
 
 import httpx
@@ -17,6 +19,18 @@ import httpx
 from .external_retrieval import ExternalRetrieval, RetrievalError
 
 Embedding = Callable[[str], list[float]]
+
+
+def deterministic_embedding(text: str, dim: int = 64) -> list[float]:
+    """Deterministic hash-based pseudo-vector (not semantic).
+
+    Lets the Qdrant pipeline run end-to-end without a real embedding provider;
+    swap to a semantic embedding (PRESALE_EMBEDDING_* against a provider that
+    exposes /embeddings) for real semantic retrieval.
+    """
+    return [
+        (hashlib.sha256(f"{text}:{i}".encode()).digest()[0] / 255.0) * 2 - 1 for i in range(dim)
+    ]
 
 
 def _flatten(fields: dict[str, Any], prefix: str = "") -> list[tuple[str, str]]:
@@ -45,7 +59,11 @@ def embedding_from_env() -> Embedding:
     """Build an embedding callable from env (LLM provider's /embeddings endpoint).
 
     Falls back to PRESALE_LLM_* when dedicated PRESALE_EMBEDDING_* vars are unset.
+    Set ``PRESALE_EMBEDDING=deterministic`` to use a hash-based pseudo-vector
+    (lets the pipeline run without a real /embeddings provider).
     """
+    if os.environ.get("PRESALE_EMBEDDING") == "deterministic":
+        return deterministic_embedding
     base_url = os.environ.get("PRESALE_EMBEDDING_BASE_URL") or os.environ.get(
         "PRESALE_LLM_BASE_URL"
     )
@@ -132,7 +150,11 @@ def index_sources(
                 vector_size = len(vector)
             points.append(
                 {
-                    "id": f"{source.source_id}:{source.version}:{locator}",
+                    "id": str(
+                        uuid.uuid5(
+                            uuid.NAMESPACE_URL, f"{source.source_id}:{source.version}:{locator}"
+                        )
+                    ),
                     "vector": vector,
                     "payload": {
                         "source_id": source.source_id,
@@ -199,6 +221,7 @@ def main(argv: list[str] | None = None) -> None:
 
 
 __all__ = [
+    "deterministic_embedding",
     "embedding_from_env",
     "index_sources",
     "main",

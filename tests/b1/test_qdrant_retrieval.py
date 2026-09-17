@@ -7,6 +7,7 @@ import pytest
 
 from presale.adapters.external_retrieval import ExternalRetrieval
 from presale.adapters.qdrant_retrieval import (
+    deterministic_embedding,
     embedding_from_env,
     index_sources,
     qdrant_transport,
@@ -135,3 +136,19 @@ def test_embedding_from_env_resolves_when_configured(monkeypatch):
     fn = embedding_from_env()
 
     assert callable(fn)
+
+
+def test_deterministic_embedding_is_deterministic_and_fixed_dim():
+    a = deterministic_embedding("适合夏季使用")
+    b = deterministic_embedding("适合夏季使用")
+    c = deterministic_embedding("别的文本")
+
+    assert a == b
+    assert len(a) == 64
+    assert a != c
+
+
+def test_embedding_from_env_deterministic_mode(monkeypatch):
+    monkeypatch.setenv("PRESALE_EMBEDDING", "deterministic")
+
+    assert embedding_from_env() is deterministic_embedding
