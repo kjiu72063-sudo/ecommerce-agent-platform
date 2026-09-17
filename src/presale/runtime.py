@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 
+from .adapters.external_retrieval import ExternalRetrieval
 from .adapters.openai_generator import OpenAICompatibleGenerator
 from .adapters.sqlite import (
     SQLiteAnswerDraftRepository,
@@ -32,6 +33,16 @@ def openai_generator_from_env() -> OpenAICompatibleGenerator | None:
     if not (base_url and model and api_key):
         return None
     return OpenAICompatibleGenerator(model=model, base_url=base_url, api_key=api_key)
+
+
+def external_retriever_from_env() -> ExternalRetrieval | None:
+    """Build an external retrieval adapter from PRESALE_RETRIEVAL_BASE_URL.
+
+    Returns None when unset so the deterministic retriever remains the default.
+    """
+    if not os.environ.get("PRESALE_RETRIEVAL_BASE_URL"):
+        return None
+    return ExternalRetrieval()
 
 
 class PresaleRuntimeFactory:
@@ -93,11 +104,13 @@ class PresaleRuntimeFactory:
         definition_selectors: dict[str, dict[str, str]],
         sources,
         generator=None,
+        retriever=None,
     ) -> tuple["PresaleRuntimeFactory", SQLitePresaleStore]:
         """Create the single local-production assembly with SQLite adapters.
 
-        ``generator`` may be injected explicitly, or read from environment
-        (PRESALE_LLM_*) when None; otherwise the deterministic generator is used.
+        ``generator``/``retriever`` may be injected explicitly, or read from
+        environment (PRESALE_LLM_* / PRESALE_RETRIEVAL_BASE_URL) when None;
+        otherwise the deterministic defaults are used.
         """
         store = SQLitePresaleStore(database)
         ports = {
@@ -111,6 +124,9 @@ class PresaleRuntimeFactory:
         generator = generator if generator is not None else openai_generator_from_env()
         if generator is not None:
             ports["generator"] = generator
+        retriever = retriever if retriever is not None else external_retriever_from_env()
+        if retriever is not None:
+            ports["retriever"] = retriever
         factory = cls(
             definition_repository=definition_repository,
             definition_selectors=definition_selectors,

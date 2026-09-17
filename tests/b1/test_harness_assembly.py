@@ -150,3 +150,18 @@ async def test_create_openai_agent_wires_llm_ring_with_injected_transport():
     assert outcome.terminal is TerminalDecision.FINALIZE
     assert outcome.answer_draft.answer_text == "根据资料，适合夏季使用。"
     assert outcome.answer_draft.evidence_refs  # scoped evidence still carried
+
+
+def test_external_retriever_from_env_is_none_when_unset(monkeypatch):
+    from presale.runtime import external_retriever_from_env
+
+    monkeypatch.delenv("PRESALE_RETRIEVAL_BASE_URL", raising=False)
+    assert external_retriever_from_env() is None
+
+
+def test_external_retriever_from_env_constructs_when_set(monkeypatch):
+    from presale.adapters.external_retrieval import ExternalRetrieval
+    from presale.runtime import external_retriever_from_env
+
+    monkeypatch.setenv("PRESALE_RETRIEVAL_BASE_URL", "https://vectors.example.test")
+    assert isinstance(external_retriever_from_env(), ExternalRetrieval)

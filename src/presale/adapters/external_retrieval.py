@@ -9,6 +9,7 @@ evidence is never leaked.
 
 from __future__ import annotations
 
+import os
 from typing import Any, Callable
 
 from agent_platform_contracts.policies import canonical_sha256
@@ -24,8 +25,27 @@ class RetrievalError(RuntimeError):
     """External retrieval failed without producing a trustworthy result."""
 
 
-def _unconfigured_transport(*, tenant_id: str, product_id: str, query: str, timeout_s: float):
-    raise RetrievalError("RETRIEVAL_NOT_CONFIGURED: inject a transport to use external retrieval")
+def default_transport(
+    *, tenant_id: str, product_id: str, query: str, timeout_s: float
+) -> list[dict[str, Any]]:
+    """POST a search to the retrieval service configured via PRESALE_RETRIEVAL_BASE_URL.
+
+    Expects ``{"items": [{source_id, source_version, locator, content, ...}]}``.
+    Raises RetrievalError when not configured or on HTTP failure.
+    """
+    base_url = os.environ.get("PRESALE_RETRIEVAL_BASE_URL")
+    if not base_url:
+        raise RetrievalError("RETRIEVAL_NOT_CONFIGURED: set PRESALE_RETRIEVAL_BASE_URL")
+    import httpx
+
+    url = base_url.rstrip("/") + "/search"
+    payload = {"query": query, "tenant_id": tenant_id, "product_id": product_id}
+    with httpx.Client(timeout=timeout_s) as client:
+        response = client.post(url, json=payload)
+        response.raise_for_status()
+        body = response.json()
+    items = body.get("items", []) if isinstance(body, dict) else []
+    return items
 
 
 def default_query_builder(question: ProductQuestion) -> str:
@@ -43,7 +63,7 @@ class ExternalRetrieval(RetrievalPort):
         fallback: RetrievalPort | None = None,
         timeout_s: float = 5.0,
     ):
-        self._transport = transport or _unconfigured_transport
+        self._transport = transport or default_transport
         self._query_builder = query_builder or default_query_builder
         self._fallback = fallback
         self._timeout_s = timeout_s
@@ -103,4 +123,4 @@ class ExternalRetrieval(RetrievalPort):
         return items
 
 
-__all__ = ["ExternalRetrieval", "RetrievalError", "default_query_builder"]
+__all__ = ["ExternalRetrieval", "RetrievalError", "default_query_builder", "default_transport"]
