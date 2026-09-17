@@ -3,6 +3,8 @@
 Builds a runner from environment configuration (catalog / optional SQLite
 persistence / optional external LLM & retrieval) and serves one question per
 request through the Harness, returning an observable AgentOutcome.
+
+Run with ``presale-qa-api`` (uvicorn) or ``python -m presale.api.qa``.
 """
 
 from __future__ import annotations
@@ -28,6 +30,8 @@ app = FastAPI(
     description="同步只读售前商品问答；env 配置 LLM/检索/持久化。",
     version="0.1.0",
 )
+
+_runner: PresaleQaRunner | None = None
 
 
 class QaRequest(BaseModel):
@@ -71,6 +75,19 @@ def build_runner() -> PresaleQaRunner:
     return PresaleQaRunner(**{key: value for key, value in opts.items() if value is not None})
 
 
+def reset_qa_runner() -> None:
+    """Drop the cached runner so the next request rebuilds it (used by tests)."""
+    global _runner
+    _runner = None
+
+
+def get_runner() -> PresaleQaRunner:
+    global _runner
+    if _runner is None:
+        _runner = build_runner()
+    return _runner
+
+
 @app.get("/api/v1/presale/qa/health")
 def health() -> dict[str, str]:
     return {"status": "healthy"}
@@ -78,7 +95,6 @@ def health() -> dict[str, str]:
 
 @app.post("/api/v1/presale/qa")
 async def qa(req: QaRequest) -> dict:
-    runner = build_runner()
     question = ProductQuestion(
         question_id=req.question_id or f"q-{req.idempotency_key}",
         tenant_id=req.tenant_id,
@@ -89,7 +105,18 @@ async def qa(req: QaRequest) -> dict:
         idempotency_key=req.idempotency_key,
     )
     try:
-        outcome = await Harness().execute(question, PresaleAgent(runner))
+        outcome = await Harness().execute(question, PresaleAgent(get_runner()))
     except Exception as exc:  # surface cleanly; never leak internals
         raise HTTPException(status_code=502, detail=f"QA run failed: {type(exc).__name__}")
     return format_outcome(outcome)
+
+
+def main() -> None:
+    import uvicorn
+
+    host = os.environ.get("PRESALE_QA_HOST", "127.0.0.1")
+    port = int(os.environ.get("PRESALE_QA_PORT", "8000"))
+    uvicorn.run("presale.api.qa:app", host=host, port=port)
+
+
+__all__ = ["app", "build_runner", "get_runner", "main", "reset_qa_runner"]

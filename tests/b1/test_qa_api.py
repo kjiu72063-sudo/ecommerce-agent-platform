@@ -2,9 +2,18 @@
 
 import json
 
+import pytest
 from fastapi.testclient import TestClient
 
-from presale.api.qa import app
+from presale.api.qa import app, reset_qa_runner
+
+
+@pytest.fixture(autouse=True)
+def _reset_runner():
+    reset_qa_runner()
+    yield
+    reset_qa_runner()
+
 
 CATALOG = [
     {
