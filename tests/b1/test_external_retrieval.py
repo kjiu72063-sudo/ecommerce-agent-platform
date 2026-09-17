@@ -123,7 +123,8 @@ def test_transport_failure_with_fallback_degrades():
     assert "RETRIEVAL_DEGRADED" in result.reason_codes
 
 
-def test_unconfigured_transport_is_explicit():
+def test_unconfigured_transport_is_explicit(monkeypatch):
+    monkeypatch.delenv("PRESALE_RETRIEVAL_BASE_URL", raising=False)
     with pytest.raises(RetrievalError, match="RETRIEVAL_NOT_CONFIGURED"):
         ExternalRetrieval().retrieve(question())
 
