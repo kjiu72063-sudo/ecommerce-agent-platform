@@ -33,7 +33,7 @@ uv run pyright              # CI 强制（src/presale + src/agent_runtime）
 uv run pre-commit run --all-files   # 本地钩子，非 CI 强制
 ```
 
-当前基线：全量测试 243 passed（以 `开发文档/09-质量基线与门禁台账.md` 的带日期台账为准）。CI 通过 GitHub Actions（`.github/workflows/ci.yml`）在 `main` 与每个 PR 上运行门禁（ruff check/format src + pyright + pytest）并带 `concurrency` 取消旧 run。仓库已公开，`main` 启用分支保护：直接/强制推送与删除被禁（含管理员）、必须走 PR、要求 CI 通过、强制线性历史——合并纪律由平台强制。测试规范入口位于 `tests/b1`、`tests/b2`、`tests/b3`；旧 B 目录中的测试保留作阶段迁移参考，不再作为根级默认收集入口。
+当前基线：全量测试 247 passed（以 `开发文档/09-质量基线与门禁台账.md` 的带日期台账为准）。CI 通过 GitHub Actions（`.github/workflows/ci.yml`）在 `main` 与每个 PR 上运行门禁（ruff check/format src + pyright + pytest）并带 `concurrency` 取消旧 run。仓库已公开，`main` 启用分支保护：直接/强制推送与删除被禁（含管理员）、必须走 PR、要求 CI 通过、强制线性历史——合并纪律由平台强制。测试规范入口位于 `tests/b1`、`tests/b2`、`tests/b3`；旧 B 目录中的测试保留作阶段迁移参考，不再作为根级默认收集入口。
 
 ## 运行 QA 服务
 
@@ -46,6 +46,20 @@ export PRESALE_LLM_BASE_URL=...; export PRESALE_LLM_MODEL=...; export PRESALE_LL
 presale-qa-api            # 默认 127.0.0.1:8000（可用 PRESALE_QA_HOST/PRESALE_QA_PORT 改）
 ```
 端点：`POST /api/v1/presale/qa`（body: question/product_id/tenant_id/idempotency_key）→ 返回 `format_outcome`（终态 + 答案 + 证据）；`GET /api/v1/presale/qa/health`。
+
+## 外部检索（Qdrant，可选）
+
+向量库用**本地 Qdrant（Docker）**，embedding 复用 LLM 提供方的 `/embeddings` 端点。步骤：
+1. 起 Qdrant：`docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant`
+2. 索引现有 catalog 入库：
+   ```bash
+   export PRESALE_QDRANT_URL=http://localhost:6333
+   # embedding 复用 PRESALE_LLM_*；如提供方 embedding 端点不同可设 PRESALE_EMBEDDING_*
+   presale-index ./catalog.json
+   ```
+3. 运行 QA 服务时它会用 Qdrant 检索：设 `PRESALE_QDRANT_URL` 即可（否则走确定性检索）。
+
+搜索按 `tenant_id`/`product_id` 过滤，跨租户不泄漏；外部检索失败可降级（`RETRIEVAL_DEGRADED`）或显式报错。
 
 ## 目录边界
 
