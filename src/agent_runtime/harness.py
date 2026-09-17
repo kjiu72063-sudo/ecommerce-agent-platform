@@ -136,4 +136,6 @@ def format_outcome(outcome: AgentOutcome) -> dict[str, Any]:
             for step in outcome.steps
         ],
         "answer_id": outcome.answer_draft.answer_id if outcome.answer_draft else None,
+        "answer_text": outcome.answer_draft.answer_text if outcome.answer_draft else None,
+        "need_human": outcome.answer_draft.need_human if outcome.answer_draft else None,
     }
