@@ -108,16 +108,50 @@ class MilvusDense:
 
     def _get_client(self):
         if self._client is None:
+            if self._uri is None:
+                raise RetrievalError("MILVUS_URI_REQUIRED: set PRESALE_MILVUS_URI")
+            uri = self._uri
             try:
                 from pymilvus import MilvusClient  # pyright: ignore[reportMissingImports]
             except ImportError as exc:
                 raise RetrievalError("PYMILVUS_NOT_INSTALLED: uv sync --extra hybrid") from exc
-            self._client = MilvusClient(uri=self._uri)
+            self._client = MilvusClient(uri=uri)
         return self._client
 
     def ensure(self) -> None:
         c = self._get_client()
-        if not c.has_collection(self._collection):
+        if c.has_collection(self._collection):
+            return
+        # Real pymilvus MilvusClient: explicit schema with a VARCHAR primary key so the
+        # str UUID point ids we write are valid (the default auto schema uses int64 pk).
+        if hasattr(c, "create_schema"):
+            from pymilvus import (  # pyright: ignore[reportMissingImports]
+                DataType,
+            )
+
+            schema = c.create_schema(auto_id=False, enable_dynamic_field=False)
+            schema.add_field(
+                field_name="id", datatype=DataType.VARCHAR, is_primary=True, max_length=64
+            )
+            schema.add_field(field_name="vector", datatype=DataType.FLOAT_VECTOR, dim=self._dim)
+            for name, length in (
+                ("source_id", 255),
+                ("source_version", 64),
+                ("locator", 255),
+                ("content", 65535),
+                ("tenant_id", 128),
+                ("product_id", 128),
+            ):
+                schema.add_field(field_name=name, datatype=DataType.VARCHAR, max_length=length)
+            index_params = c.prepare_index_params()
+            index_params.add_index(
+                field_name="vector", index_type="AUTOINDEX", metric_type="COSINE"
+            )
+            c.create_collection(
+                collection_name=self._collection, schema=schema, index_params=index_params
+            )
+        else:
+            # Injected test fake: keep the legacy signature so offline tests stay green.
             c.create_collection(self._collection, dimension=self._dim)
 
     def upsert(self, points: list[dict[str, Any]]) -> None:
@@ -224,7 +258,7 @@ def index_hybrid(
                 {
                     "id": _hit_id(source.source_id, source.version, locator),
                     "vector": embedding(content),
-                    "payload": payload,
+                    **payload,
                 }
             )
             bm25_texts.append(content)
