@@ -36,4 +36,4 @@ make teach              # 全量门禁
 - Milvus **单独** `docker run` 裸镜像无法工作——它需要 etcd 提供元数据，且此仓库用 **本地文件存储**（`COMMON_STORAGETYPE=local`）而非 MinIO。请用 `docker compose up` 一起拉起。
 - 为什么没有 MinIO：本机 1Panel 镜像站未缓存 `minio/minio` 镜像（`docker pull` 报 403），故 Milvus 单机用 local 存储以绕开对象存储依赖。**生产/正式若需 MinIO 对象存储**，加回 minio 服务并把 `COMMON_STORAGETYPE` 改回 `remote`、补 `MINIO_ADDRESS`。
 - 数据容器可重建，但 volumes 持久化；需要重置删除 volume 时 `docker compose down -v`。
-- CI 未自动拉起这些服务（本地/自托管 RAG 栈）；索引与检索在运行时由你环境提供。后续可加 GitHub Actions service-container job 做真机集成测试。
+- CI 的真机集成 job（`milvus-integration`）会复用本仓库的 `docker compose up -d etcd milvus` 栈，跑 `tests/b1/test_milvus_integration.py` 的真实 Hybrid e2e（索引 + 检索 + 租户隔离）；需设 `MILVUS_INTEGRATION=1` 才会执行，gate job 自动 skip。本地验证可用：`docker compose up -d etcd milvus && MILVUS_INTEGRATION=1 PRESALE_MILVUS_URI=http://127.0.0.1:19530 uv run pytest -q tests/b1/test_milvus_integration.py`。
