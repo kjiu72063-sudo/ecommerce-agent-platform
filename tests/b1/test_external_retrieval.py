@@ -10,7 +10,6 @@ from presale.knowledge import (
     DeterministicKnowledgeRetriever,
     KnowledgeSource,
     RetrievalPort,
-    RetrievalResult,
     RetrievalStatus,
 )
 

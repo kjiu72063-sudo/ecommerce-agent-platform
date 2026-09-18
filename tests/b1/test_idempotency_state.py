@@ -259,7 +259,6 @@ async def test_success_status_write_failure_replays_existing_answer():
 
 @pytest.mark.asyncio
 async def test_mark_failed_claim_is_set_even_when_trace_cleanup_fails():
-    from presale.trace import PresaleRunTrace
 
     repo = InMemoryIdempotencyRepository()
 

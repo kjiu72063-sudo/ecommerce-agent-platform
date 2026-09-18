@@ -7,7 +7,9 @@ from presale.knowledge import KnowledgeSource
 from presale.runner import IdempotencyConflictError, PresaleQaRunner
 
 
-def question(*, question_id="question-001", tenant_id="tenant-demo", text="这款商品适合夏季使用吗？"):
+def question(
+    *, question_id="question-001", tenant_id="tenant-demo", text="这款商品适合夏季使用吗？"
+):
     return ProductQuestion(
         question_id=question_id,
         tenant_id=tenant_id,

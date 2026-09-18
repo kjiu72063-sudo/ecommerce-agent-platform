@@ -3,10 +3,9 @@ from datetime import datetime, timezone
 import pytest
 
 from agent_platform_contracts.policies import canonical_sha256
+from presale.context import ContextBuildError, PresaleContextBuilder
 from presale.contracts import ProductQuestion
 from presale.knowledge import EvidenceItem
-from presale.context import ContextBuildError, PresaleContextBuilder
-
 
 QUESTION = ProductQuestion(
     question_id="question-001",

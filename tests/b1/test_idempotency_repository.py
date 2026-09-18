@@ -2,9 +2,8 @@ from datetime import datetime, timezone
 
 import pytest
 
-from presale.adapters.sqlite import SQLitePresaleStore
-from presale.adapters.sqlite import SQLiteIdempotencyRepository
 from presale.adapters.in_memory import InMemoryIdempotencyRepository
+from presale.adapters.sqlite import SQLiteIdempotencyRepository, SQLitePresaleStore
 from presale.idempotency import IdempotencyConflictError, IdempotencyRecord
 
 
@@ -91,7 +90,6 @@ async def test_sqlite_claim_integrity_error_conflict(tmp_path):
 @pytest.mark.asyncio
 async def test_sqlite_claim_integrity_error_failed_recurs_to_replace(tmp_path):
     store = SQLitePresaleStore(tmp_path / "race3.sqlite3")
-    from presale.idempotency import IdempotencyRecord
 
     injected = record(run_ref="run_injected").model_copy(update={"status": "failed"})
     ours = record(run_ref="run_ours")

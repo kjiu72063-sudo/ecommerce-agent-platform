@@ -8,7 +8,6 @@ from presale.contracts import ProductQuestion
 from presale.knowledge import EvidenceItem, RetrievalResult, RetrievalStatus
 from presale.trace import PresaleRunTracer, TraceError
 
-
 QUESTION = ProductQuestion(
     question_id="question-001",
     tenant_id="tenant-demo",
@@ -76,12 +75,16 @@ async def test_records_stages_and_attaches_context_and_answer():
     tracer = PresaleRunTracer()
     trace_id = await _start(tracer)
 
-    await tracer.record_stage(trace_id, tenant_id="tenant-demo", stage="knowledge_retrieved", detail="matched")
+    await tracer.record_stage(
+        trace_id, tenant_id="tenant-demo", stage="knowledge_retrieved", detail="matched"
+    )
     context_package = _minimal_context()
     await tracer.attach_context(trace_id, tenant_id="tenant-demo", context_package=context_package)
     draft = answer()
     await tracer.attach_answer(trace_id, tenant_id="tenant-demo", answer=draft)
-    await tracer.record_stage(trace_id, tenant_id="tenant-demo", stage="answer_generated", detail=draft.answer_id)
+    await tracer.record_stage(
+        trace_id, tenant_id="tenant-demo", stage="answer_generated", detail=draft.answer_id
+    )
 
     trace = await tracer.get(trace_id, tenant_id="tenant-demo")
     stages = [item.stage for item in trace.stages]
@@ -111,9 +114,7 @@ async def test_get_unknown_or_cross_tenant_returns_error():
     trace_id = await _start(tracer)
 
     with pytest.raises(TraceError, match="TRACE_NOT_FOUND"):
-        await tracer.get(
-            "run_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f999", tenant_id="tenant-demo"
-        )
+        await tracer.get("run_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f999", tenant_id="tenant-demo")
 
     with pytest.raises(TraceError, match="OUT_OF_SCOPE"):
         await tracer.get(trace_id, tenant_id="tenant-other")
