@@ -30,7 +30,21 @@ make teach              # 全量门禁
 镜像 tag 固定：`qdrant/qdrant:v1.12.4`、`milvusdb/milvus:v2.4.1`、`quay.io/coreos/etcd:v3.5.14`。换版本在 `docker-compose.yml` 改后，重新 `docker compose up -d`（会按 lock 复现）。
 
 ## 模型（可选、本地）
-真实语义 embedding 需要 bge-large-zh-v1.5（`make models` → `pip install sentence-transformers`，自动下载模型）。若不想下载，用 `PRESALE_EMBEDDING=deterministic` 哈希伪向量先验证管道。
+真实语义 embedding 用 bge-large-zh-v1.5：`make models`（`uv sync --extra embedding` + `python scripts/download_bge_zh.py` 经 hf-mirror 的 GET 拉到 `./models`，已 `.gitignore`）。装好后用 `PRESALE_EMBEDDING_MODEL=models/bge-large-zh-v1.5`（离线 `HF_HUB_OFFLINE=1`）。若不想下载模型，用 `PRESALE_EMBEDDING=deterministic` 哈希伪向量先验证管道。
+
+> HuggingFace 直连不通时，`huggingface_hub` 的 HEAD 元数据校验对 hf-mirror 会失败，故用 `scripts/download_bge_zh.py` 以 GET 逐文件下载。
+
+## 检索评估（可量化）
+`presale-eval-retrieval`（`make eval` / `make eval-semantic`）在 `src/presale/data/dev_catalog.json` 的 8 个商品、22 条改写句 golden set 上，度量段落级排序的 hit@k / MRR / precision@k（检索为商品作用域，故测的是「相关事实段落是否排进 top-k」）。
+
+当前基线（2026-09-19，Milvus 本地文件存储，Hybrid dense+BM25+RRF，top_k=5，n=22）：
+
+| 嵌入 | hit@1 | hit@3 | hit@5 | MRR |
+|---|---|---|---|---|
+| **真实 bge-large-zh-v1.5** | 0.64 | 0.91 | 0.95 | 0.78 |
+| deterministic（伪向量，仅管道验证） | 0.55 | 0.73 | 0.73 | 0.63 |
+
+真实语义嵌入显著领先，说明稠密检索质量是真实且可度量的；后续改动以本表为对比基准。CI 的 `milvus-integration` job 用 deterministic 嵌入跑同一 harness 冒烟（指标须落在 [0,1]），不下载模型。
 
 ## 注意
 - Milvus **单独** `docker run` 裸镜像无法工作——它需要 etcd 提供元数据，且此仓库用 **本地文件存储**（`COMMON_STORAGETYPE=local`）而非 MinIO。请用 `docker compose up` 一起拉起。

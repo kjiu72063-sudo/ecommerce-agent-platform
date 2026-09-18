@@ -31,11 +31,17 @@ quality = [
 hybrid = [
     "pymilvus>=2.4,<3.0",
 ]
+# 真实语义 embedding（bge-large-zh-v1.5 + torch）。体积大，仅本地/按需安装；
+# CI 集成 job 用 deterministic 嵌入，不装本 extra，避免每次拉 torch。
+embedding = [
+    "sentence-transformers>=2.7,<5.0",
+]
 
 [project.scripts]
 presale-qa-api = "presale.api.qa:main"
 presale-index = "presale.adapters.qdrant_retrieval:main"
 presale-index-hybrid = "presale.adapters.hybrid_retrieval:main"
+presale-eval-retrieval = "presale.adapters.retrieval_eval:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

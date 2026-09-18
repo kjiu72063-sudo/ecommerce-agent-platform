@@ -280,10 +280,10 @@ def hybrid_retriever_from_env() -> ExternalRetrieval | None:
     from ..cli import load_catalog
 
     collection = os.environ.get("PRESALE_MILVUS_COLLECTION", "presale")
+    from .qdrant_retrieval import deterministic_embedding
+
     embedding: Embedding
     if os.environ.get("PRESALE_EMBEDDING") == "deterministic":
-        from .qdrant_retrieval import deterministic_embedding
-
         embedding = deterministic_embedding
     else:
         embedding = SentenceTransformerEmbedding()

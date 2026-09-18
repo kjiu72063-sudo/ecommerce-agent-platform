@@ -1,6 +1,6 @@
-.PHONY: up down ps models index-qdrant index-milvus qa-api teach
+.PHONY: up down ps models index-qdrant index-milvus eval eval-semantic qa-api teach
 
-# 本地可复现的外部环境栈（Qdrant + Milvus + etcd + minio）
+# 本地可复现的外部环境栈（Qdrant + Milvus + etcd，本地文件存储）
 up:
 	docker compose up -d
 
@@ -10,9 +10,10 @@ down:
 ps:
 	docker compose ps
 
-# 本地 bge-large-zh-v1.5 模型（真实语义 embedding，阶段 1 可选）
+# 本地 bge-large-zh-v1.5 模型（真实语义 embedding；经 hf-mirror GET 拉到 ./models，可复现）
 models:
-	pip install sentence-transformers
+	uv sync --extra embedding
+	python scripts/download_bge_zh.py
 
 # 把现有 catalog 索引进 Qdrant（确定性 embedding 可先验证管道）
 index-qdrant:
@@ -22,6 +23,19 @@ index-qdrant:
 index-milvus:
 	uv sync --extra hybrid
 	PRESALE_MILVUS_URI=http://localhost:19530 PRESALE_EMBEDDING=deterministic uv run presale-index-hybrid ./catalog.json
+
+# 检索评估：确定性嵌入（快，CI/管道验证用）
+eval:
+	PRESALE_MILVUS_URI=http://localhost:19530 PRESALE_EMBEDDING=deterministic \
+	PRESALE_MILVUS_COLLECTION=presale_hybrid_eval PRESALE_CATALOG=src/presale/data/dev_catalog.json \
+	uv run presale-eval-retrieval
+
+# 检索评估：真实语义嵌入（需先 make models 下载 bge，数才有意义）
+eval-semantic:
+	HF_HUB_OFFLINE=1 PRESALE_EMBEDDING_MODEL=models/bge-large-zh-v1.5 \
+	PRESALE_MILVUS_URI=http://localhost:19530 PRESALE_MILVUS_COLLECTION=presale_hybrid_1024 \
+	PRESALE_CATALOG=src/presale/data/dev_catalog.json \
+	uv run presale-eval-retrieval
 
 # 启动同步 QA 服务（用 env 配置真实 LLM/检索）
 qa-api:
