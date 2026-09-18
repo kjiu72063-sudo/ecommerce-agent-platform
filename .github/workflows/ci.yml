@@ -34,3 +34,42 @@ jobs:
 
       - name: Test
         run: uv run pytest -q
+
+  milvus-integration:
+    # Real Milvus Hybrid RAG e2e: reuses the repo's reproducible stack
+    # (docker compose up -d etcd milvus). Skipped/not run in the gate job.
+    name: milvus-integration (real hybrid e2e)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.13"
+
+      - name: Sync dependencies (incl. hybrid)
+        run: uv sync --extra test --extra quality --extra hybrid
+
+      - name: Start Milvus stack (etcd + milvus, local storage)
+        run: docker compose up -d etcd milvus
+
+      - name: Wait for Milvus health
+        run: |
+          ok=""
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:9091/healthz >/dev/null 2>&1; then
+              echo "milvus healthy"; ok=1; break
+            fi
+            echo "waiting for milvus (attempt $i)"; sleep 5
+          done
+          [ -n "$ok" ] || { echo "milvus did not become healthy"; exit 1; }
+
+      - name: Real Milvus Hybrid integration (index + retrieval + tenant isolation)
+        run: |
+          MILVUS_INTEGRATION=1 \
+          PRESALE_MILVUS_URI=http://127.0.0.1:19530 \
+          uv run pytest -q tests/b1/test_milvus_integration.py
+
+      - name: Tear down stack
+        if: always()
+        run: docker compose down
