@@ -16,6 +16,7 @@ import pytest
 
 from presale.adapters.external_retrieval import RetrievalStatus
 from presale.adapters.hybrid_retrieval import hybrid_retriever_from_env
+from presale.adapters.retrieval_eval import GOLDEN, PRECISION_K, evaluate_retriever
 from presale.contracts import ProductQuestion
 
 pytestmark = pytest.mark.skipif(
@@ -72,3 +73,20 @@ def test_real_hybrid_no_cross_product_leak(retriever):
 
     assert result.status is RetrievalStatus.NO_EVIDENCE
     assert not result.evidence_items
+
+
+def test_retrieval_eval_harness_runs_against_real_milvus():
+    # Exercises the quantification harness end-to-end against real Milvus with the
+    # lightweight deterministic embedding (no model download in CI). Deterministic
+    # pseudo-vectors are not semantically meaningful, so we only assert the metrics
+    # are well-formed in [0, 1]; the real semantic numbers come from a local run.
+    os.environ["PRESALE_EMBEDDING"] = "deterministic"
+    os.environ["PRESALE_MILVUS_COLLECTION"] = "presale_hybrid_eval"
+    os.environ["PRESALE_CATALOG"] = "src/presale/data/dev_catalog.json"
+    retriever = hybrid_retriever_from_env()
+
+    report = evaluate_retriever(retriever)
+
+    assert report["n"] == len(GOLDEN)
+    metrics = [*report["hit_at_k"].values(), report["mrr"], report[f"precision@{PRECISION_K}"]]
+    assert all(0.0 <= v <= 1.0 for v in metrics)

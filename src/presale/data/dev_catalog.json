@@ -1,0 +1,154 @@
+[
+  {
+    "source_id": "catalog-001",
+    "version": "2026.09.01",
+    "tenant_id": "tenant-demo",
+    "product_id": "product-001",
+    "status": "published",
+    "fields": {
+      "description": "夏季防晒衣，UPF50+，超薄透气，适合户外通勤与旅行防晒。",
+      "features": "高倍防晒、冰丝凉感、防紫外线、轻量便携",
+      "spec_season": "专为炎热夏季设计，穿着凉爽不闷热",
+      "spec_material": "冰丝凉感面料，轻薄有弹性",
+      "spec_upf": "实测紫外线防护系数 UPF50+",
+      "spec_size": "S-XL 码，版型修身，建议按平时尺码选择",
+      "care": "冷水轻柔手洗更有利于保持防晒涂层，不宜用力搓揉与暴晒晾干",
+      "wash_stability": "多次水洗后防晒指数会缓慢下降，建议减少机洗次数",
+      "after_rain": "淋雨后仍具防晒能力，只需阴干即可恢复穿着",
+      "warranty": "非人为损坏 90 天内可换货"
+    }
+  },
+  {
+    "source_id": "catalog-002",
+    "version": "2026.09.01",
+    "tenant_id": "tenant-demo",
+    "product_id": "product-002",
+    "status": "published",
+    "fields": {
+      "description": "冬季加厚羽绒服，90%白鸭绒，蓬松保暖，可抗零下低温。",
+      "features": "高蓬松度、锁温保暖、防风面料、连帽设计",
+      "spec_fill": "90% 白鸭绒，充绒量 280g，蓬松度高",
+      "spec_season": "针对严寒冬季设计，可应对零下低温",
+      "spec_waterproof": "外层面料防泼水，小雨小雪可短暂抵挡",
+      "spec_size": "M-XXL 码，版型偏宽松，可内搭毛衣",
+      "care": "羽绒服建议专业干洗，不可强力拧干以免损伤绒朵",
+      "wash_stability": "水洗会影响蓬松度，晾干后需拍打恢复",
+      "extreme_cold": "在零下二十度的环境中仍能有效锁温",
+      "warranty": "质量问题 7 天内无理由退货"
+    }
+  },
+  {
+    "source_id": "catalog-003",
+    "version": "2026.09.01",
+    "tenant_id": "tenant-demo",
+    "product_id": "product-003",
+    "status": "published",
+    "fields": {
+      "description": "户外防水登山鞋，抓地力强，防滑防刺，适合泥泞与湿滑山路。",
+      "features": "防水透气、高帮护踝、耐磨大底、防滑",
+      "spec_material": "头层牛皮与透气网布拼接，兼顾支撑与散热",
+      "spec_sole": "耐磨橡胶大底，V 型防滑纹路",
+      "spec_waterproof": "鞋面具备防水能力，短时涉水不湿脚",
+      "spec_size": "常规尺码，脚偏宽建议选择大一码",
+      "wet_grip": "在潮湿泥泞的坡面上依然抓地不打滑",
+      "rough_ground": "厚实鞋底可缓冲石子路的硌脚感",
+      "care": "沾泥后清水冲洗晾干即可，避免高温烘烤",
+      "warranty": "开胶脱底 90 天内免费维修"
+    }
+  },
+  {
+    "source_id": "catalog-004",
+    "version": "2026.09.01",
+    "tenant_id": "tenant-demo",
+    "product_id": "product-004",
+    "status": "published",
+    "fields": {
+      "description": "便携蓝牙降噪耳机，主动降噪，续航长，适合通勤与差旅。",
+      "features": "主动降噪、蓝牙5.3、单次续航8小时、降噪模式",
+      "spec_battery": "单次充满可连续使用 8 小时，充电盒可额外提供 24 小时",
+      "spec_noise": "主动降噪能显著削弱车厢与街道的持续噪声",
+      "spec_connect": "蓝牙 5.3 连接稳定，支持多设备快速切换",
+      "spec_waterproof": "充电盒防泼水，耳机体防汗",
+      "call_quality": "降噪麦克风拾音清晰，嘈杂环境通话对方仍听得清",
+      "gaming_latency": "低延迟模式可将音画延迟控制在较小范围",
+      "care": "耳塞需定期清洁，佩戴时避免汗水长时间浸泡",
+      "warranty": "非人为损坏提供一年质保"
+    }
+  },
+  {
+    "source_id": "catalog-005",
+    "version": "2026.09.01",
+    "tenant_id": "tenant-demo",
+    "product_id": "product-005",
+    "status": "published",
+    "fields": {
+      "description": "智能运动手表，心率血氧监测，50米防水，可记录游泳与跑步。",
+      "features": "心率监测、血氧、50米防水、运动记录",
+      "spec_heart": "支持 24 小时连续心率与血氧监测",
+      "spec_waterproof": "达到 50 米防水等级，可放心戴着游泳",
+      "spec_battery": "典型使用续航 14 天，重度使用约 7 天",
+      "spec_screen": "1.4 英寸 AMOLED 屏幕，阳光下依然清晰",
+      "swim_use": "游泳场景下可正常记录配速与划水数据且不进水",
+      "heartbeat": "可随时查看实时心率数值与波动区间",
+      "care": "每次游泳后用清水冲洗表体并擦干",
+      "warranty": "非人为进水问题 90 天内包换"
+    }
+  },
+  {
+    "source_id": "catalog-101",
+    "version": "2026.09.01",
+    "tenant_id": "tenant-acme",
+    "product_id": "product-101",
+    "status": "published",
+    "fields": {
+      "description": "折叠电动滑板车，续航60公里，可折叠带上地铁，适合城市通勤。",
+      "features": "长续航、可折叠、三档调速、充电快",
+      "spec_battery": "满电可连续行驶约 60 公里，快充约 4 小时充满",
+      "spec_fold": "一键折叠后体积紧凑，可随身带上公共交通",
+      "spec_weight": "整车净重约 13kg，折叠后可拎着移动",
+      "spec_speed": "最高时速 25km/h，含低速与节能共三档",
+      "transit": "折叠后允许带入地铁车厢与办公场所",
+      "range": "低速巡航模式可让单次续航进一步拉长",
+      "care": "充电时远离火源，避免雨天露天充电",
+      "warranty": "电池提供一年保修"
+    }
+  },
+  {
+    "source_id": "catalog-102",
+    "version": "2026.09.01",
+    "tenant_id": "tenant-acme",
+    "product_id": "product-102",
+    "status": "published",
+    "fields": {
+      "description": "家用空气净化器，除甲醛除PM2.5，H13滤网，适合新装修房间。",
+      "features": "除甲醛、除PM2.5、H13滤网、智能检测",
+      "spec_filter": "H13 级滤网，可有效拦截 PM2.5 与部分细菌",
+      "spec_cadr": "甲醛净化能力 CADR 350，适配约 40㎡ 卧室",
+      "spec_noise": "静音模式运转噪声仅约 32dB，适合夜间睡眠开",
+      "spec_care": "滤网建议每半年更换一次，确保净化效果",
+      "newhome": "对刚装修完房间的甲醛与异味有明显的净化作用",
+      "night_use": "低档位运行时几乎听不到噪声，不影响休息",
+      "care_interval": "滤芯累计使用时长充裕，按提示替换即可",
+      "warranty": "整机提供一年质保"
+    }
+  },
+  {
+    "source_id": "catalog-201",
+    "version": "2026.09.01",
+    "tenant_id": "tenant-other",
+    "product_id": "product-201",
+    "status": "published",
+    "fields": {
+      "description": "宠物自动喂食器，定时定量出粮，出差数天可远程照看猫咪饮食。",
+      "features": "定时出粮、远程App控制、大容量粮仓",
+      "spec_capacity": "5L 大容量粮仓，可满足单只猫约半个月的需求",
+      "spec_schedule": "支持一天最多四餐的定时定量投放",
+      "spec_remote": "可远程通过手机 App 查看余粮并随时投喂",
+      "spec_power": "断电后保留原设定，恢复供电自动继续",
+      "travel": "主人离家期间也能按设定规律为猫供粮，无需担心饿着",
+      "portion": "出粮份量可调，可随宠物月龄与食量灵活设置",
+      "power_resume": "意外断电不会丢失投放计划，来电自动恢复",
+      "warranty": "电机故障一年内免费更换"
+    }
+  }
+]
