@@ -10,7 +10,6 @@ from presale.knowledge import (
     RetrievalStatus,
 )
 
-
 QUESTION = ProductQuestion(
     question_id="question-001",
     tenant_id="tenant-demo",
@@ -22,7 +21,15 @@ QUESTION = ProductQuestion(
 )
 
 
-def source(*, source_id="catalog-001", version="2026.09.01", tenant_id="tenant-demo", product_id="product-001", season="适合夏季使用", status="published"):
+def source(
+    *,
+    source_id="catalog-001",
+    version="2026.09.01",
+    tenant_id="tenant-demo",
+    product_id="product-001",
+    season="适合夏季使用",
+    status="published",
+):
     return KnowledgeSource(
         source_id=source_id,
         version=version,

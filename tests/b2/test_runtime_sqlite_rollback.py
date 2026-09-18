@@ -1,12 +1,17 @@
 import asyncio
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
-import sys
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import path_config
-from runtime.sqlite_repositories import SQLiteRuntimeStore, SQLiteTaskRepository, SQLiteEventRepository
+from runtime.sqlite_repositories import (
+    SQLiteEventRepository,
+    SQLiteRuntimeStore,
+    SQLiteTaskRepository,
+)
 from runtime.task_service import TaskService
 
 
@@ -23,7 +28,9 @@ class TestRuntimeRollback(unittest.TestCase):
             tasks = SQLiteTaskRepository(store=store)
             events = FailingEventRepository(store=store)
             service = TaskService(tasks, events)
-            payload = json.loads((path_config.B0_EXAMPLES / "valid" / "task.json").read_text(encoding="utf-8"))
+            payload = json.loads(
+                (path_config.B0_EXAMPLES / "valid" / "task.json").read_text(encoding="utf-8")
+            )
             task_id = payload["metadata"]["id"]
             # Seed without an event, then make validation fail at event persistence.
             asyncio.run(tasks.create_task(payload))

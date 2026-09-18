@@ -9,10 +9,8 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-import path_config
 from path_config import B0_EXAMPLES
-
-from runtime import TaskService, InMemoryTaskRepository, InMemoryEventRepository, TaskFilter
+from runtime import InMemoryEventRepository, InMemoryTaskRepository, TaskFilter, TaskService
 
 
 def load_valid_example(name: str) -> dict:
@@ -25,7 +23,6 @@ def run_async(coro):
 
 
 class TestTaskService(unittest.TestCase):
-
     def setUp(self):
         self.task_repo = InMemoryTaskRepository()
         self.event_repo = InMemoryEventRepository()
@@ -33,35 +30,41 @@ class TestTaskService(unittest.TestCase):
 
     def test_create_task(self):
         payload = load_valid_example("task")
-        result = run_async(self.service.create_task(
-            payload=payload,
-            actor={"actor_type": "user", "actor_id": "usr_test"}
-        ))
+        result = run_async(
+            self.service.create_task(
+                payload=payload, actor={"actor_type": "user", "actor_id": "usr_test"}
+            )
+        )
         self.assertIn("id", result)
         self.assertEqual(result["phase"], "created")
 
     def test_create_duplicate_task(self):
         payload = load_valid_example("task")
-        run_async(self.service.create_task(
-            payload=payload,
-            actor={"actor_type": "user", "actor_id": "usr_test"}
-        ))
-        result = run_async(self.service.create_task(
-            payload=payload,
-            actor={"actor_type": "user", "actor_id": "usr_test"}
-        ))
+        run_async(
+            self.service.create_task(
+                payload=payload, actor={"actor_type": "user", "actor_id": "usr_test"}
+            )
+        )
+        result = run_async(
+            self.service.create_task(
+                payload=payload, actor={"actor_type": "user", "actor_id": "usr_test"}
+            )
+        )
         self.assertEqual(result["status"], "already_exists")
 
     def test_task_lifecycle(self):
         payload = load_valid_example("task")
-        result = run_async(self.service.create_task(
-            payload=payload,
-            actor={"actor_type": "user", "actor_id": "usr_test"}
-        ))
+        result = run_async(
+            self.service.create_task(
+                payload=payload, actor={"actor_type": "user", "actor_id": "usr_test"}
+            )
+        )
         task_id = result["id"]
 
         # created -> validated
-        result = run_async(self.service.validate_task(task_id, {"actor_type": "user", "actor_id": "usr_test"}))
+        result = run_async(
+            self.service.validate_task(task_id, {"actor_type": "user", "actor_id": "usr_test"})
+        )
         self.assertEqual(result["phase"], "validated")
 
         # validated -> queued
@@ -78,10 +81,11 @@ class TestTaskService(unittest.TestCase):
 
     def test_invalid_transition(self):
         payload = load_valid_example("task")
-        result = run_async(self.service.create_task(
-            payload=payload,
-            actor={"actor_type": "user", "actor_id": "usr_test"}
-        ))
+        result = run_async(
+            self.service.create_task(
+                payload=payload, actor={"actor_type": "user", "actor_id": "usr_test"}
+            )
+        )
         task_id = result["id"]
 
         # created -> running (not allowed)
@@ -90,10 +94,11 @@ class TestTaskService(unittest.TestCase):
 
     def test_cancel_task(self):
         payload = load_valid_example("task")
-        result = run_async(self.service.create_task(
-            payload=payload,
-            actor={"actor_type": "user", "actor_id": "usr_test"}
-        ))
+        result = run_async(
+            self.service.create_task(
+                payload=payload, actor={"actor_type": "user", "actor_id": "usr_test"}
+            )
+        )
         task_id = result["id"]
 
         result = run_async(self.service.cancel_task(task_id, reason="用户取消"))
@@ -101,14 +106,17 @@ class TestTaskService(unittest.TestCase):
 
     def test_fail_task(self):
         payload = load_valid_example("task")
-        result = run_async(self.service.create_task(
-            payload=payload,
-            actor={"actor_type": "user", "actor_id": "usr_test"}
-        ))
+        result = run_async(
+            self.service.create_task(
+                payload=payload, actor={"actor_type": "user", "actor_id": "usr_test"}
+            )
+        )
         task_id = result["id"]
 
         # created -> validated -> queued -> running -> failed
-        run_async(self.service.validate_task(task_id, {"actor_type": "user", "actor_id": "usr_test"}))
+        run_async(
+            self.service.validate_task(task_id, {"actor_type": "user", "actor_id": "usr_test"})
+        )
         run_async(self.service.queue_task(task_id))
         run_async(self.service.start_task(task_id))
 
@@ -117,19 +125,19 @@ class TestTaskService(unittest.TestCase):
 
     def test_events_published(self):
         payload = load_valid_example("task")
-        result = run_async(self.service.create_task(
-            payload=payload,
-            actor={"actor_type": "user", "actor_id": "usr_test"}
-        ))
+        result = run_async(
+            self.service.create_task(
+                payload=payload, actor={"actor_type": "user", "actor_id": "usr_test"}
+            )
+        )
         task_id = result["id"]
 
         events = run_async(self.event_repo.get_events(task_id))
         self.assertGreater(len(events), 0)
-        self.assertEqual(events[0]['spec']['type'], 'task.created')
+        self.assertEqual(events[0]["spec"]["type"], "task.created")
 
 
 class TestTaskFilter(unittest.TestCase):
-
     def setUp(self):
         self.task_repo = InMemoryTaskRepository()
         self.event_repo = InMemoryEventRepository()
@@ -137,10 +145,11 @@ class TestTaskFilter(unittest.TestCase):
 
     def test_filter_by_phase(self):
         payload = load_valid_example("task")
-        run_async(self.service.create_task(
-            payload=payload,
-            actor={"actor_type": "user", "actor_id": "usr_test"}
-        ))
+        run_async(
+            self.service.create_task(
+                payload=payload, actor={"actor_type": "user", "actor_id": "usr_test"}
+            )
+        )
 
         results = run_async(self.service.list_tasks(TaskFilter(phase="created")))
         self.assertEqual(len(results), 1)
@@ -150,10 +159,11 @@ class TestTaskFilter(unittest.TestCase):
 
     def test_filter_by_domain(self):
         payload = load_valid_example("task")
-        run_async(self.service.create_task(
-            payload=payload,
-            actor={"actor_type": "user", "actor_id": "usr_test"}
-        ))
+        run_async(
+            self.service.create_task(
+                payload=payload, actor={"actor_type": "user", "actor_id": "usr_test"}
+            )
+        )
 
         results = run_async(self.service.list_tasks(TaskFilter(domain="development")))
         self.assertEqual(len(results), 1)

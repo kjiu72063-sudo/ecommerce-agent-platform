@@ -81,9 +81,7 @@ async def run_and_accept(runner):
 
 @pytest.mark.asyncio
 async def test_inmemory_and_sqlite_have_same_business_result(tmp_path):
-    memory_result, memory_disposition, memory_trace = await run_and_accept(
-        build_in_memory_runner()
-    )
+    memory_result, memory_disposition, memory_trace = await run_and_accept(build_in_memory_runner())
     sqlite_runner, store = build_sqlite_runner(tmp_path)
     sqlite_result, sqlite_disposition, sqlite_trace = await run_and_accept(sqlite_runner)
 

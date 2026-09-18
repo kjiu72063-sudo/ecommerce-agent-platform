@@ -12,8 +12,8 @@ from presale.adapters.sqlite import (
 )
 from presale.contracts import ProductQuestion
 from presale.knowledge import KnowledgeSource
-from presale.runner import PresaleQaRunner
 from presale.ports import NotFoundError
+from presale.runner import PresaleQaRunner
 
 QUESTION = ProductQuestion(
     question_id="question-restart",
