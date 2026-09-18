@@ -4,7 +4,7 @@
 
 ## 一键拉起
 ```bash
-docker compose up -d        # 起 Qdrant(6333) + Milvus(19530) + etcd + minio
+docker compose up -d        # 起 Qdrant(6333) + Milvus(19530) + etcd
 docker compose ps
 ```
 停止：`docker compose down`（保留 volumes）。
@@ -13,7 +13,7 @@ docker compose ps
 |---|---|---|
 | Qdrant | 6333/6334 | 向量检索（单点/简单） |
 | Milvus | 19530/9091 | 向量检索（Hybrid RAG 阶段 1 稠密端） |
-| etcd / minio | 2379/9000,9001 | Milvus 依赖（不作为业务入口） |
+| etcd | 2379 | Milvus 元数据依赖（不作为业务入口） |
 | Neo4j | 7474/7687 | RAG 阶段 2（GraphRAG，默认注释，用时启用） |
 
 ## 用 Makefile 复现（推荐）
@@ -27,12 +27,13 @@ make teach              # 全量门禁
 ```
 
 ## 版本锁定
-镜像 tag 固定：`qdrant/qdrant:v1.12.4`、`milvusdb/milvus:v2.4.1`、`minio/minio:...`、`etcd:v3.5.14`。换版本在 `docker-compose.yml` 改后，重新 `docker compose up -d`（会按 lock 复现）。
+镜像 tag 固定：`qdrant/qdrant:v1.12.4`、`milvusdb/milvus:v2.4.1`、`quay.io/coreos/etcd:v3.5.14`。换版本在 `docker-compose.yml` 改后，重新 `docker compose up -d`（会按 lock 复现）。
 
 ## 模型（可选、本地）
 真实语义 embedding 需要 bge-large-zh-v1.5（`make models` → `pip install sentence-transformers`，自动下载模型）。若不想下载，用 `PRESALE_EMBEDDING=deterministic` 哈希伪向量先验证管道。
 
 ## 注意
-- Milvus **单独** `docker run` 裸镜像无法工作——它依赖 etcd+minio（`ETCD_ENDPOINTS`/`MINIO_ADDRESS`）。请用 `docker compose up` 一起拉起。
+- Milvus **单独** `docker run` 裸镜像无法工作——它需要 etcd 提供元数据，且此仓库用 **本地文件存储**（`COMMON_STORAGETYPE=local`）而非 MinIO。请用 `docker compose up` 一起拉起。
+- 为什么没有 MinIO：本机 1Panel 镜像站未缓存 `minio/minio` 镜像（`docker pull` 报 403），故 Milvus 单机用 local 存储以绕开对象存储依赖。**生产/正式若需 MinIO 对象存储**，加回 minio 服务并把 `COMMON_STORAGETYPE` 改回 `remote`、补 `MINIO_ADDRESS`。
 - 数据容器可重建，但 volumes 持久化；需要重置删除 volume 时 `docker compose down -v`。
 - CI 未自动拉起这些服务（本地/自托管 RAG 栈）；索引与检索在运行时由你环境提供。后续可加 GitHub Actions service-container job 做真机集成测试。

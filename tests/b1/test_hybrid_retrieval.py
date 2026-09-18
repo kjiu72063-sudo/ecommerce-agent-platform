@@ -55,9 +55,7 @@ class FakeMilvus:
         self.points.extend(data)
 
     def search(self, collection_name, data, limit, output_fields, filter=""):
-        return [
-            [{"entity": {k: p["payload"][k] for k in output_fields}} for p in self.points[:limit]]
-        ]
+        return [[{"entity": {k: p.get(k) for k in output_fields}} for p in self.points[:limit]]]
 
 
 def test_index_hybrid_populates_milvus_and_bm25():
