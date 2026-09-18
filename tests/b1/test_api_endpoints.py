@@ -6,15 +6,16 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-import path_config  # noqa: F401
-
 from fastapi.testclient import TestClient
 
+import path_config  # noqa: F401
 from registry.api.main import app, reset_service
 
 
 def load(name):
-    return json.loads((path_config.B0_EXAMPLES / "valid" / f"{name}.json").read_text(encoding="utf-8"))
+    return json.loads(
+        (path_config.B0_EXAMPLES / "valid" / f"{name}.json").read_text(encoding="utf-8")
+    )
 
 
 class TestApiEndpoints(unittest.TestCase):
@@ -32,7 +33,12 @@ class TestApiEndpoints(unittest.TestCase):
     def test_register_get_list(self):
         register = self.client.post(
             "/api/v1/registry/definitions",
-            json={"kind": "agent-spec", "payload": self.agent, "actor_type": "user", "actor_id": "usr_test"},
+            json={
+                "kind": "agent-spec",
+                "payload": self.agent,
+                "actor_type": "user",
+                "actor_id": "usr_test",
+            },
         )
         self.assertEqual(register.status_code, 200)
         body = register.json()["data"]
@@ -53,7 +59,12 @@ class TestApiEndpoints(unittest.TestCase):
         for _ in range(3):
             resp = self.client.post(
                 "/api/v1/registry/definitions",
-                json={"kind": "agent-spec", "payload": self.agent, "actor_type": "user", "actor_id": "usr_test"},
+                json={
+                    "kind": "agent-spec",
+                    "payload": self.agent,
+                    "actor_type": "user",
+                    "actor_id": "usr_test",
+                },
             )
             self.assertEqual(resp.status_code, 200)
             # 每次修改 key 和 id，避免重复对象冲突
@@ -67,7 +78,12 @@ class TestApiEndpoints(unittest.TestCase):
     def test_transition_to_active(self):
         register = self.client.post(
             "/api/v1/registry/definitions",
-            json={"kind": "agent-spec", "payload": self.agent, "actor_type": "user", "actor_id": "usr_test"},
+            json={
+                "kind": "agent-spec",
+                "payload": self.agent,
+                "actor_type": "user",
+                "actor_id": "usr_test",
+            },
         ).json()["data"]
         agent_id = register["id"]
         for target in ("testing", "awaiting_approval", "approved", "active"):
@@ -80,7 +96,12 @@ class TestApiEndpoints(unittest.TestCase):
     def test_versions_and_dependencies_endpoints(self):
         register = self.client.post(
             "/api/v1/registry/definitions",
-            json={"kind": "agent-spec", "payload": self.agent, "actor_type": "user", "actor_id": "usr_test"},
+            json={
+                "kind": "agent-spec",
+                "payload": self.agent,
+                "actor_type": "user",
+                "actor_id": "usr_test",
+            },
         ).json()["data"]
         agent_id = register["id"]
         versions = self.client.get(f"/api/v1/registry/definitions/{agent_id}/versions")
@@ -92,7 +113,12 @@ class TestApiEndpoints(unittest.TestCase):
     def test_audit_logs(self):
         register = self.client.post(
             "/api/v1/registry/definitions",
-            json={"kind": "agent-spec", "payload": self.agent, "actor_type": "user", "actor_id": "usr_test"},
+            json={
+                "kind": "agent-spec",
+                "payload": self.agent,
+                "actor_type": "user",
+                "actor_id": "usr_test",
+            },
         ).json()["data"]
         agent_id = register["id"]
         audit = self.client.get("/api/v1/registry/audit")
@@ -104,7 +130,12 @@ class TestApiEndpoints(unittest.TestCase):
     def test_delete_draft(self):
         register = self.client.post(
             "/api/v1/registry/definitions",
-            json={"kind": "agent-spec", "payload": self.agent, "actor_type": "user", "actor_id": "usr_test"},
+            json={
+                "kind": "agent-spec",
+                "payload": self.agent,
+                "actor_type": "user",
+                "actor_id": "usr_test",
+            },
         ).json()["data"]
         agent_id = register["id"]
         delete = self.client.request(
@@ -116,7 +147,9 @@ class TestApiEndpoints(unittest.TestCase):
         self.assertTrue(delete.json()["data"]["deleted"])
 
     def test_get_missing_returns_404(self):
-        resp = self.client.get("/api/v1/registry/definitions/agt_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f999")
+        resp = self.client.get(
+            "/api/v1/registry/definitions/agt_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f999"
+        )
         self.assertEqual(resp.status_code, 404)
 
 

@@ -10,8 +10,6 @@ from presale.contracts import ProductQuestion
 from presale.knowledge import (
     DeterministicKnowledgeRetriever,
     KnowledgeSource,
-    RetrievalResult,
-    RetrievalStatus,
 )
 
 RUN_REF = {"kind": "AgentRun", "id": "run_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411"}

@@ -6,7 +6,6 @@ from pydantic import ValidationError
 from agent_platform_contracts.models import ObjectRef, ResourceKind
 from presale.contracts import AnswerDraft, ProductQuestion
 
-
 VALID_QUESTION = {
     "question_id": "question-001",
     "tenant_id": "tenant-demo",

@@ -1,17 +1,10 @@
-import asyncio
-from datetime import datetime, timezone
-
 import pytest
 
-from presale.contracts import ProductQuestion
 from presale.definitions import (
     B1DefinitionSource,
     DefinitionResolutionError,
-    FrozenConfiguration,
     StaticDefinitionSource,
 )
-from presale.runner import PresaleQaRunner
-from presale.knowledge import KnowledgeSource
 
 TENANT = "tenant-demo"
 
@@ -43,7 +36,9 @@ def _stub_source(objects_by_names):
     agent_id = objects_by_names["agent"]["metadata"]["id"]
     prompt_id = objects_by_names["prompt"]["metadata"]["id"]
     policy_id = objects_by_names["policy"]["metadata"]["id"]
-    repo = StubRepo([objects_by_names["agent"], objects_by_names["prompt"], objects_by_names["policy"]])
+    repo = StubRepo(
+        [objects_by_names["agent"], objects_by_names["prompt"], objects_by_names["policy"]]
+    )
     return B1DefinitionSource(
         repo,
         agent_spec_id=agent_id,
@@ -69,8 +64,12 @@ async def test_b1_source_freezes_versions_and_digests():
     source = _stub_source(
         {
             "agent": _def("AgentSpec", "agt_01111111-1111-7111-8111-111111111111"),
-            "prompt": _def("PromptPackage", "prm_01111111-1111-7111-8111-111111111111", version="2.1.0"),
-            "policy": _def("ContextPolicy", "cpo_01111111-1111-7111-8111-111111111111", version="3.0.0"),
+            "prompt": _def(
+                "PromptPackage", "prm_01111111-1111-7111-8111-111111111111", version="2.1.0"
+            ),
+            "policy": _def(
+                "ContextPolicy", "cpo_01111111-1111-7111-8111-111111111111", version="3.0.0"
+            ),
         }
     )
 
@@ -87,7 +86,9 @@ async def test_b1_source_freezes_versions_and_digests():
 async def test_b1_source_rejects_definition_out_of_scope():
     source = _stub_source(
         {
-            "agent": _def("AgentSpec", "agt_01111111-1111-7111-8111-111111111111", tenant_id="tenant-other"),
+            "agent": _def(
+                "AgentSpec", "agt_01111111-1111-7111-8111-111111111111", tenant_id="tenant-other"
+            ),
             "prompt": _def("PromptPackage", "prm_01111111-1111-7111-8111-111111111111"),
             "policy": _def("ContextPolicy", "cpo_01111111-1111-7111-8111-111111111111"),
         }

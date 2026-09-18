@@ -7,7 +7,6 @@ from presale.answer import AnswerGenerationError, PresaleAnswerGenerator
 from presale.contracts import ProductQuestion
 from presale.knowledge import EvidenceItem, RetrievalResult, RetrievalStatus
 
-
 QUESTION = ProductQuestion(
     question_id="question-001",
     tenant_id="tenant-demo",
@@ -75,7 +74,10 @@ def test_no_evidence_returns_human_review_draft_without_fact_claim():
 def test_conflicting_evidence_requires_human_review():
     result = RetrievalResult(
         status=RetrievalStatus.CONFLICT,
-        evidence_items=[evidence("适合夏季使用"), evidence("不适合夏季使用", source_id="catalog-002")],
+        evidence_items=[
+            evidence("适合夏季使用"),
+            evidence("不适合夏季使用", source_id="catalog-002"),
+        ],
         reason_codes=["CONFLICTING_EVIDENCE"],
     )
 

@@ -1,13 +1,18 @@
 import asyncio
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
-import sys
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import path_config
-from runtime.in_memory_repositories import InMemoryTaskRepository, InMemoryEventRepository
-from runtime.sqlite_repositories import SQLiteRuntimeStore, SQLiteTaskRepository, SQLiteEventRepository
+from runtime.in_memory_repositories import InMemoryEventRepository, InMemoryTaskRepository
+from runtime.sqlite_repositories import (
+    SQLiteEventRepository,
+    SQLiteRuntimeStore,
+    SQLiteTaskRepository,
+)
 
 
 def run(coro):
@@ -21,7 +26,9 @@ class TaskRepositoryContractMixin:
     def test_task_persistence_contract(self):
         task_repo, store, cleanup = self.make_repo()
         try:
-            task = json.loads((path_config.B0_EXAMPLES / "valid" / "task.json").read_text(encoding="utf-8"))
+            task = json.loads(
+                (path_config.B0_EXAMPLES / "valid" / "task.json").read_text(encoding="utf-8")
+            )
             task["spec"]["idempotency_key"] = "ten_test:api:idem-001"
             task_id = run(task_repo.create_task(task))
             first = run(task_repo.get_task(task_id))
@@ -29,7 +36,9 @@ class TaskRepositoryContractMixin:
             self.assertNotEqual(run(task_repo.get_task(task_id))["metadata"]["id"], "mutated")
             self.assertTrue(run(task_repo.update_task_status(task_id, "validated")))
             self.assertEqual(run(task_repo.get_task(task_id))["status"]["phase"], "validated")
-            self.assertIsNotNone(run(task_repo.find_by_idempotency_key("ten_test", "api", "idem-001")))
+            self.assertIsNotNone(
+                run(task_repo.find_by_idempotency_key("ten_test", "api", "idem-001"))
+            )
         finally:
             cleanup()
 
@@ -56,7 +65,10 @@ class EventRepositoryContractMixin:
             subject = "tsk_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f421"
             for sequence in (1, 2):
                 event_id = f"evt_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f42{sequence}"
-                event = {"metadata": {"id": event_id}, "spec": {"subject_ref": {"id": subject}, "sequence": sequence}}
+                event = {
+                    "metadata": {"id": event_id},
+                    "spec": {"subject_ref": {"id": subject}, "sequence": sequence},
+                }
                 run(repo.save_event(event))
             self.assertEqual(run(repo.get_next_sequence(subject)), 3)
             self.assertEqual([e["spec"]["sequence"] for e in run(repo.get_events(subject))], [1, 2])

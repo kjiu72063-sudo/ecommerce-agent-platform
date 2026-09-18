@@ -7,12 +7,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import path_config  # noqa: F401
-
 from registry import InMemoryDefinitionRepository
 from registry.dependency_resolver import (
-    DependencyResolver,
     DependencyCycleError,
     DependencyResolveError,
+    DependencyResolver,
 )
 
 
@@ -73,7 +72,9 @@ class TestDependencyResolverUnit(unittest.TestCase):
             run(DependencyResolver(repo).resolve("root", "1.0.0"))
 
     def test_missing_target_rejected(self):
-        repo = StubRepo([], [{"source_id": "root", "target_id": "ghost", "target_version": "1.0.0"}])
+        repo = StubRepo(
+            [], [{"source_id": "root", "target_id": "ghost", "target_version": "1.0.0"}]
+        )
         with self.assertRaises(DependencyResolveError):
             run(DependencyResolver(repo).resolve("root", "1.0.0"))
 
@@ -106,10 +107,21 @@ class TestDependencyResolverIntegration(unittest.TestCase):
         run(repo.create(tool))
         run(repo.create(skill))
         run(repo.create(agent))
-        run(repo.save_dependency(skill["metadata"]["id"], "1.0.0", tool["metadata"]["id"], "1.0.0", "tool"))
-        run(repo.save_dependency(agent["metadata"]["id"], "1.0.0", skill["metadata"]["id"], "1.0.0", "skill"))
+        run(
+            repo.save_dependency(
+                skill["metadata"]["id"], "1.0.0", tool["metadata"]["id"], "1.0.0", "tool"
+            )
+        )
+        run(
+            repo.save_dependency(
+                agent["metadata"]["id"], "1.0.0", skill["metadata"]["id"], "1.0.0", "skill"
+            )
+        )
         result = run(DependencyResolver(repo).resolve(agent["metadata"]["id"], "1.0.0"))
-        self.assertEqual(result["topological_order"], [tool["metadata"]["id"], skill["metadata"]["id"], agent["metadata"]["id"]])
+        self.assertEqual(
+            result["topological_order"],
+            [tool["metadata"]["id"], skill["metadata"]["id"], agent["metadata"]["id"]],
+        )
         self.assertEqual(len(result["edges"]), 2)
 
 

@@ -3,7 +3,6 @@
 from datetime import datetime, timezone
 
 import httpx
-import pytest
 
 from presale.adapters.external_retrieval import ExternalRetrieval
 from presale.adapters.qdrant_retrieval import (

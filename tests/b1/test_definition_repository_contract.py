@@ -1,9 +1,10 @@
 import asyncio
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
-import sys
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import path_config
 from registry import DefinitionFilter, InMemoryDefinitionRepository, SQLiteDefinitionRepository
@@ -20,7 +21,9 @@ class DefinitionRepositoryContractMixin:
     def test_create_read_update_list_delete_contract(self):
         repo, cleanup = self.make_repo()
         try:
-            obj = json.loads((path_config.B0_EXAMPLES / "valid" / "agent-spec.json").read_text(encoding="utf-8"))
+            obj = json.loads(
+                (path_config.B0_EXAMPLES / "valid" / "agent-spec.json").read_text(encoding="utf-8")
+            )
             object_id = run(repo.create(obj))
             self.assertEqual(run(repo.get_by_id(object_id))["metadata"]["id"], object_id)
             self.assertEqual(run(repo.count_by_filter(DefinitionFilter())), 1)
