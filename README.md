@@ -49,27 +49,24 @@ presale-qa-api            # 默认 127.0.0.1:8000（可用 PRESALE_QA_HOST/PRESA
 
 ## 外部检索（Qdrant，可选）
 
-向量库用**本地 Qdrant（Docker）**，embedding 复用 LLM 提供方的 `/embeddings` 端点。步骤：
-1. 起 Qdrant：`docker run -p 6333:6333 -p 6334:6334 qdrant/qdrant`
-2. 索引现有 catalog 入库：
+向量库用**本地 Qdrant（Docker）**，embedding 复用 LLM 提供方 `/embeddings` 或独立。步骤（基础设施统一用 `docker compose`/Makefile，见 `deploy/README.md`）：
+1. 起服务：`docker compose up -d`（含 Qdrant + Milvus）
+2. 索引：
    ```bash
-   export PRESALE_QDRANT_URL=http://localhost:6333
-   # embedding 复用 PRESALE_LLM_*；如提供方 embedding 端点不同可设 PRESALE_EMBEDDING_*
-   presale-index ./catalog.json
+   make index-qdrant   # = PRESALE_QDRANT_URL=http://localhost:6333 PRESALE_EMBEDDING=deterministic presale-index ./catalog.json
    ```
-3. 运行 QA 服务时它会用 Qdrant 检索：设 `PRESALE_QDRANT_URL` 即可（否则走确定性检索）。
+3. 运行 QA 服务时设 `PRESALE_QDRANT_URL` 即用 Qdrant 检索（否则确定性）。
 
 搜索按 `tenant_id`/`product_id` 过滤，跨租户不泄漏；外部检索失败可降级（`RETRIEVAL_DEGRADED`）或显式报错。
 
 ## 外部检索（Hybrid RAG，RAG 阶段 1，可选）
 
-稠密（bge-large-zh-v1.5 → Milvus）+ 词法（BM25）+ RRF 融合。见 `开发文档/12-RAG架构方案.md`。
+稠密（bge-large-zh-v1.5 → Milvus）+ 词法（BM25）+ RRF 融合。见 `开发文档/12-RAG架构方案.md` 与 `deploy/README.md`。
 ```bash
-# 1) 本地 bge 模型（需一次性）：pip install sentence-transformers
-# 2) 起 Milvus：docker run -p 19530:19530 -v milvus:/var/lib/milvus milvusdb/milvus:v2.4-standalone
-# 3) 索引：uv sync --extra hybrid && PRESALE_MILVUS_URI=http://localhost:19530 presale-index-hybrid ./catalog.json
-#    （或先用 PRESALE_EMBEDDING=deterministic 跑通管道）
-# 4) 运行 QA 服务时设 PRESALE_MILVUS_URI 即用 Hybrid 检索
+docker compose up -d            # 起 Milvus（连同 etcd/minio；单独裸跑 milvus 需要它们）
+make models                     # 一次性：pip install sentence-transformers（本地 bge；可跳过/用确定性）
+make index-milvus               # catalog.json → Milvus（可用 PRESALE_EMBEDDING=deterministic 先验证管道）
+# 运行 QA 服务时设 PRESALE_MILVUS_URI 即用 Hybrid 检索
 ```
 BM25 为进程内（CJK 字级分词）；Milvus 稠密点按 `tenant_id`/`product_id` 过滤。
 
