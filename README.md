@@ -33,7 +33,7 @@ uv run pyright              # CI 强制（src/presale + src/agent_runtime）
 uv run pre-commit run --all-files   # 本地钩子，非 CI 强制
 ```
 
-当前基线：全量测试 249 passed（以 `开发文档/09-质量基线与门禁台账.md` 的带日期台账为准）。CI 通过 GitHub Actions（`.github/workflows/ci.yml`）在 `main` 与每个 PR 上运行门禁（ruff check/format src + pyright + pytest）并带 `concurrency` 取消旧 run。仓库已公开，`main` 启用分支保护：直接/强制推送与删除被禁（含管理员）、必须走 PR、要求 CI 通过、强制线性历史——合并纪律由平台强制。测试规范入口位于 `tests/b1`、`tests/b2`、`tests/b3`；旧 B 目录中的测试保留作阶段迁移参考，不再作为根级默认收集入口。
+当前基线：全量测试 251 passed（以 `开发文档/09-质量基线与门禁台账.md` 的带日期台账为准）。CI 通过 GitHub Actions（`.github/workflows/ci.yml`）在 `main` 与每个 PR 上运行门禁（ruff check/format src + pyright + pytest）并带 `concurrency` 取消旧 run。仓库已公开，`main` 启用分支保护：直接/强制推送与删除被禁（含管理员）、必须走 PR、要求 CI 通过、强制线性历史——合并纪律由平台强制。测试规范入口位于 `tests/b1`、`tests/b2`、`tests/b3`；旧 B 目录中的测试保留作阶段迁移参考，不再作为根级默认收集入口。
 
 ## 运行 QA 服务
 
@@ -60,6 +60,18 @@ presale-qa-api            # 默认 127.0.0.1:8000（可用 PRESALE_QA_HOST/PRESA
 3. 运行 QA 服务时它会用 Qdrant 检索：设 `PRESALE_QDRANT_URL` 即可（否则走确定性检索）。
 
 搜索按 `tenant_id`/`product_id` 过滤，跨租户不泄漏；外部检索失败可降级（`RETRIEVAL_DEGRADED`）或显式报错。
+
+## 外部检索（Hybrid RAG，RAG 阶段 1，可选）
+
+稠密（bge-large-zh-v1.5 → Milvus）+ 词法（BM25）+ RRF 融合。见 `开发文档/12-RAG架构方案.md`。
+```bash
+# 1) 本地 bge 模型（需一次性）：pip install sentence-transformers
+# 2) 起 Milvus：docker run -p 19530:19530 -v milvus:/var/lib/milvus milvusdb/milvus:v2.4-standalone
+# 3) 索引：uv sync --extra hybrid && PRESALE_MILVUS_URI=http://localhost:19530 presale-index-hybrid ./catalog.json
+#    （或先用 PRESALE_EMBEDDING=deterministic 跑通管道）
+# 4) 运行 QA 服务时设 PRESALE_MILVUS_URI 即用 Hybrid 检索
+```
+BM25 为进程内（CJK 字级分词）；Milvus 稠密点按 `tenant_id`/`product_id` 过滤。
 
 ## 目录边界
 
