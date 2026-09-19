@@ -32,6 +32,10 @@ def _csv_ints(raw: str) -> list[int]:
     return [int(value.strip()) for value in raw.split(",") if value.strip()]
 
 
+def _csv_floats(raw: str) -> list[float]:
+    return [float(value.strip()) for value in raw.split(",") if value.strip()]
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Sweep Hybrid retrieval parameters.")
     parser.add_argument("--catalog", default="src/presale/data/dev_catalog.json")
@@ -40,8 +44,11 @@ def main() -> None:
     )
     parser.add_argument("--collection", default="presale_hybrid_1024")
     parser.add_argument("--top-k", type=int, default=5)
-    parser.add_argument("--pools", default="15,30,60")
-    parser.add_argument("--rrf-ks", default="20,60,100")
+    parser.add_argument("--pools", default="15,30,60,100,150")
+    parser.add_argument("--rrf-ks", default="60")
+    parser.add_argument("--bm25-weights", default="1.0")
+    parser.add_argument("--dense-k", type=int, help="override dense candidate count for all rows")
+    parser.add_argument("--bm25-k", type=int, help="override BM25 candidate count for all rows")
     parser.add_argument("--embedding-model", default=os.environ.get("PRESALE_EMBEDDING_MODEL"))
     parser.add_argument(
         "--reranker-models",
@@ -73,29 +80,36 @@ def main() -> None:
     rows: list[dict[str, object]] = []
     for pool in _csv_ints(args.pools):
         for rrf_k in _csv_ints(args.rrf_ks):
-            for name, reranker in rerankers.items():
-                retriever = ExternalRetrieval(
-                    transport=hybrid_transport(
-                        embedding=embedding,
-                        dense=dense,
-                        bm25=bm25,
-                        top_k=args.top_k,
-                        pool=pool,
-                        rrf_k=rrf_k,
-                        reranker=reranker,
+            for bm25_weight in _csv_floats(args.bm25_weights):
+                for name, reranker in rerankers.items():
+                    retriever = ExternalRetrieval(
+                        transport=hybrid_transport(
+                            embedding=embedding,
+                            dense=dense,
+                            bm25=bm25,
+                            top_k=args.top_k,
+                            pool=pool,
+                            dense_k=args.dense_k,
+                            bm25_k=args.bm25_k,
+                            bm25_weight=bm25_weight,
+                            rrf_k=rrf_k,
+                            reranker=reranker,
+                        )
                     )
-                )
-                report = evaluate_retriever(retriever)
-                row = {
-                    "reranker": name,
-                    "pool": pool,
-                    "rrf_k": rrf_k,
-                    **report["hit_at_k"],
-                    "mrr": report["mrr"],
-                    "precision@5": report["precision@5"],
-                }
-                rows.append(row)
-                print(json.dumps(row, ensure_ascii=False))
+                    report = evaluate_retriever(retriever)
+                    row = {
+                        "reranker": name,
+                        "pool": pool,
+                        "rrf_k": rrf_k,
+                        "bm25_weight": bm25_weight,
+                        "dense_k": args.dense_k,
+                        "bm25_k": args.bm25_k,
+                        **report["hit_at_k"],
+                        "mrr": report["mrr"],
+                        "precision@5": report["precision@5"],
+                    }
+                    rows.append(row)
+                    print(json.dumps(row, ensure_ascii=False))
 
     best = max(rows, key=lambda row: (float(row["mrr"]), float(row["hit@1"])))
     print("BEST " + json.dumps(best, ensure_ascii=False))
