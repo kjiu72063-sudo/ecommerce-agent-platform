@@ -72,6 +72,40 @@ class SentenceTransformerEmbedding:
         return self._load().encode(text, normalize_embeddings=True).tolist()
 
 
+class CrossEncoderReranker:
+    """Cross-encoder reranker (sentence-transformers CrossEncoder).
+
+    Re-scores candidate chunks against the query jointly to refine the fused ranking.
+    ``model_name`` may be a HF repo id or a local directory (loaded offline).
+    """
+
+    def __init__(self, model_name: str | None = None):
+        self._model_name = model_name or os.environ.get(
+            "PRESALE_RERANKER_MODEL", "BAAI/bge-reranker-base"
+        )
+        self._model = None
+
+    def _load(self):
+        if self._model is None:
+            try:
+                from sentence_transformers import (  # pyright: ignore[reportMissingImports]
+                    CrossEncoder,
+                )
+            except ImportError as exc:
+                raise RetrievalError(
+                    "SENTENCE_TRANSFORMERS_NOT_INSTALLED: uv sync --extra embedding"
+                ) from exc
+            self._model = CrossEncoder(self._model_name)
+        return self._model
+
+    def __call__(self, query: str, candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        if not candidates:
+            return candidates
+        scores = self._load().predict([(query, c["content"]) for c in candidates])
+        order = sorted(range(len(candidates)), key=lambda i: scores[i], reverse=True)
+        return [candidates[i] for i in order]
+
+
 class BM25Index:
     """In-process BM25 (rank_bm25) over chunk texts, keeping payloads."""
 
@@ -200,23 +234,31 @@ def hybrid_transport(
     bm25: BM25Index,
     top_k: int = 5,
     rrf_k: int = 60,
+    reranker: Callable[[str, list[dict[str, Any]]], list[dict[str, Any]]] | None = None,
 ) -> Callable[..., list[dict[str, Any]]]:
-    """Build an ExternalRetrieval transport that fuses dense + BM25 via RRF."""
+    """Build an ExternalRetrieval transport that fuses dense + BM25 via RRF.
+
+    When ``reranker`` is provided, the full fused candidate pool is re-scored and
+    re-ordered (cross-encoder) before trimming to ``top_k``.
+    """
 
     def transport(
         *, tenant_id: str, product_id: str, query: str, timeout_s: float
     ) -> list[dict[str, Any]]:
         vector = embedding(query)
+        pool = top_k * 3
         dense_hits = [
             {
                 **_payload(hit),
                 "id": _hit_id(hit["source_id"], hit["source_version"], hit["locator"]),
             }
-            for hit in dense.search(vector, tenant_id=tenant_id, product_id=product_id, k=top_k * 3)
+            for hit in dense.search(vector, tenant_id=tenant_id, product_id=product_id, k=pool)
         ]
-        bm25_hits = [{**_payload(item), "id": item["id"]} for item in bm25.search(query, top_k * 3)]
-        fused = _rrf(dense_hits, bm25_hits, k=rrf_k)[:top_k]
-        return [_strip_id(hit) for hit in fused]
+        bm25_hits = [{**_payload(item), "id": item["id"]} for item in bm25.search(query, pool)]
+        fused = _rrf(dense_hits, bm25_hits, k=rrf_k)
+        if reranker is not None:
+            fused = reranker(query, fused)
+        return [_strip_id(hit) for hit in fused[:top_k]]
 
     return transport
 
@@ -294,8 +336,11 @@ def hybrid_retriever_from_env() -> ExternalRetrieval | None:
     catalog = os.environ.get("PRESALE_CATALOG")
     if catalog:
         index_hybrid(load_catalog(catalog), embedding=embedding, dense=dense, bm25=bm25)
+    reranker = None
+    if os.environ.get("PRESALE_RERANKER_MODEL"):
+        reranker = CrossEncoderReranker()
     return ExternalRetrieval(
-        transport=hybrid_transport(embedding=embedding, dense=dense, bm25=bm25)
+        transport=hybrid_transport(embedding=embedding, dense=dense, bm25=bm25, reranker=reranker)
     )
 
 
@@ -335,6 +380,7 @@ def main(argv: list[str] | None = None) -> None:
 
 __all__ = [
     "BM25Index",
+    "CrossEncoderReranker",
     "MilvusDense",
     "SentenceTransformerEmbedding",
     "hybrid_retriever_from_env",
