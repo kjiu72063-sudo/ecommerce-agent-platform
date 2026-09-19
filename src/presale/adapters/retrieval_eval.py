@@ -43,7 +43,7 @@ GOLDEN: list[tuple[str, str, str, set[str]]] = [
     ("tenant-acme", "product-101", "用慢速骑是不是能多撑一段路", {"range"}),
     ("tenant-acme", "product-101", "充一次电大约要几个小时", {"spec_battery"}),
     ("tenant-acme", "product-102", "刚装修完屋里气味重能去掉吗", {"newhome"}),
-    ("tenant-acme", "product-102", "夜里睡觉开着它会有动静吗", {"night_use"}),
+    ("tenant-acme", "product-102", "夜里睡觉开着它会有动静吗", {"spec_noise"}),
     ("tenant-acme", "product-102", "里头的耗材隔多久要换掉", {"spec_care"}),
     ("tenant-other", "product-201", "离家好多天会不会把猫饿着", {"travel"}),
     ("tenant-other", "product-201", "每次投放的量能随食量调吗", {"portion"}),
@@ -113,12 +113,15 @@ def evaluate(queries: list[dict[str, Any]], k: tuple[int, ...] = K_DEFAULT) -> d
     for q in queries:
         srcs = q["evidence_sources"]
         exp = q["expected"]
+        rank = _rank_of_expected(srcs, exp)
         per_query.append(
             {
                 "query": q.get("query", ""),
                 "tenant_id": q.get("tenant_id", ""),
                 "product_id": q.get("product_id", ""),
-                "rank": _rank_of_expected(srcs, exp),
+                "expected": sorted(exp),
+                "rank": rank,
+                "recalled": rank is not None,
                 "top_sources": srcs[:PRECISION_K],
             }
         )
@@ -132,6 +135,28 @@ def evaluate(queries: list[dict[str, Any]], k: tuple[int, ...] = K_DEFAULT) -> d
         "mrr": round(mrr_sum / n, 4),
         f"precision@{PRECISION_K}": round(prec_sum / n, 4),
         "per_query": per_query,
+    }
+
+
+def summarize_failures(report: dict[str, Any]) -> dict[str, Any]:
+    """Classify per-query failures into recall (expected not in top-k) vs mis-rank.
+
+    ``recall_failures`` = the expected locator never surfaced in the returned top-k;
+    ``misrank_failures`` = it surfaced but not at rank 1. Both are regression signals.
+    """
+    recall: list[dict[str, Any]] = []
+    misrank: list[dict[str, Any]] = []
+    for q in report["per_query"]:
+        if not q["recalled"]:
+            recall.append(q)
+        elif q["rank"] != 1:
+            misrank.append(q)
+    return {
+        "recall_failures": len(recall),
+        "misrank_failures": len(misrank),
+        "n": report["n"],
+        "recall_queries": recall,
+        "misrank_queries": misrank,
     }
 
 
@@ -202,6 +227,11 @@ def main(argv: list[str] | None = None) -> None:
         "--bm25-weight", type=float, help="BM25 RRF weight (env PRESALE_HYBRID_BM25_WEIGHT)"
     )
     parser.add_argument("--reranker-model", help="Reranker model path (env PRESALE_RERANKER_MODEL)")
+    parser.add_argument(
+        "--diagnostics",
+        action="store_true",
+        help="Also print per-query failures (recall vs mis-rank) for regression analysis",
+    )
     args = parser.parse_args(argv)
     os.environ.setdefault("PRESALE_CATALOG", args.catalog)
     for env_name, value in (
@@ -224,6 +254,31 @@ def main(argv: list[str] | None = None) -> None:
             {k: v for k, v in report.items() if k != "per_query"}, ensure_ascii=False, indent=2
         )
     )
+    if args.diagnostics:
+        summary = summarize_failures(report)
+        print(
+            json.dumps(
+                {
+                    "recall_failures": summary["recall_failures"],
+                    "misrank_failures": summary["misrank_failures"],
+                    "failures": [
+                        {
+                            "type": "recall" if not q["recalled"] else "misrank",
+                            "tenant_id": q["tenant_id"],
+                            "product_id": q["product_id"],
+                            "query": q["query"],
+                            "expected": q["expected"],
+                            "rank": q["rank"],
+                            "top_sources": q["top_sources"],
+                        }
+                        for q in report["per_query"]
+                        if q["rank"] != 1
+                    ],
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
 
 
 __all__ = [
@@ -235,4 +290,5 @@ __all__ = [
     "main",
     "mrr",
     "precision_at_k",
+    "summarize_failures",
 ]
