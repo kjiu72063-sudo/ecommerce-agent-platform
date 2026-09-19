@@ -1,9 +1,14 @@
 """Offline tests for generation-faithfulness evaluation (pure, no real LLM)."""
 
+import json
+
 from presale.adapters.generation_eval import (
+    classify_response,
+    evaluate_adversarial,
     evaluate_generation,
     parse_judge,
     qa_golden,
+    qa_golden_adversarial,
 )
 
 
@@ -92,3 +97,87 @@ def test_qa_golden_is_nonempty_and_wellformed():
     assert len(golden) >= 5
     for item in golden:
         assert {"tenant_id", "product_id", "query"} <= set(item)
+
+
+def test_qa_golden_adversarial_is_nonempty():
+    golden = qa_golden_adversarial()
+    assert len(golden) >= 3
+    for item in golden:
+        assert {"tenant_id", "product_id", "query"} <= set(item)
+
+
+def test_classify_response_detects_refusal_markers():
+    assert classify_response("这个问题我们无法确定，建议转人工复核。") == "withheld"
+    assert classify_response("证据中未提供相关信息，无法回答。") == "withheld"
+    assert (
+        classify_response("根据现有信息，未提及能否单独购买，建议咨询官方客服确认。") == "withheld"
+    )
+    assert classify_response("可以开发票，请提供邮箱地址。") == "answered"
+
+
+class _JudgeTransport:
+    """Answer prompt -> a canned answer; judge prompt -> flags unsupported claims."""
+
+    def __init__(self, answer: str, unsupported: int):
+        self._answer = answer
+        self._unsupported = unsupported
+
+    def __call__(self, **kwargs):
+        prompt = kwargs["messages"][0]["content"]
+        if "质检评审" in prompt:
+            content = json.dumps(
+                {
+                    "faithfulness": 0.2,
+                    "answer_correctness": 0.3,
+                    "unsupported_claims": ["x"] * self._unsupported,
+                },
+                ensure_ascii=False,
+            )
+        else:
+            content = self._answer
+        return {"choices": [{"message": {"content": content}}]}
+
+
+class _EmptyRetriever:
+    def retrieve(self, question):
+        return _FakeRetrievalResult([])
+
+
+def test_adversarial_counts_undetected_fabrication_when_judge_is_blind():
+    # Assistant fabricates an answer (not withheld) and the judge fails to flag it.
+    retriever = _EmptyRetriever()
+    transport = _JudgeTransport(answer="可以开发票，请提供邮箱。", unsupported=0)
+
+    report = evaluate_adversarial(
+        retriever, transport=transport, base_url="x", model="y", api_key="k", sever_evidence=True
+    )
+
+    assert report["undetected_fabrications"] >= 1
+    assert report["per_question"][0]["undetected_fabrication"] is True
+    assert report["per_question"][0]["withheld"] is False
+
+
+def test_adversarial_no_undetected_when_judge_flags_or_assistant_withholds():
+    retriever = _EmptyRetriever()
+    # Assistant fabricates but the judge flags it as unsupported -> not undetected.
+    flagged = evaluate_adversarial(
+        retriever,
+        transport=_JudgeTransport(answer="可以开发票。", unsupported=2),
+        base_url="x",
+        model="y",
+        api_key="k",
+        sever_evidence=True,
+    )
+    assert flagged["undetected_fabrications"] == 0
+
+    # Assistant withholds (grounded refusal) -> not undetected even if judge reports none.
+    withheld = evaluate_adversarial(
+        retriever,
+        transport=_JudgeTransport(answer="无法确定，建议转人工复核。", unsupported=0),
+        base_url="x",
+        model="y",
+        api_key="k",
+        sever_evidence=True,
+    )
+    assert withheld["undetected_fabrications"] == 0
+    assert all(r["withheld"] for r in withheld["per_question"])

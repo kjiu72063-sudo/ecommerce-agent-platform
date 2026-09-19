@@ -1,4 +1,4 @@
-.PHONY: up down ps models index-qdrant index-milvus eval eval-semantic eval-semantic-rerank eval-sweep eval-regression eval-generation eval-generation-regression qa-api teach
+.PHONY: up down ps models index-qdrant index-milvus eval eval-semantic eval-semantic-rerank eval-sweep eval-regression eval-generation eval-generation-regression eval-generation-adversarial qa-api teach
 
 # 本地可复现的外部环境栈（Qdrant + Milvus + etcd，本地文件存储）
 up:
@@ -74,6 +74,15 @@ eval-generation-regression:
 	PRESALE_MILVUS_URI=http://localhost:19530 PRESALE_MILVUS_COLLECTION=presale_hybrid_1024 \
 	PRESALE_CATALOG=src/presale/data/dev_catalog.json PRESALE_HYBRID_POOL=15 \
 	uv run presale-eval-generation --snapshot tests/fixtures/generation_snapshot.json
+
+# 生成端对抗守卫：证据不足的对抗级 QA（含彻底无证据模拟）不得出现"未判出的编造"（有真实幻觉则失败）
+eval-generation-adversarial:
+	HF_HUB_OFFLINE=1 PRESALE_EMBEDDING_MODEL=models/bge-large-zh-v1.5 \
+	PRESALE_RERANKER_MODEL=models/bge-reranker-large \
+	PRESALE_MILVUS_URI=http://localhost:19530 PRESALE_MILVUS_COLLECTION=presale_hybrid_1024 \
+	PRESALE_CATALOG=src/presale/data/dev_catalog.json PRESALE_HYBRID_POOL=15 \
+	uv run presale-eval-generation --adversarial && \
+	uv run presale-eval-generation --adversarial --sever-evidence
 
 # 启动同步 QA 服务（用 env 配置真实 LLM/检索）
 qa-api:

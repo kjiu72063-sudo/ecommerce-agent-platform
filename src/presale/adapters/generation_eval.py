@@ -81,6 +81,63 @@ def qa_golden() -> list[dict[str, str]]:
     ]
 
 
+# Phrases that indicate the assistant withheld an answer because evidence was
+# insufficient, rather than fabricating one.
+REFUSAL_MARKERS = (
+    "无法确定",
+    "无法确认",
+    "无法判断",
+    "无法回答",
+    "不确定",
+    "没有相关信息",
+    "证据中未",
+    "未提供",
+    "未提及",
+    "未说明",
+    "未查到",
+    "无法从证据",
+    "需要人工",
+    "转人工",
+    "无法核实",
+    "难以确定",
+    "不清楚",
+    "建议咨询",
+    "咨询官方",
+    "咨询客服",
+    "建议联系",
+    "以官方为准",
+    "建议以",
+)
+
+
+def classify_response(answer: str) -> str:
+    """Classify an answer as a grounded refusal (``withheld``) or ``answered``."""
+    return "withheld" if any(marker in answer for marker in REFUSAL_MARKERS) else "answered"
+
+
+def qa_golden_adversarial() -> list[dict[str, str]]:
+    """Questions the catalog cannot answer from evidence (topics absent from chunks).
+
+    Used to verify the pipeline does not hallucinate when evidence is insufficient:
+    the assistant must either withhold (grounded refusal) or, if it answers, the
+    judge must flag the claims as unsupported.
+    """
+    return [
+        {"tenant_id": "tenant-demo", "product_id": "product-001", "query": "能开发票吗，怎么申请"},
+        {
+            "tenant_id": "tenant-demo",
+            "product_id": "product-002",
+            "query": "偏远地区包邮吗，发货多久",
+        },
+        {
+            "tenant_id": "tenant-acme",
+            "product_id": "product-102",
+            "query": "滤网能不能在官方店单独买",
+        },
+        {"tenant_id": "tenant-other", "product_id": "product-201", "query": "能不能七天无理由退货"},
+    ]
+
+
 def _judge_prompt(query: str, evidence: list[str], answer: str) -> str:
     evidence_text = "\n".join(f"- {item}" for item in evidence) or "(无证据)"
     return (
@@ -174,12 +231,16 @@ def evaluate_generation(
     model: str,
     api_key: str,
     questions: list[dict[str, str]] | None = None,
+    sever_evidence: bool = False,
 ) -> dict[str, Any]:
     rows: list[dict[str, Any]] = []
     for item in questions if questions is not None else qa_golden():
         query = item["query"]
-        retrieval = retriever.retrieve(_question(item["tenant_id"], item["product_id"], query))
-        evidence = [e.content for e in (retrieval.evidence_items or [])]
+        if sever_evidence:
+            evidence: list[str] = []
+        else:
+            retrieval = retriever.retrieve(_question(item["tenant_id"], item["product_id"], query))
+            evidence = [e.content for e in (retrieval.evidence_items or [])]
         answer = _chat(_answer_prompt(query, evidence), transport, base_url, model, api_key)
         judge_raw = _chat(
             _judge_prompt(query, evidence, answer), transport, base_url, model, api_key
@@ -206,6 +267,49 @@ def evaluate_generation(
     }
 
 
+def evaluate_adversarial(
+    retriever: Any,
+    *,
+    transport: Transport,
+    base_url: str,
+    model: str,
+    api_key: str,
+    sever_evidence: bool = False,
+) -> dict[str, Any]:
+    """Run the adversarial (evidence-insufficient) golden.
+
+    Each case should be a grounded refusal (``withheld``) OR, if the assistant answers
+    anyway, the judge must flag the claim as unsupported. ``undetected_fabrications``
+    counts answers that fabricated a claim the judge did NOT flag — an end-to-end
+    hallucination failure to guard against.
+    """
+    report = evaluate_generation(
+        retriever,
+        transport=transport,
+        base_url=base_url,
+        model=model,
+        api_key=api_key,
+        questions=qa_golden_adversarial(),
+        sever_evidence=sever_evidence,
+    )
+    undetected = 0
+    for row in report["per_question"]:
+        withheld = classify_response(row["answer"]) == "withheld"
+        row["withheld"] = withheld
+        if not withheld and row["unsupported_claims"] == 0:
+            row["undetected_fabrication"] = True
+            undetected += 1
+        else:
+            row["undetected_fabrication"] = False
+    return {
+        "n": report["n"],
+        "withheld": sum(1 for r in report["per_question"] if r["withheld"]),
+        "mean_faithfulness": report["mean_faithfulness"],
+        "undetected_fabrications": undetected,
+        "per_question": report["per_question"],
+    }
+
+
 def _key(row: dict[str, Any]) -> str:
     return f"{row['tenant_id']}/{row['product_id']}::{row['query']}"
 
@@ -219,12 +323,48 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--floor", type=float, default=0.4, help="faithfulness floor (default 0.4)")
     parser.add_argument("--tolerance", type=float, default=0.25, help="delta tolerance vs snapshot")
     parser.add_argument("--diagnostics", action="store_true")
+    parser.add_argument(
+        "--adversarial",
+        action="store_true",
+        help="run evidence-insufficient adversarial golden (must not fabricate undetected)",
+    )
+    parser.add_argument(
+        "--sever-evidence",
+        action="store_true",
+        help="force empty evidence (simulate total retrieval failure) for --adversarial",
+    )
     args = parser.parse_args(argv)
 
     base_url, model, api_key = llm_config()
     retriever = hybrid_retriever_from_env()
     if retriever is None:
         raise SystemExit("PRESALE_MILVUS_URI required (or another retriever)")
+
+    if args.adversarial:
+        report = evaluate_adversarial(
+            retriever,
+            transport=default_transport,
+            base_url=base_url,
+            model=model,
+            api_key=api_key,
+            sever_evidence=args.sever_evidence,
+        )
+        print(
+            json.dumps(
+                {k: v for k, v in report.items() if k != "per_question"},
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
+        for row in report["per_question"]:
+            flag = "UNDETECTED-FABRICATION" if row["undetected_fabrication"] else "ok"
+            print(
+                f"[{flag}] {row['tenant_id']}/{row['product_id']} withheld={row['withheld']} "
+                f"faith={row['faithfulness']} unsupported={row['unsupported_claims']} :: "
+                f"{row['query']}"
+            )
+        print(f"undetected_fabrications={report['undetected_fabrications']}")
+        raise SystemExit(1 if report["undetected_fabrications"] else 0)
 
     report = evaluate_generation(
         retriever, transport=default_transport, base_url=base_url, model=model, api_key=api_key
