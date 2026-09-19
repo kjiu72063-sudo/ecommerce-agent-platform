@@ -1,4 +1,4 @@
-.PHONY: up down ps models index-qdrant index-milvus eval eval-semantic eval-semantic-rerank eval-sweep eval-regression qa-api teach
+.PHONY: up down ps models index-qdrant index-milvus eval eval-semantic eval-semantic-rerank eval-sweep eval-regression eval-generation eval-generation-regression qa-api teach
 
 # 本地可复现的外部环境栈（Qdrant + Milvus + etcd，本地文件存储）
 up:
@@ -58,6 +58,22 @@ eval-regression:
 	PRESALE_MILVUS_URI=http://localhost:19530 PRESALE_MILVUS_COLLECTION=presale_hybrid_1024 \
 	PRESALE_CATALOG=src/presale/data/dev_catalog.json PRESALE_HYBRID_POOL=15 \
 	python scripts/eval_regression.py
+
+# 生成端忠实度评估（LLM-as-judge；需 PRESALE_LLM_* 真实密钥 + 模型 + Milvus）
+eval-generation:
+	HF_HUB_OFFLINE=1 PRESALE_EMBEDDING_MODEL=models/bge-large-zh-v1.5 \
+	PRESALE_RERANKER_MODEL=models/bge-reranker-large \
+	PRESALE_MILVUS_URI=http://localhost:19530 PRESALE_MILVUS_COLLECTION=presale_hybrid_1024 \
+	PRESALE_CATALOG=src/presale/data/dev_catalog.json PRESALE_HYBRID_POOL=15 \
+	uv run presale-eval-generation --diagnostics
+
+# 生成端忠实度回归：与基线 snapshot 对比，faithfulness 低于下限或回退即失败
+eval-generation-regression:
+	HF_HUB_OFFLINE=1 PRESALE_EMBEDDING_MODEL=models/bge-large-zh-v1.5 \
+	PRESALE_RERANKER_MODEL=models/bge-reranker-large \
+	PRESALE_MILVUS_URI=http://localhost:19530 PRESALE_MILVUS_COLLECTION=presale_hybrid_1024 \
+	PRESALE_CATALOG=src/presale/data/dev_catalog.json PRESALE_HYBRID_POOL=15 \
+	uv run presale-eval-generation --snapshot tests/fixtures/generation_snapshot.json
 
 # 启动同步 QA 服务（用 env 配置真实 LLM/检索）
 qa-api:

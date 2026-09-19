@@ -55,6 +55,11 @@ make teach              # 全量门禁
 
 生产建议：`PRESALE_RERANKER_MODEL=models/bge-reranker-large` + pool 15。CI 的 `milvus-integration` job 用 deterministic 嵌入跑同一 harness 冒烟（指标须落在 [0,1]），不下载模型。
 
+## 生成端忠实度评估（LLM-as-judge，可量化）
+`presale-eval-generation`（`make eval-generation`）在 10 条代表性 QA golden 上，对每条：检索证据 → 真实 LLM（`PRESALE_LLM_*`）生成答案 → 用 judge LLM 给 **faithfulness（忠实度，是否完全基于证据无编造）/ answer_correctness / unsupported_claims** 打分，聚合输出 mean_faithfulness / mean_answer_correctness。`make eval-generation-regression` 用 `tests/fixtures/generation_snapshot.json` 做回归守底（faithfulness 低于 `--floor` 0.4 或相对基线回退 >`--tolerance` 0.25 即非零退出）。解析与聚合是纯函数，有 CI 离线单测。
+
+当前基线（2026-09-19，检索为 large+pool15 且 40/40 正确，n=10，真实 LLM glm-5.3）：**mean_faithfulness=1.0、mean_answer_correctness=1.0、total_unsupported=0**。说明在检索正确的前提下，生成端高度忠实于证据（需真实密钥，不进 CI gate）。
+
 ## 注意
 - Milvus **单独** `docker run` 裸镜像无法工作——它需要 etcd 提供元数据，且此仓库用 **本地文件存储**（`COMMON_STORAGETYPE=local`）而非 MinIO。请用 `docker compose up` 一起拉起。
 - 为什么没有 MinIO：本机 1Panel 镜像站未缓存 `minio/minio` 镜像（`docker pull` 报 403），故 Milvus 单机用 local 存储以绕开对象存储依赖。**生产/正式若需 MinIO 对象存储**，加回 minio 服务并把 `COMMON_STORAGETYPE` 改回 `remote`、补 `MINIO_ADDRESS`。
