@@ -54,8 +54,70 @@ MODELS: dict[str, dict[str, object]] = {
             "tokenizer_config.json",
         ],
     },
+    "bge-reranker-large": {
+        "repo": "BAAI/bge-reranker-large",
+        "dir": "bge-reranker-large",
+        "files": [
+            ".gitattributes",
+            "README.md",
+            "config.json",
+            "pytorch_model.bin",
+            "sentencepiece.bpe.model",
+            "special_tokens_map.json",
+            "tokenizer.json",
+            "tokenizer_config.json",
+        ],
+    },
 }
 OUT_ROOT = Path(__file__).resolve().parent.parent / "models"
+
+# Expected byte size of each model's weight file; used to validate a complete
+# download (a tiny/incomplete partial must not be treated as done).
+WEIGHT_SIZE: dict[str, int] = {
+    "bge-large-zh-v1.5": 1302220525,
+    "bge-reranker-base": 1112251061,
+    "bge-reranker-large": 2239705845,
+}
+
+
+def _weight_size(key: str, rel: str) -> int | None:
+    return WEIGHT_SIZE[key] if rel == "pytorch_model.bin" else None
+
+
+def _is_complete(key: str, rel: str, size: int) -> bool:
+    expected = _weight_size(key, rel)
+    return size == expected if expected is not None else size > 0
+
+
+def _download_resume(url: str, dest: Path, expected: int | None, attempts: int = 8) -> None:
+    """Download ``url`` to ``dest`` with Range-based resume and retries.
+
+    Writes to ``<dest>.part`` and atomically moves to ``dest`` on completion. A
+    partial ``.part`` is kept across attempts so a dropped connection resumes
+    instead of restarting (the mirror drops large transfers intermittently).
+    """
+    part = dest.with_suffix(dest.suffix + ".part")
+    for attempt in range(1, attempts + 1):
+        offset = part.stat().st_size if part.exists() else 0
+        if expected is not None and offset >= expected:
+            part.replace(dest)
+            return
+        headers = {"Range": f"bytes={offset}-"} if offset else {}
+        resp = requests.get(url, headers=headers, timeout=120, stream=True)
+        if resp.status_code == 416:
+            part.replace(dest)
+            return
+        if resp.status_code not in (200, 206):
+            resp.raise_for_status()
+        mode = "ab" if resp.status_code == 206 and offset else "wb"
+        with part.open(mode) as fh:
+            for chunk in resp.iter_content(1024 * 512):
+                fh.write(chunk)
+        if expected is None or part.stat().st_size >= expected:
+            part.replace(dest)
+            return
+        print(f"  partial {part.stat().st_size} bytes, retry {attempt}")
+    raise RuntimeError(f"gave up downloading {dest.name} after {attempts} attempts")
 
 
 def download_model(key: str) -> None:
@@ -63,19 +125,27 @@ def download_model(key: str) -> None:
     endpoint = f"{BASE}/{spec['repo']}/resolve/main"
     out = OUT_ROOT / str(spec["dir"])
     out.mkdir(parents=True, exist_ok=True)
-    files = [str(f) for f in spec["files"]]
-    for rel in files:
+    for rel in [str(f) for f in spec["files"]]:
         dest = out / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
-        if dest.exists() and dest.stat().st_size > 0:
+        expected = _weight_size(key, rel)
+        if dest.exists() and _is_complete(key, rel, dest.stat().st_size):
             print(f"[{key}] skip {rel}")
             continue
-        resp = requests.get(f"{endpoint}/{rel}", timeout=120, stream=True)
-        resp.raise_for_status()
-        with dest.open("wb") as fh:
-            for chunk in resp.iter_content(1024 * 512):
-                fh.write(chunk)
-        print(f"[{key}] downloaded {rel}")
+        part = dest.with_suffix(dest.suffix + ".part")
+        if dest.exists():
+            if expected is not None and dest.stat().st_size > 0 and not part.exists():
+                # Recover a partial left by an older non-resumable downloader.
+                dest.replace(part)
+            else:
+                dest.unlink()
+        try:
+            _download_resume(f"{endpoint}/{rel}", dest, expected)
+            print(f"[{key}] downloaded {rel}")
+        finally:
+            # drop any stale temp so a future run starts fresh
+            if part.exists():
+                part.unlink()
 
 
 def main() -> None:
