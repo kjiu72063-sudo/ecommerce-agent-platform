@@ -1,0 +1,242 @@
+{
+  "tenant-demo/product-001::大热天在太阳底下曝晒一整天会不会晒黑": {
+    "expected": [
+      "spec_upf"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-001::这件衣服经常水洗还能一直防晒吗": {
+    "expected": [
+      "wash_stability"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-001::被雨打湿了再穿还有防护吗": {
+    "expected": [
+      "after_rain"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-002::在户外冻很久会抵抗得住吗": {
+    "expected": [
+      "extreme_cold"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-002::这东西能扔进机器里搅洗吗": {
+    "expected": [
+      "care"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-002::下点小雪花它能挡一挡吗": {
+    "expected": [
+      "spec_waterproof"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-003::刚下过雨的石板坡上走会不会滑": {
+    "expected": [
+      "wet_grip"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-003::鞋底够不够厚，踩石子路硌脚吗": {
+    "expected": [
+      "rough_ground"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-004::车厢里很吵，打电话对方听得清吗": {
+    "expected": [
+      "call_quality"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-004::充满一次能连续撑上大半天吗": {
+    "expected": [
+      "spec_battery"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-004::打游戏的话会不会声音和画面对不上": {
+    "expected": [
+      "gaming_latency"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-005::戴着跳进水里一圈会进水吗": {
+    "expected": [
+      "spec_waterproof"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-005::想随时知道自己的心跳快慢": {
+    "expected": [
+      "heartbeat"
+    ],
+    "rank": 1
+  },
+  "tenant-acme/product-101::折起来能不能带进地铁通勤": {
+    "expected": [
+      "transit"
+    ],
+    "rank": 1
+  },
+  "tenant-acme/product-101::用慢速骑是不是能多撑一段路": {
+    "expected": [
+      "range"
+    ],
+    "rank": 1
+  },
+  "tenant-acme/product-101::充一次电大约要几个小时": {
+    "expected": [
+      "spec_battery"
+    ],
+    "rank": 1
+  },
+  "tenant-acme/product-102::刚装修完屋里气味重能去掉吗": {
+    "expected": [
+      "newhome"
+    ],
+    "rank": 1
+  },
+  "tenant-acme/product-102::夜里睡觉开着它会有动静吗": {
+    "expected": [
+      "spec_noise"
+    ],
+    "rank": 1
+  },
+  "tenant-acme/product-102::里头的耗材隔多久要换掉": {
+    "expected": [
+      "spec_care"
+    ],
+    "rank": 1
+  },
+  "tenant-other/product-201::离家好多天会不会把猫饿着": {
+    "expected": [
+      "travel"
+    ],
+    "rank": 1
+  },
+  "tenant-other/product-201::每次投放的量能随食量调吗": {
+    "expected": [
+      "portion"
+    ],
+    "rank": 1
+  },
+  "tenant-other/product-201::突然断电会影响每天的安排吗": {
+    "expected": [
+      "power_resume"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-001::这衣服是什么料子做的": {
+    "expected": [
+      "spec_material"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-002::下雨天穿着淋湿了会变差吗": {
+    "expected": [
+      "spec_waterproof"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-004::出汗多的时候戴着会进水吗": {
+    "expected": [
+      "spec_waterproof"
+    ],
+    "rank": 1
+  },
+  "tenant-acme/product-101::遇上有坡的路段能爬上去吗": {
+    "expected": [
+      "spec_speed"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-006::早上想喝杯现磨的，豆子要自己磨吗": {
+    "expected": [
+      "spec_grind"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-006::奶泡能不能打得绵密，做拿铁行吗": {
+    "expected": [
+      "spec_milk"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-006::用久了机器里面会不会结垢，怎么处理": {
+    "expected": [
+      "care"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-007::地板上的头发丝能吸得动吗": {
+    "expected": [
+      "spec_suction"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-007::它会一头撞上家里的家具吗": {
+    "expected": [
+      "spec_obstacle"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-007::扫到一半没电了它能自己回去充吗": {
+    "expected": [
+      "spec_battery"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-008::一坐就是八个小时，腰会不会酸": {
+    "expected": [
+      "spec_lumbar"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-008::想往后躺着休息一下可以吗": {
+    "expected": [
+      "spec_recline"
+    ],
+    "rank": 1
+  },
+  "tenant-acme/product-103::赶上大暴雨，待在里头会淋湿吗": {
+    "expected": [
+      "spec_waterproof"
+    ],
+    "rank": 1
+  },
+  "tenant-acme/product-103::两个人搭起来要多久": {
+    "expected": [
+      "setup_time"
+    ],
+    "rank": 1
+  },
+  "tenant-acme/product-104::大白天不拉窗帘，画面看得清吗": {
+    "expected": [
+      "spec_brightness"
+    ],
+    "rank": 1
+  },
+  "tenant-acme/product-104::能连手机无线投屏上去吗": {
+    "expected": [
+      "spec_connect"
+    ],
+    "rank": 1
+  },
+  "tenant-other/product-202::我是刚开始练的，阻力会不会太难": {
+    "expected": [
+      "spec_resistance"
+    ],
+    "rank": 1
+  },
+  "tenant-other/product-202::想边骑边看心率，表盘上能看到吗": {
+    "expected": [
+      "spec_display"
+    ],
+    "rank": 1
+  }
+}

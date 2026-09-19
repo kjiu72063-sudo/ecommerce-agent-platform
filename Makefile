@@ -1,4 +1,4 @@
-.PHONY: up down ps models index-qdrant index-milvus eval eval-semantic eval-semantic-rerank eval-sweep qa-api teach
+.PHONY: up down ps models index-qdrant index-milvus eval eval-semantic eval-semantic-rerank eval-sweep eval-regression qa-api teach
 
 # 本地可复现的外部环境栈（Qdrant + Milvus + etcd，本地文件存储）
 up:
@@ -50,6 +50,14 @@ eval-sweep:
 	HF_HUB_OFFLINE=1 PRESALE_MILVUS_URI=http://localhost:19530 \
 	PRESALE_EMBEDDING_MODEL=models/bge-large-zh-v1.5 \
 	python scripts/sweep_retrieval.py --pools 15,30,60 --rrf-ks 60 --bm25-weights 1.0
+
+# 检索回归：per-query 结果与基线 snapshot 对比，任何召回/排序回退即失败（需模型 + Milvus）
+eval-regression:
+	HF_HUB_OFFLINE=1 PRESALE_EMBEDDING_MODEL=models/bge-large-zh-v1.5 \
+	PRESALE_RERANKER_MODEL=models/bge-reranker-large \
+	PRESALE_MILVUS_URI=http://localhost:19530 PRESALE_MILVUS_COLLECTION=presale_hybrid_1024 \
+	PRESALE_CATALOG=src/presale/data/dev_catalog.json PRESALE_HYBRID_POOL=15 \
+	python scripts/eval_regression.py
 
 # 启动同步 QA 服务（用 env 配置真实 LLM/检索）
 qa-api:
