@@ -45,11 +45,11 @@ eval-semantic-rerank:
 	PRESALE_CATALOG=src/presale/data/dev_catalog.json \
 	uv run presale-eval-retrieval
 
-# 检索评估：扫描 pool × rrf_k × 重排方式，找最佳配置（需 make models 含 reranker）
+# 检索评估：扫描 pool × rrf_k × bm25_weight × 重排方式，找最佳配置（需 make models 含 reranker）
 eval-sweep:
 	HF_HUB_OFFLINE=1 PRESALE_MILVUS_URI=http://localhost:19530 \
 	PRESALE_EMBEDDING_MODEL=models/bge-large-zh-v1.5 \
-	python scripts/sweep_retrieval.py --pools 15,30,60 --rrf-ks 20,60,100
+	python scripts/sweep_retrieval.py --pools 15,30,60 --rrf-ks 60 --bm25-weights 1.0
 
 # 启动同步 QA 服务（用 env 配置真实 LLM/检索）
 qa-api:

@@ -150,5 +150,119 @@
       "power_resume": "意外断电不会丢失投放计划，来电自动恢复",
       "warranty": "电机故障一年内免费更换"
     }
+  },
+  {
+    "source_id": "catalog-006",
+    "version": "2026.09.01",
+    "tenant_id": "tenant-demo",
+    "product_id": "product-006",
+    "status": "published",
+    "fields": {
+      "description": "全自动意式咖啡机，一键萃取，可制作美式与拿铁，适合家用。",
+      "features": "全自动、研磨一体、奶泡系统、可拆水箱",
+      "spec_grind": "内置研磨器，可调节粗细，直接用咖啡豆现磨",
+      "spec_power": "1450W 快速加热，开机约 30 秒可萃取",
+      "spec_water": "1.8L 可拆水箱，一次注水可做多杯",
+      "spec_milk": "自动奶泡系统，可打出绵密奶泡做拿铁",
+      "care": "建议每 2-3 个月用除垢剂除垢一次",
+      "care_interval": "滤网与奶泡杆需定期清洗，避免堵塞",
+      "temp_control": "萃取水温恒定在 92℃ 左右，保证口感",
+      "warranty": "整机两年质保"
+    }
+  },
+  {
+    "source_id": "catalog-007",
+    "version": "2026.09.01",
+    "tenant_id": "tenant-demo",
+    "product_id": "product-007",
+    "status": "published",
+    "fields": {
+      "description": "激光导航扫地机器人，自动规划路线，扫拖一体，适合全屋清洁。",
+      "features": "激光导航、扫拖一体、自动回充、APP控制",
+      "spec_suction": "大吸力可吸走地毯与缝隙里的毛发和灰尘",
+      "spec_map": "激光建图，可分区清扫，识别多楼层",
+      "spec_battery": "续航约 150 分钟，电量低自动回充后继续",
+      "spec_obstacle": "红外避障，能识别家具与台阶不硬撞",
+      "spec_carpet": "遇到地毯自动增压，清扫更彻底",
+      "care": "尘盒与滚刷需定期清理缠绕的毛发",
+      "wash_mode": "拖地模式可控制水量，地板干得快不留水渍",
+      "warranty": "主要部件两年质保"
+    }
+  },
+  {
+    "source_id": "catalog-008",
+    "version": "2026.09.01",
+    "tenant_id": "tenant-demo",
+    "product_id": "product-008",
+    "status": "published",
+    "fields": {
+      "description": "人体工学办公椅，可调腰托与扶手，久坐支撑到位，适合长时间工作。",
+      "features": "人体工学、可调腰托、4D扶手、透气网布",
+      "spec_lumbar": "独立腰托可上下前后调节，缓解久坐腰酸",
+      "spec_recline": "靠背可后仰最大 135 度，带锁定",
+      "spec_material": "高弹透气网布，夏天久坐不闷热",
+      "spec_weight": "气杆承重约 120kg，底座稳固",
+      "spec_headrest": "头枕可升降旋转，护住颈椎",
+      "care": "网布可用湿布擦拭，避免暴晒",
+      "q_sitting": "气压杆升降顺畅，座椅高度可调约 20cm，能贴合不同身高",
+      "warranty": "气杆与底盘三年质保"
+    }
+  },
+  {
+    "source_id": "catalog-103",
+    "version": "2026.09.01",
+    "tenant_id": "tenant-acme",
+    "product_id": "product-103",
+    "status": "published",
+    "fields": {
+      "description": "三季露营帐篷，防雨防风，快速搭建，适合两人出行露营。",
+      "features": "防暴雨、快速搭建、透气纱窗、防蚊",
+      "spec_waterproof": "外账防水指数高，中到大雨也不漏水",
+      "spec_capacity": "标称双人，空间可放下两张睡垫",
+      "spec_vent": "顶部与侧面双透气窗，闷热天可开通风",
+      "setup_time": "采用快速帐杆，两人约 3 分钟可搭好",
+      "spec_mosquito": "内账纱网可有效防蚊虫",
+      "care": "收账前擦干表面水珠，防止发霉",
+      "q_rain": "外账可单独展开，当作遮阳棚或地布使用",
+      "warranty": "帐杆断裂一年内免费补发"
+    }
+  },
+  {
+    "source_id": "catalog-104",
+    "version": "2026.09.01",
+    "tenant_id": "tenant-acme",
+    "product_id": "product-104",
+    "status": "published",
+    "fields": {
+      "description": "便携智能投影仪，1080P 高清，自带电池，可投墙观影与办公。",
+      "features": "1080P、自动对焦、内置电池、多设备投屏",
+      "spec_resolution": "原生 1080P 分辨率，画面清晰",
+      "spec_brightness": "亮度 800 流明，拉窗帘后白天也可看",
+      "spec_battery": "内置电池可续航约 2.5 小时",
+      "spec_connect": "支持手机/笔记本无线投屏与 HDMI",
+      "spec_screen": "可投 40-120 英寸，支持梯形校正",
+      "care": "镜头用干布轻拭，避免灰尘堆积",
+      "q_room": "支持自动梯形校正与侧投，摆放位置灵活",
+      "warranty": "光源一年质保"
+    }
+  },
+  {
+    "source_id": "catalog-202",
+    "version": "2026.09.01",
+    "tenant_id": "tenant-other",
+    "product_id": "product-202",
+    "status": "published",
+    "fields": {
+      "description": "家用磁阻健身自行车，静音阻力可调，带心率显示，适合室内锻炼。",
+      "features": "磁控静音、阻力可调、心率握把、坐垫可调",
+      "spec_resistance": "16 档磁控阻力，新手到进阶都适合",
+      "spec_seat": "坐垫高低前后可调，适合不同身高",
+      "spec_display": "表盘显示时速、距离与心率",
+      "spec_noise": "磁控静音，夜间锻炼不扰邻",
+      "spec_weight": "飞轮 8kg，骑行平稳",
+      "care": "链条与飞轮定期上油，保持顺畅",
+      "q_knee": "坐垫与脚踏角度可调，可根据个人习惯调整骑行姿势",
+      "warranty": "车架三年质保"
+    }
   }
 ]

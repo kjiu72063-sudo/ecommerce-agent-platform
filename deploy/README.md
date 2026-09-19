@@ -35,18 +35,24 @@ make teach              # 全量门禁
 > HuggingFace 直连不通时，`huggingface_hub` 的 HEAD 元数据校验对 hf-mirror 会失败，故用 `scripts/download_bge_zh.py` 以 GET 逐文件下载。
 
 ## 检索评估（可量化）
-`presale-eval-retrieval`（`make eval` / `make eval-semantic` / `make eval-semantic-rerank`）在 `src/presale/data/dev_catalog.json` 的 8 个商品、22 条改写句 golden set 上，度量段落级排序的 hit@k / MRR / precision@k（检索为商品作用域，故测的是「相关事实段落是否排进 top-k」）。`scripts/sweep_retrieval.py`（`make eval-sweep`）可扫描候选池/RRF/重排方式。
+`presale-eval-retrieval`（`make eval` / `make eval-semantic` / `make eval-semantic-rerank`）在 `src/presale/data/dev_catalog.json`（14 商品、140 事实段落）+ 40 条改写句 golden set 上，度量段落级排序的 hit@k / MRR / precision@k（检索为商品作用域，故测的是「相关事实段落是否排进 top-k」）。`scripts/sweep_retrieval.py`（`make eval-sweep`）可扫描候选池/RRF/BM25 权重/重排方式。
 
-基线（2026-09-19，Milvus 本地文件存储，Hybrid dense+BM25+RRF，top_k=5，n=22，pool=15，rrf_k=60）：
+基线（2026-09-19，Milvus 本地文件存储，Hybrid dense+BM25+RRF，top_k=5，n=40，pool=15，rrf_k=60）：
 
 | 管线 | hit@1 | hit@3 | hit@5 | MRR | prec@5 |
 |---|---|---|---|---|---|
-| 无重排（真实 bge） | 0.64 | 0.91 | 0.95 | 0.78 | 0.23 |
-| + bge-reranker-base | 0.77 | 0.91 | 0.95 | 0.84 | 0.35 |
-| **+ bge-reranker-large** | **0.86** | **0.95** | 0.95 | **0.91** | 0.33 |
-| deterministic（伪向量，仅管道验证） | 0.55 | 0.73 | 0.73 | 0.63 | 0.33 |
+| 无重排（真实 bge） | 0.675 | 0.975 | 0.975 | 0.808 | 0.272 |
+| + bge-reranker-base | 0.700 | 0.825 | 0.875 | 0.775 | 0.338 |
+| **+ bge-reranker-large** | **0.775** | 0.925 | 0.925 | **0.850** | 0.374 |
+| **+ large（分块质量修复后）** | **0.825** | 0.925 | 0.925 | **0.875** | 0.365 |
+| deterministic（伪向量，仅管道验证） | ~0.55 | ~0.73 | ~0.73 | ~0.63 | — |
 
-调参结论（同一 golden 实测）：**候选池 pool=15 最优**（≥30 无增益甚至略降）；**rrf_k∈{20,60,100} 在本数据集无差异**，保留默认 60。真实语义 + large 重排使 hit@1 0.64→0.86、MRR 0.78→0.91。生产建议开启 `PRESALE_RERANKER_MODEL=models/bge-reranker-large`（需下载模型，推理比 base 慢、内存更大）。CI 的 `milvus-integration` job 用 deterministic 嵌入跑同一 harness 冒烟（指标须落在 [0,1]），不下载模型。
+调参结论（40 条 golden 实测）：
+- **候选池 pool=15 最优**，pool∈{30,60} 完全无增益——dense 按商品过滤，相关段落本就全在候选池，池不是瓶颈。
+- **BM25 加权（bm25_weight∈{0.5,1.5,2.0}）对大重排器无影响**；无重排时 weight 0.5 仅微升（MRR 0.808→0.813），可忽略。
+- **base 重排器在大语料上反而有害**（MRR 0.775 < 无重排 0.808），22-golden 上的 base 收益不泛化；**large 才是稳健提升**。
+- **分块质量是剩余杠杆**：把问句风格 chunk（q_*，与查询词面重叠）改成不重复的陈述事实后，large 的 MRR 0.85→0.875、hit@1 0.775→0.825。
+生产建议：`PRESALE_RERANKER_MODEL=models/bge-reranker-large` + pool 15（需下载模型，推理比 base 慢、内存更大）。CI 的 `milvus-integration` job 用 deterministic 嵌入跑同一 harness 冒烟（指标须落在 [0,1]），不下载模型。
 
 ## 注意
 - Milvus **单独** `docker run` 裸镜像无法工作——它需要 etcd 提供元数据，且此仓库用 **本地文件存储**（`COMMON_STORAGETYPE=local`）而非 MinIO。请用 `docker compose up` 一起拉起。

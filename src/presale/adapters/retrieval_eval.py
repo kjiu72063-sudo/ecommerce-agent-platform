@@ -48,6 +48,24 @@ GOLDEN: list[tuple[str, str, str, set[str]]] = [
     ("tenant-other", "product-201", "离家好多天会不会把猫饿着", {"travel"}),
     ("tenant-other", "product-201", "每次投放的量能随食量调吗", {"portion"}),
     ("tenant-other", "product-201", "突然断电会影响每天的安排吗", {"power_resume"}),
+    ("tenant-demo", "product-001", "这衣服是什么料子做的", {"spec_material"}),
+    ("tenant-demo", "product-002", "下雨天穿着淋湿了会变差吗", {"spec_waterproof"}),
+    ("tenant-demo", "product-004", "出汗多的时候戴着会进水吗", {"spec_waterproof"}),
+    ("tenant-acme", "product-101", "遇上有坡的路段能爬上去吗", {"spec_speed"}),
+    ("tenant-demo", "product-006", "早上想喝杯现磨的，豆子要自己磨吗", {"spec_grind"}),
+    ("tenant-demo", "product-006", "奶泡能不能打得绵密，做拿铁行吗", {"spec_milk"}),
+    ("tenant-demo", "product-006", "用久了机器里面会不会结垢，怎么处理", {"care"}),
+    ("tenant-demo", "product-007", "地板上的头发丝能吸得动吗", {"spec_suction"}),
+    ("tenant-demo", "product-007", "它会一头撞上家里的家具吗", {"spec_obstacle"}),
+    ("tenant-demo", "product-007", "扫到一半没电了它能自己回去充吗", {"spec_battery"}),
+    ("tenant-demo", "product-008", "一坐就是八个小时，腰会不会酸", {"spec_lumbar"}),
+    ("tenant-demo", "product-008", "想往后躺着休息一下可以吗", {"spec_recline"}),
+    ("tenant-acme", "product-103", "赶上大暴雨，待在里头会淋湿吗", {"spec_waterproof"}),
+    ("tenant-acme", "product-103", "两个人搭起来要多久", {"setup_time"}),
+    ("tenant-acme", "product-104", "大白天不拉窗帘，画面看得清吗", {"spec_brightness"}),
+    ("tenant-acme", "product-104", "能连手机无线投屏上去吗", {"spec_connect"}),
+    ("tenant-other", "product-202", "我是刚开始练的，阻力会不会太难", {"spec_resistance"}),
+    ("tenant-other", "product-202", "想边骑边看心率，表盘上能看到吗", {"spec_display"}),
 ]
 
 K_DEFAULT = (1, 3, 5)
@@ -178,6 +196,11 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--top-k", type=int, help="Hybrid top_k (env PRESALE_HYBRID_TOP_K)")
     parser.add_argument("--pool", type=int, help="Hybrid candidate pool (env PRESALE_HYBRID_POOL)")
     parser.add_argument("--rrf-k", type=int, help="RRF fusion k (env PRESALE_HYBRID_RRF_K)")
+    parser.add_argument("--dense-k", type=int, help="Dense candidates (env PRESALE_HYBRID_DENSE_K)")
+    parser.add_argument("--bm25-k", type=int, help="BM25 candidates (env PRESALE_HYBRID_BM25_K)")
+    parser.add_argument(
+        "--bm25-weight", type=float, help="BM25 RRF weight (env PRESALE_HYBRID_BM25_WEIGHT)"
+    )
     parser.add_argument("--reranker-model", help="Reranker model path (env PRESALE_RERANKER_MODEL)")
     args = parser.parse_args(argv)
     os.environ.setdefault("PRESALE_CATALOG", args.catalog)
@@ -185,6 +208,9 @@ def main(argv: list[str] | None = None) -> None:
         ("PRESALE_HYBRID_TOP_K", args.top_k),
         ("PRESALE_HYBRID_POOL", args.pool),
         ("PRESALE_HYBRID_RRF_K", args.rrf_k),
+        ("PRESALE_HYBRID_DENSE_K", args.dense_k),
+        ("PRESALE_HYBRID_BM25_K", args.bm25_k),
+        ("PRESALE_HYBRID_BM25_WEIGHT", args.bm25_weight),
         ("PRESALE_RERANKER_MODEL", args.reranker_model),
     ):
         if value is not None:
