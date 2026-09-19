@@ -42,6 +42,7 @@ presale-qa-api = "presale.api.qa:main"
 presale-index = "presale.adapters.qdrant_retrieval:main"
 presale-index-hybrid = "presale.adapters.hybrid_retrieval:main"
 presale-eval-retrieval = "presale.adapters.retrieval_eval:main"
+presale-eval-generation = "presale.adapters.generation_eval:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
