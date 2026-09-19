@@ -60,6 +60,8 @@ make teach              # 全量门禁
 
 当前基线（2026-09-19，检索为 large+pool15 且 40/40 正确，n=10，真实 LLM glm-5.3）：**mean_faithfulness=1.0、mean_answer_correctness=1.0、total_unsupported=0**。说明在检索正确的前提下，生成端高度忠实于证据（需真实密钥，不进 CI gate）。
 
+**对抗级守卫（`make eval-generation-adversarial`）**：`--adversarial` 跑 4 条证据不足的对抗 QA（发票/发货/滤网单独购/退货），`--adversarial --sever-evidence` 再模拟检索彻底失效。断言管线**不得出现「未被判出的编造」**（助手要么拒答 withheld、要么其编造未被 judge 标出 unsupported），否则非零退出。实测（glm-5.3）：两种模式下均 4/4 withheld、`undetected_fabrications=0`——证据不足或全无时管线诚实拒答、不幻觉。该守卫最初还暴露并修正了拒答分类器对「未提及…建议咨询」措辞的漏判（假阳性），故 `classify_response` 的关键词表是逐步加固的。
+
 ## 注意
 - Milvus **单独** `docker run` 裸镜像无法工作——它需要 etcd 提供元数据，且此仓库用 **本地文件存储**（`COMMON_STORAGETYPE=local`）而非 MinIO。请用 `docker compose up` 一起拉起。
 - 为什么没有 MinIO：本机 1Panel 镜像站未缓存 `minio/minio` 镜像（`docker pull` 报 403），故 Milvus 单机用 local 存储以绕开对象存储依赖。**生产/正式若需 MinIO 对象存储**，加回 minio 服务并把 `COMMON_STORAGETYPE` 改回 `remote`、补 `MINIO_ADDRESS`。
