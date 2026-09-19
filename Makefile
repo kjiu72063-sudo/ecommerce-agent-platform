@@ -1,4 +1,4 @@
-.PHONY: up down ps models index-qdrant index-milvus eval eval-semantic qa-api teach
+.PHONY: up down ps models index-qdrant index-milvus eval eval-semantic eval-semantic-rerank qa-api teach
 
 # 本地可复现的外部环境栈（Qdrant + Milvus + etcd，本地文件存储）
 up:
@@ -10,10 +10,10 @@ down:
 ps:
 	docker compose ps
 
-# 本地 bge-large-zh-v1.5 模型（真实语义 embedding；经 hf-mirror GET 拉到 ./models，可复现）
+# 本地模型（bge-large-zh 语义 embedding + bge-reranker 重排；经 hf-mirror GET 拉到 ./models，可复现）
 models:
 	uv sync --extra embedding
-	python scripts/download_bge_zh.py
+	python scripts/download_models.py all
 
 # 把现有 catalog 索引进 Qdrant（确定性 embedding 可先验证管道）
 index-qdrant:
@@ -33,6 +33,14 @@ eval:
 # 检索评估：真实语义嵌入（需先 make models 下载 bge，数才有意义）
 eval-semantic:
 	HF_HUB_OFFLINE=1 PRESALE_EMBEDDING_MODEL=models/bge-large-zh-v1.5 \
+	PRESALE_MILVUS_URI=http://localhost:19530 PRESALE_MILVUS_COLLECTION=presale_hybrid_1024 \
+	PRESALE_CATALOG=src/presale/data/dev_catalog.json \
+	uv run presale-eval-retrieval
+
+# 检索评估：真实语义嵌入 + cross-encoder 重排（对比 eval-semantic 看 MRR 提升）
+eval-semantic-rerank:
+	HF_HUB_OFFLINE=1 PRESALE_EMBEDDING_MODEL=models/bge-large-zh-v1.5 \
+	PRESALE_RERANKER_MODEL=models/bge-reranker-base \
 	PRESALE_MILVUS_URI=http://localhost:19530 PRESALE_MILVUS_COLLECTION=presale_hybrid_1024 \
 	PRESALE_CATALOG=src/presale/data/dev_catalog.json \
 	uv run presale-eval-retrieval
