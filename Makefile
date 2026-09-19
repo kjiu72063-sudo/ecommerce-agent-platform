@@ -1,4 +1,4 @@
-.PHONY: up down ps models index-qdrant index-milvus eval eval-semantic eval-semantic-rerank qa-api teach
+.PHONY: up down ps models index-qdrant index-milvus eval eval-semantic eval-semantic-rerank eval-sweep qa-api teach
 
 # 本地可复现的外部环境栈（Qdrant + Milvus + etcd，本地文件存储）
 up:
@@ -37,13 +37,19 @@ eval-semantic:
 	PRESALE_CATALOG=src/presale/data/dev_catalog.json \
 	uv run presale-eval-retrieval
 
-# 检索评估：真实语义嵌入 + cross-encoder 重排（对比 eval-semantic 看 MRR 提升）
+# 检索评估：真实语义嵌入 + cross-encoder 重排（推荐 bge-reranker-large，对比无重排看 MRR/ hit@1 提升）
 eval-semantic-rerank:
 	HF_HUB_OFFLINE=1 PRESALE_EMBEDDING_MODEL=models/bge-large-zh-v1.5 \
-	PRESALE_RERANKER_MODEL=models/bge-reranker-base \
+	PRESALE_RERANKER_MODEL=models/bge-reranker-large \
 	PRESALE_MILVUS_URI=http://localhost:19530 PRESALE_MILVUS_COLLECTION=presale_hybrid_1024 \
 	PRESALE_CATALOG=src/presale/data/dev_catalog.json \
 	uv run presale-eval-retrieval
+
+# 检索评估：扫描 pool × rrf_k × 重排方式，找最佳配置（需 make models 含 reranker）
+eval-sweep:
+	HF_HUB_OFFLINE=1 PRESALE_MILVUS_URI=http://localhost:19530 \
+	PRESALE_EMBEDDING_MODEL=models/bge-large-zh-v1.5 \
+	python scripts/sweep_retrieval.py --pools 15,30,60 --rrf-ks 20,60,100
 
 # 启动同步 QA 服务（用 env 配置真实 LLM/检索）
 qa-api:

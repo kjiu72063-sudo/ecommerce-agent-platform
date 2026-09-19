@@ -234,27 +234,30 @@ def hybrid_transport(
     bm25: BM25Index,
     top_k: int = 5,
     rrf_k: int = 60,
+    pool: int | None = None,
     reranker: Callable[[str, list[dict[str, Any]]], list[dict[str, Any]]] | None = None,
 ) -> Callable[..., list[dict[str, Any]]]:
     """Build an ExternalRetrieval transport that fuses dense + BM25 via RRF.
 
-    When ``reranker`` is provided, the full fused candidate pool is re-scored and
-    re-ordered (cross-encoder) before trimming to ``top_k``.
+    ``pool`` is the number of candidates pulled from each source (dense, BM25)
+    before fusion/reranking; defaults to ``top_k * 3``. When ``reranker`` is
+    provided, the full fused candidate pool is re-scored and re-ordered
+    (cross-encoder) before trimming to ``top_k``.
     """
 
     def transport(
         *, tenant_id: str, product_id: str, query: str, timeout_s: float
     ) -> list[dict[str, Any]]:
         vector = embedding(query)
-        pool = top_k * 3
+        pool_size = pool if pool is not None else top_k * 3
         dense_hits = [
             {
                 **_payload(hit),
                 "id": _hit_id(hit["source_id"], hit["source_version"], hit["locator"]),
             }
-            for hit in dense.search(vector, tenant_id=tenant_id, product_id=product_id, k=pool)
+            for hit in dense.search(vector, tenant_id=tenant_id, product_id=product_id, k=pool_size)
         ]
-        bm25_hits = [{**_payload(item), "id": item["id"]} for item in bm25.search(query, pool)]
+        bm25_hits = [{**_payload(item), "id": item["id"]} for item in bm25.search(query, pool_size)]
         fused = _rrf(dense_hits, bm25_hits, k=rrf_k)
         if reranker is not None:
             fused = reranker(query, fused)
@@ -339,8 +342,24 @@ def hybrid_retriever_from_env() -> ExternalRetrieval | None:
     reranker = None
     if os.environ.get("PRESALE_RERANKER_MODEL"):
         reranker = CrossEncoderReranker()
+
+    def _env_int(name: str, default: int) -> int:
+        raw = os.environ.get(name)
+        return int(raw) if raw else default
+
+    top_k = _env_int("PRESALE_HYBRID_TOP_K", 5)
+    rrf_k = _env_int("PRESALE_HYBRID_RRF_K", 60)
+    pool = _env_int("PRESALE_HYBRID_POOL", top_k * 3)
     return ExternalRetrieval(
-        transport=hybrid_transport(embedding=embedding, dense=dense, bm25=bm25, reranker=reranker)
+        transport=hybrid_transport(
+            embedding=embedding,
+            dense=dense,
+            bm25=bm25,
+            top_k=top_k,
+            rrf_k=rrf_k,
+            pool=pool,
+            reranker=reranker,
+        )
     )
 
 

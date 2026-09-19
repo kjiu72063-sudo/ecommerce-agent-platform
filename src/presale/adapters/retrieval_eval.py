@@ -175,8 +175,20 @@ def main(argv: list[str] | None = None) -> None:
         default=os.environ.get("PRESALE_CATALOG", "src/presale/data/dev_catalog.json"),
         help="Catalog to index (default dev_catalog.json)",
     )
+    parser.add_argument("--top-k", type=int, help="Hybrid top_k (env PRESALE_HYBRID_TOP_K)")
+    parser.add_argument("--pool", type=int, help="Hybrid candidate pool (env PRESALE_HYBRID_POOL)")
+    parser.add_argument("--rrf-k", type=int, help="RRF fusion k (env PRESALE_HYBRID_RRF_K)")
+    parser.add_argument("--reranker-model", help="Reranker model path (env PRESALE_RERANKER_MODEL)")
     args = parser.parse_args(argv)
     os.environ.setdefault("PRESALE_CATALOG", args.catalog)
+    for env_name, value in (
+        ("PRESALE_HYBRID_TOP_K", args.top_k),
+        ("PRESALE_HYBRID_POOL", args.pool),
+        ("PRESALE_HYBRID_RRF_K", args.rrf_k),
+        ("PRESALE_RERANKER_MODEL", args.reranker_model),
+    ):
+        if value is not None:
+            os.environ[env_name] = str(value)
     retriever = hybrid_retriever_from_env()
     if retriever is None:
         raise SystemExit("PRESALE_MILVUS_URI required (or PRESALE_QDRANT_URL)")
