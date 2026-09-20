@@ -81,6 +81,46 @@ def qa_golden() -> list[dict[str, str]]:
             "product_id": "product-201",
             "query": "出差好几天不在家会自动喂猫吗",
         },
+        {
+            "tenant_id": "tenant-demo",
+            "product_id": "product-009",
+            "query": "装的水够不够健身喝，会不会漏",
+        },
+        {
+            "tenant_id": "tenant-demo",
+            "product_id": "product-010",
+            "query": "冬天贴身穿够暖吗，能塞羽绒服里当内搭吗",
+        },
+        {
+            "tenant_id": "tenant-demo",
+            "product_id": "product-011",
+            "query": "夏天戴的帽子能挡住脸不被晒吗",
+        },
+        {
+            "tenant_id": "tenant-acme",
+            "product_id": "product-105",
+            "query": "彩色衣服用这个洗衣液会掉色吗",
+        },
+        {
+            "tenant_id": "tenant-acme",
+            "product_id": "product-106",
+            "query": "硬水果能打碎吗，榨完能不能直接带走喝",
+        },
+        {
+            "tenant_id": "tenant-acme",
+            "product_id": "product-107",
+            "query": "睡久了会不会塌，腰不好的人睡合适吗",
+        },
+        {
+            "tenant_id": "tenant-other",
+            "product_id": "product-203",
+            "query": "猫上完厕所会自己清理吗",
+        },
+        {
+            "tenant_id": "tenant-other",
+            "product_id": "product-204",
+            "query": "能直接拎上飞机不托运吗",
+        },
     ]
 
 
@@ -317,7 +357,13 @@ class _SeveredRetriever:
 def mark_undetected(report: dict[str, Any]) -> dict[str, Any]:
     """Classify per-question answers as withheld vs undetected fabrication."""
     undetected = 0
+    errors = 0
     for row in report["per_question"]:
+        if "error" in row:
+            row["withheld"] = False
+            row["undetected_fabrication"] = False
+            errors += 1
+            continue
         row["withheld"] = classify_response(row["answer"]) == "withheld"
         if not row["withheld"] and row["unsupported_claims"] == 0:
             row["undetected_fabrication"] = True
@@ -326,7 +372,8 @@ def mark_undetected(report: dict[str, Any]) -> dict[str, Any]:
             row["undetected_fabrication"] = False
     return {
         "n": report["n"],
-        "withheld": sum(1 for r in report["per_question"] if r["withheld"]),
+        "errors": errors,
+        "withheld": sum(1 for r in report["per_question"] if r.get("withheld")),
         "mean_faithfulness": report["mean_faithfulness"],
         "undetected_fabrications": undetected,
         "per_question": report["per_question"],
@@ -357,29 +404,42 @@ def evaluate_end_to_end(
     rows: list[dict[str, Any]] = []
     for index, item in enumerate(questions if questions is not None else qa_golden()):
         query = item["query"]
-        q = _question(item["tenant_id"], item["product_id"], query, key=f"e2e-{index:05d}")
-        retrieval = retriever.retrieve(q)
-        evidence = [e.content for e in (retrieval.evidence_items or [])]
-        result = asyncio.run(runner.ask(q))
-        answer = result.answer_draft.answer_text
-        judge_raw = _chat(
-            _judge_prompt(query, evidence, answer), transport, base_url, model, api_key
-        )
-        rows.append(
-            {
-                "tenant_id": item["tenant_id"],
-                "product_id": item["product_id"],
-                "query": query,
-                **parse_judge(judge_raw),
-                "answer": answer,
-            }
-        )
+        try:
+            q = _question(item["tenant_id"], item["product_id"], query, key=f"e2e-{index:05d}")
+            retrieval = retriever.retrieve(q)
+            evidence = [e.content for e in (retrieval.evidence_items or [])]
+            result = asyncio.run(runner.ask(q))
+            answer = result.answer_draft.answer_text
+            judge_raw = _chat(
+                _judge_prompt(query, evidence, answer), transport, base_url, model, api_key
+            )
+            rows.append(
+                {
+                    "tenant_id": item["tenant_id"],
+                    "product_id": item["product_id"],
+                    "query": query,
+                    **parse_judge(judge_raw),
+                    "answer": answer,
+                }
+            )
+        except Exception as exc:  # noqa: BLE001 - surface the failing question, keep going
+            rows.append(
+                {
+                    "tenant_id": item["tenant_id"],
+                    "product_id": item["product_id"],
+                    "query": query,
+                    "error": str(exc),
+                }
+            )
+    ok = [r for r in rows if "error" not in r]
     n = len(rows)
-    faithfulness = sum(r["faithfulness"] for r in rows) / n
-    correctness = sum(r["answer_correctness"] for r in rows) / n
-    unsupported = sum(r["unsupported_claims"] for r in rows)
+    n_ok = len(ok)
+    faithfulness = sum(r["faithfulness"] for r in ok) / n_ok if n_ok else 0.0
+    correctness = sum(r["answer_correctness"] for r in ok) / n_ok if n_ok else 0.0
+    unsupported = sum(r["unsupported_claims"] for r in ok)
     return {
         "n": n,
+        "errors": n - n_ok,
         "mean_faithfulness": round(faithfulness, 4),
         "mean_answer_correctness": round(correctness, 4),
         "total_unsupported_claims": unsupported,
@@ -428,7 +488,12 @@ def main(argv: list[str] | None = None) -> None:
         raise SystemExit("PRESALE_MILVUS_URI required (or another retriever)")
 
     if args.e2e:
-        generator = OpenAICompatibleGenerator(model=model, base_url=base_url, api_key=api_key)
+        generator = OpenAICompatibleGenerator(
+            model=model,
+            base_url=base_url,
+            api_key=api_key,
+            timeout_s=float(os.environ.get("PRESALE_GEN_TIMEOUT_S", "60")),
+        )
         sources = load_catalog(args.catalog)
         if args.adversarial:
             report = mark_undetected(
@@ -481,6 +546,12 @@ def main(argv: list[str] | None = None) -> None:
             )
         )
         for row in report["per_question"]:
+            if "error" in row:
+                print(
+                    f"[ERROR] {row['tenant_id']}/{row['product_id']} :: {row['query']} "
+                    f"{row['error']}"
+                )
+                continue
             flag = "UNDETECTED-FABRICATION" if row["undetected_fabrication"] else "ok"
             print(
                 f"[{flag}] {row['tenant_id']}/{row['product_id']} withheld={row['withheld']} "
@@ -499,7 +570,9 @@ def main(argv: list[str] | None = None) -> None:
         print(
             json.dumps(
                 [
-                    {
+                    row
+                    if "error" in row
+                    else {
                         k: row[k]
                         for k in (
                             "tenant_id",
@@ -520,6 +593,7 @@ def main(argv: list[str] | None = None) -> None:
     current = {
         _key(r): {"faithfulness": r["faithfulness"], "answer_correctness": r["answer_correctness"]}
         for r in report["per_question"]
+        if "error" not in r
     }
 
     if args.save:

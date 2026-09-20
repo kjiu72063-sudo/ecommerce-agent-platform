@@ -263,5 +263,148 @@
       "q_knee": "坐垫与脚踏角度可调，可根据个人习惯调整骑行姿势",
       "warranty": "车架三年质保"
     }
+  },
+  {
+    "source_id": "catalog-009",
+    "version": "2026.09.01",
+    "tenant_id": "tenant-demo",
+    "product_id": "product-009",
+    "status": "published",
+    "fields": {
+      "description": "大容量运动水壶，食品级材质，可放背包侧袋，适合健身与户外补水。",
+      "features": "大容量、食品级、防漏、可拆卸吸管",
+      "spec_capacity": "容量 750ml，一次可满足长时间训练补水",
+      "spec_material": "食品级 Tritan 材质，不含双酚A，装水饮用安全卫生",
+      "spec_leakproof": "旋盖加密封圈，倒置也不漏水",
+      "spec_insulated": "双层杯壁可短暂保温保冷",
+      "care": "可拆部件用温水清洗，避免放入微波炉",
+      "dishwasher": "杯身支持洗碗机清洗，杯盖建议手洗",
+      "warranty": "杯体渗漏 30 天内免费换新"
+    }
+  },
+  {
+    "source_id": "catalog-010",
+    "version": "2026.09.01",
+    "tenant_id": "tenant-demo",
+    "product_id": "product-010",
+    "status": "published",
+    "fields": {
+      "description": "自发热保暖内衣，贴身穿锁温，适合冬季内搭，可作羽绒服的内层。",
+      "features": "自发热、锁温、弹力贴身、抗菌",
+      "spec_warm": "特殊织法形成锁温空气层，贴身穿很暖和",
+      "spec_material": "莫代尔加氨纶混纺，柔软有弹性",
+      "spec_fit": "修身剪裁，可作羽绒服或大衣的内搭",
+      "cold": "在严寒天气贴身穿能明显提升体感温度",
+      "care": "建议手洗或轻柔机洗，避免高温烘干",
+      "warranty": "起球明显影响穿着 30 天内可退"
+    }
+  },
+  {
+    "source_id": "catalog-011",
+    "version": "2026.09.01",
+    "tenant_id": "tenant-demo",
+    "product_id": "product-011",
+    "status": "published",
+    "fields": {
+      "description": "宽檐防晒遮阳帽，可折叠收纳，适合夏季户外与海边遮阳。",
+      "features": "宽帽檐、可折叠、可调节、防紫外线",
+      "spec_upf": "帽檐面料防晒指数 UPF50+，可遮挡直射阳光",
+      "spec_brim": "宽檐设计，能遮住脸与脖子不被晒到",
+      "spec_fold": "可折叠卷起，放进包内不占空间",
+      "spec_vent": "帽顶带透气孔，闷热天戴也不闷",
+      "wind_resist": "带防风绳，风大时也不易被吹落",
+      "care": "脏了可用湿布擦拭，晾干后折叠收纳",
+      "warranty": "帽檐变形 30 天内免费换新"
+    }
+  },
+  {
+    "source_id": "catalog-105",
+    "version": "2026.09.01",
+    "tenant_id": "tenant-acme",
+    "product_id": "product-105",
+    "status": "published",
+    "fields": {
+      "description": "温和洗衣液，低泡易漂，护色护衣，适合机洗手洗多种衣物。",
+      "features": "低泡、护色、温和、清香",
+      "spec_scent": "淡雅清香，洗后衣物留香不刺鼻",
+      "spec_capacity": "2L 大容量，可洗约 60 次",
+      "spec_dosage": "浓缩配方用量省，每次洗衣一盖约 40ml 足够",
+      "color_safe": "不含荧光增白剂，彩色衣物不掉色",
+      "delicate": "真丝羊毛等娇贵面料也可用",
+      "care": "避光常温保存，儿童勿触碰",
+      "warranty": "衣物因洗涤受损可联系客服处理"
+    }
+  },
+  {
+    "source_id": "catalog-106",
+    "version": "2026.09.01",
+    "tenant_id": "tenant-acme",
+    "product_id": "product-106",
+    "status": "published",
+    "fields": {
+      "description": "便携榨汁机，杯体一体式，可随身带走，适合鲜榨果汁与奶昔。",
+      "features": "杯体一体、一键启动、可充电、易清洗",
+      "spec_blade": "不锈钢四叶刀头，榨汁细腻无渣感",
+      "spec_cup": "杯体一体式，榨完拧盖直接带走",
+      "spec_power": "大功率电机，坚硬果蔬也能快速打碎",
+      "spec_battery": "内置电池，充满可榨约 8 杯",
+      "care": "榨完立即用清水冲洗，杯盖密封圈定期取下清洗",
+      "smoothie": "加冰块或冷冻水果可做奶昔",
+      "warranty": "电机一年质保"
+    }
+  },
+  {
+    "source_id": "catalog-107",
+    "version": "2026.09.01",
+    "tenant_id": "tenant-acme",
+    "product_id": "product-107",
+    "status": "published",
+    "fields": {
+      "description": "护腰床垫，分区支撑，透气透湿，适合久坐族与睡眠质量一般的人。",
+      "features": "护腰分区、透气、可拆洗、软硬适中",
+      "spec_firmness": "软硬适中偏硬，腰部有支撑不塌陷",
+      "spec_zone": "护腰三分区支撑设计，腰不好的人也能获得腰部支撑，贴合腰椎曲线",
+      "spec_material": "高密度海绵加乳胶层，回弹好",
+      "spec_breathable": "面料透气透湿，夏天睡不闷汗",
+      "spec_size": "1.8x2m 标准尺寸，也可定制",
+      "care": "外套可拆洗，内芯定期翻转晾晒",
+      "warranty": "塌陷明显 5 年内免费换芯"
+    }
+  },
+  {
+    "source_id": "catalog-203",
+    "version": "2026.09.01",
+    "tenant_id": "tenant-other",
+    "product_id": "product-203",
+    "status": "published",
+    "fields": {
+      "description": "全自动猫砂盆，自动铲砂除臭，大容量，适合多猫家庭。",
+      "features": "全自动铲砂、除臭、大容量、低噪",
+      "spec_auto": "猫咪使用后自动清理结块猫砂",
+      "spec_capacity": "大容量砂仓，两只猫也够用，多猫家庭更安心",
+      "spec_odor": "内置活性炭除臭模块，减少异味扩散",
+      "spec_low_noise": "铲砂电机低噪，夜间自动清理不吵猫",
+      "spec_detect": "红外检测猫咪靠近，避免误伤",
+      "care": "定期更换砂垫与除臭模块，清洁内仓",
+      "warranty": "电机与传感器一年质保"
+    }
+  },
+  {
+    "source_id": "catalog-204",
+    "version": "2026.09.01",
+    "tenant_id": "tenant-other",
+    "product_id": "product-204",
+    "status": "published",
+    "fields": {
+      "description": "可扩展折叠旅行箱，轻量耐磨，带密码锁，适合登机与托运。",
+      "features": "可扩展、轻量、万向轮、TSA密码锁",
+      "spec_size": "20 寸可登机，无需托运，可直接拎上飞机",
+      "spec_weight": "箱体净重约 3kg，轻量好搬",
+      "spec_wheels": "八轮万向静音轮，推拉顺滑",
+      "spec_lock": "TSA 密码锁，出国通关可开箱检查",
+      "spec_shell": "防刮耐磨 PC 材质，托运不易花",
+      "care": "污渍用湿布擦拭，轮子轴心定期清洁",
+      "warranty": "拉杆与轮子三年质保"
+    }
   }
 ]
