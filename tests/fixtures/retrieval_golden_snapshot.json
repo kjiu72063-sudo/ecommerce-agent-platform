@@ -406,5 +406,269 @@
       "spec_capacity"
     ],
     "rank": 1
+  },
+  "tenant-demo/product-001::这大夏天的穿它，身上会不会跟蒸笼似的啊？": {
+    "expected": [
+      "spec_season"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-001::这衣服穿身上会不会很闷？料子薄不薄？有弹性不？": {
+    "expected": [
+      "spec_material"
+    ],
+    "rank": 2
+  },
+  "tenant-demo/product-002::这羽绒服冬天穿抗冻不？里头塞的啥绒啊，厚实不？": {
+    "expected": [
+      "spec_fill"
+    ],
+    "rank": 3
+  },
+  "tenant-demo/product-002::这玩意儿扛得住东北大冬天不？会不会冻成冰棍啊？": {
+    "expected": [
+      "spec_season"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-003::这鞋子耐穿不？夏天穿会不会捂得慌啊？": {
+    "expected": [
+      "spec_material"
+    ],
+    "rank": null
+  },
+  "tenant-demo/product-003::这鞋底儿防滑咋样啊？我上次下雨差点出溜倒了，心里阴影老大了。": {
+    "expected": [
+      "spec_sole"
+    ],
+    "rank": 2
+  },
+  "tenant-demo/product-004::这玩意儿充满一次能用多久？我老忘充电，怕带出去一会儿就没电了。": {
+    "expected": [
+      "spec_battery"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-004::坐地铁或过马路时这耳机能挡住那些吵声不？": {
+    "expected": [
+      "spec_noise"
+    ],
+    "rank": 2
+  },
+  "tenant-demo/product-005::这手环是不是能一天到晚都盯着我心跳和血氧啊？不带停的？": {
+    "expected": [
+      "spec_heart"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-005::下水的时候也懒得摘，应该没啥问题吧？": {
+    "expected": [
+      "spec_waterproof"
+    ],
+    "rank": 1
+  },
+  "tenant-acme/product-101::这车电满了能跑多少路啊？充一次电得花多长时间？": {
+    "expected": [
+      "spec_battery"
+    ],
+    "rank": 1
+  },
+  "tenant-acme/product-101::这玩意收起来占地方不？平时挤地铁拎着费劲吗？": {
+    "expected": [
+      "spec_fold"
+    ],
+    "rank": 2
+  },
+  "tenant-acme/product-102::这玩意儿过滤效果行不行啊？家里有老人小孩，怕空气里有病菌啥的能挡住不？": {
+    "expected": [
+      "spec_filter"
+    ],
+    "rank": 1
+  },
+  "tenant-acme/product-102::这净化器除味儿咋样？十来平的屋子够用不？": {
+    "expected": [
+      "spec_cadr"
+    ],
+    "rank": 2
+  },
+  "tenant-other/product-201::这个储粮桶一次能装多少斤猫粮哇？我家那只吃货怕不是几天就干完了？": {
+    "expected": [
+      "spec_capacity"
+    ],
+    "rank": 1
+  },
+  "tenant-other/product-201::这玩意儿一天能设几顿？到点自己出粮不？": {
+    "expected": [
+      "spec_schedule"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-006::这玩意儿能自己磨豆子吗？磨出来粗细能随便调不？": {
+    "expected": [
+      "spec_grind"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-006::这机器加热快吗？开机等多久能喝上啊？": {
+    "expected": [
+      "spec_power"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-007::这玩意儿吸地毯上的头发丝能吸干净不？还有边角缝里的灰呢？": {
+    "expected": [
+      "spec_suction"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-007::这机器能自己记住家里啥样不？扫的时候能不能光扫一个房间？而且我住复式，它能自己上下楼不？": {
+    "expected": [
+      "spec_map"
+    ],
+    "rank": 2
+  },
+  "tenant-demo/product-008::这个腰托能不能调啊？我坐着老是腰酸。": {
+    "expected": [
+      "spec_lumbar"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-008::这椅子靠背能往后倒不？想累了眯一会儿。": {
+    "expected": [
+      "spec_recline"
+    ],
+    "rank": 1
+  },
+  "tenant-acme/product-103::亲，这个帐篷下雨天没事吧？不会外面下大雨里面下小雨吧？": {
+    "expected": [
+      "spec_waterproof"
+    ],
+    "rank": 2
+  },
+  "tenant-acme/product-103::我们俩一人一个气垫床，塞进去会不会挤得没法转身？": {
+    "expected": [
+      "spec_capacity"
+    ],
+    "rank": 1
+  },
+  "tenant-acme/product-104::这玩意儿画质到底行不行啊？会不会糊得没法看？": {
+    "expected": [
+      "spec_resolution"
+    ],
+    "rank": 1
+  },
+  "tenant-acme/product-104::白天不拉窗帘会不会看不清啊？": {
+    "expected": [
+      "spec_brightness"
+    ],
+    "rank": 1
+  },
+  "tenant-other/product-202::这玩意儿阻力调节方便不？我刚开始健身，怕买回来以后练一阵子又觉得不够用。": {
+    "expected": [
+      "spec_resistance"
+    ],
+    "rank": 1
+  },
+  "tenant-other/product-202::这个座子能不能自己调高度和前后啊？我个子矮怕够不着。": {
+    "expected": [
+      "spec_seat"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-009::这壶能装多少啊？我一下午练下来够不够喝？": {
+    "expected": [
+      "spec_capacity"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-009::这杯子给宝宝用安全不？天天装水喝，心里有点不踏实。": {
+    "expected": [
+      "spec_material"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-010::这衣服贴身穿真的暖和不？有啥特别设计没？": {
+    "expected": [
+      "spec_warm"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-010::这衣服料子是啥的？穿起来舒服吗？": {
+    "expected": [
+      "spec_material"
+    ],
+    "rank": 2
+  },
+  "tenant-demo/product-011::这帽子戴上能挡太阳不？晒不晒脸啊？": {
+    "expected": [
+      "spec_upf"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-011::这帽子戴上能护住腮帮子和后颈不？太阳挺大的。": {
+    "expected": [
+      "spec_brim"
+    ],
+    "rank": 1
+  },
+  "tenant-acme/product-105::这洗衣液洗完衣裳味大不？闻多了会晕不？": {
+    "expected": [
+      "spec_scent"
+    ],
+    "rank": 1
+  },
+  "tenant-acme/product-105::这个一次能装多少水啊？差不多能用几回？": {
+    "expected": [
+      "spec_capacity"
+    ],
+    "rank": 1
+  },
+  "tenant-acme/product-106::这榨汁机打出来的口感咋样？会不会有渣子卡喉咙啊？": {
+    "expected": [
+      "spec_blade"
+    ],
+    "rank": 1
+  },
+  "tenant-acme/product-106::榨完还得倒出来换杯子吗？能不能省事儿点？": {
+    "expected": [
+      "spec_cup"
+    ],
+    "rank": 2
+  },
+  "tenant-acme/product-107::这款睡久了腰会不得劲吗？": {
+    "expected": [
+      "spec_firmness"
+    ],
+    "rank": null
+  },
+  "tenant-acme/product-107::这个护腰对我这种腰不行的人管用吗？怕戴了跟没戴一样……": {
+    "expected": [
+      "spec_zone"
+    ],
+    "rank": 1
+  },
+  "tenant-other/product-203::这猫砂是不是猫拉完自己就成一坨坨的，不用我再拿铲子费劲刨？": {
+    "expected": [
+      "spec_auto"
+    ],
+    "rank": 1
+  },
+  "tenant-other/product-203::两只猫用的话，这个够不够装啊？会不会一下就不行了？": {
+    "expected": [
+      "spec_capacity"
+    ],
+    "rank": 1
+  },
+  "tenant-other/product-204::这箱子坐飞机能直接拎上去不？还是要单独办托运啊？": {
+    "expected": [
+      "spec_size"
+    ],
+    "rank": 1
+  },
+  "tenant-other/product-204::这个箱子到底沉不沉啊？我一个人能搬得动不？": {
+    "expected": [
+      "spec_weight"
+    ],
+    "rank": 1
   }
 }
