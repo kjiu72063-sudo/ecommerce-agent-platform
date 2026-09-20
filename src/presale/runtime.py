@@ -72,9 +72,11 @@ class PresaleRuntimeFactory:
         self._persistence_ports = persistence_ports
 
     def create_runner(self, **overrides) -> PresaleQaRunner:
+        min_evidence = int(os.environ.get("PRESALE_MIN_EVIDENCE_FOR_ANSWER", "1"))
         options = {
             "sources": self._sources,
             "definition_source": self._definition_source,
+            "min_evidence_for_answer": min_evidence,
             **self._persistence_ports,
             **overrides,
         }

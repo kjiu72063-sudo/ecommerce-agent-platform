@@ -17,7 +17,13 @@ from .definitions import (
 from .disposition import AnswerDispositionService, HumanDispositionRecord
 from .idempotency import IdempotencyConflictError as IdempotencyConflictError
 from .idempotency import IdempotencyRecord
-from .knowledge import DeterministicKnowledgeRetriever, KnowledgeSource, RetrievalPort
+from .knowledge import (
+    DeterministicKnowledgeRetriever,
+    KnowledgeSource,
+    RetrievalPort,
+    RetrievalResult,
+    RetrievalStatus,
+)
 from .ports import (
     AnswerDraftRepository,
     DispositionRepository,
@@ -66,6 +72,7 @@ class PresaleQaRunner:
         retriever: RetrievalPort | None = None,
         generator: GeneratorPort | None = None,
         context_budget_tokens: int = 1000,
+        min_evidence_for_answer: int = 1,
         task_id: str | None = None,
         agent_run_id: str | None = None,
         definition_source: DefinitionSource | None = None,
@@ -88,6 +95,7 @@ class PresaleQaRunner:
         self._retriever = (
             retriever if retriever is not None else DeterministicKnowledgeRetriever(sources)
         )
+        self._min_evidence_for_answer = min_evidence_for_answer
         self._context_builder = PresaleContextBuilder(
             total_tokens=context_budget_tokens,
             per_source_tokens={"evidence": context_budget_tokens},
@@ -105,6 +113,25 @@ class PresaleQaRunner:
         self._definition_source = definition_source or StaticDefinitionSource()
         self._task_id = task_id
         self._agent_run_id = agent_run_id
+
+    @staticmethod
+    def _escalation(retrieval: RetrievalResult, min_evidence: int) -> tuple[bool, str | None]:
+        """Corrective-RAG policy: should this retrieval be routed to a human?
+
+        Low confidence -> require human review regardless of the generator: no
+        evidence at all (``NO_EVIDENCE``), conflicting sources (``CONFLICT``), or a
+        matched retrieval with fewer than ``min_evidence`` supporting items.
+        """
+        if retrieval.status is RetrievalStatus.NO_EVIDENCE:
+            return True, "NO_EVIDENCE"
+        if retrieval.status is RetrievalStatus.CONFLICT:
+            return True, "CONFLICT"
+        if (
+            retrieval.status is RetrievalStatus.MATCHED
+            and len(retrieval.evidence_items) < min_evidence
+        ):
+            return True, "LOW_CONFIDENCE"
+        return False, None
 
     async def ask(self, question: ProductQuestion) -> PresaleQaResult:
         business_content = (question.product_id, question.question_text)
@@ -198,6 +225,17 @@ class PresaleQaRunner:
                 run_ref=run_ref,
                 configuration_refs=configuration_refs,
             )
+
+            # Corrective-RAG: low retrieval confidence forces a human-review draft
+            # regardless of the generator, so the answer routes to human review.
+            escalate, reason = self._escalation(retrieval, self._min_evidence_for_answer)
+            if escalate and not draft.need_human:
+                draft = draft.model_copy(
+                    update={
+                        "need_human": True,
+                        "reason_codes": [*draft.reason_codes, reason],
+                    }
+                )
 
             await self._answer_repo.save(draft, tenant_id=question.tenant_id)
             answer_persisted = True

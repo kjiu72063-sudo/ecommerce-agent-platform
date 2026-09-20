@@ -68,6 +68,9 @@ make teach              # 全量门禁
 
 **对抗级守卫（`make eval-generation-adversarial`）**：`--adversarial` 跑 4 条证据不足的对抗 QA（发票/发货/滤网单独购/退货），`--adversarial --sever-evidence` 再模拟检索彻底失效。断言管线**不得出现「未被判出的编造」**（助手要么拒答 withheld、要么其编造未被 judge 标出 unsupported），否则非零退出。实测（glm-5.3）：两种模式下均 4/4 withheld、`undetected_fabrications=0`——证据不足或全无时管线诚实拒答、不幻觉。该守卫最初还暴露并修正了拒答分类器对「未提及…建议咨询」措辞的漏判（假阳性），故 `classify_response` 的关键词表是逐步加固的。
 
+## Corrective-RAG：低置信自动转人工
+`PresaleQaRunner` 新路径在生成 draft 后、落库前执行低置信门：`NO_EVIDENCE`/`CONFLICT` 或命中证据少于 `PRESALE_MIN_EVIDENCE_FOR_ANSWER` 时，强制 `need_human=True` 并追加 `NO_EVIDENCE`/`CONFLICT`/`LOW_CONFIDENCE` reason code；默认阈值为 1（保持兼容），生产可设 `PRESALE_MIN_EVIDENCE_FOR_ANSWER=2` 等提高门槛。该门不碰 claim/重放状态机，只影响新生成 draft；API 的 `format_outcome` 已将 `need_human` 暴露到响应顶层，调用方可据此进入人工队列。4 个单测覆盖低置信升级、足量证据不升级、无证据结构约束、重放不重新门控。
+
 ## 注意
 - Milvus **单独** `docker run` 裸镜像无法工作——它需要 etcd 提供元数据，且此仓库用 **本地文件存储**（`COMMON_STORAGETYPE=local`）而非 MinIO。请用 `docker compose up` 一起拉起。
 - 为什么没有 MinIO：本机 1Panel 镜像站未缓存 `minio/minio` 镜像（`docker pull` 报 403），故 Milvus 单机用 local 存储以绕开对象存储依赖。**生产/正式若需 MinIO 对象存储**，加回 minio 服务并把 `COMMON_STORAGETYPE` 改回 `remote`、补 `MINIO_ADDRESS`。
