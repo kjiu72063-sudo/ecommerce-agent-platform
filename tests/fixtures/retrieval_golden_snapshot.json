@@ -238,5 +238,173 @@
       "spec_display"
     ],
     "rank": 1
+  },
+  "tenant-demo/product-009::装的水够不够一次健身喝的": {
+    "expected": [
+      "spec_capacity"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-009::放包里倒过来会不会漏水": {
+    "expected": [
+      "spec_leakproof"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-009::杯子是什么材料，装水安全吗": {
+    "expected": [
+      "spec_material"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-010::冬天贴身穿这一件够不够暖和": {
+    "expected": [
+      "spec_warm"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-010::能塞在羽绒服里当内搭吗": {
+    "expected": [
+      "spec_fit"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-010::经常洗会不会缩水变形": {
+    "expected": [
+      "care"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-011::帽檐够不够宽，能挡住脸不被晒吗": {
+    "expected": [
+      "spec_brim"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-011::大热天戴着会闷吗": {
+    "expected": [
+      "spec_vent"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-011::风大一点会不会被吹跑": {
+    "expected": [
+      "wind_resist"
+    ],
+    "rank": 1
+  },
+  "tenant-acme/product-105::一瓶能洗多少件衣服": {
+    "expected": [
+      "spec_capacity"
+    ],
+    "rank": 1
+  },
+  "tenant-acme/product-105::彩色和深色的衣服会掉色吗": {
+    "expected": [
+      "color_safe"
+    ],
+    "rank": 1
+  },
+  "tenant-acme/product-105::洗一次要倒多少": {
+    "expected": [
+      "spec_dosage"
+    ],
+    "rank": 1
+  },
+  "tenant-acme/product-106::胡萝卜这种硬的水果能打碎吗": {
+    "expected": [
+      "spec_power"
+    ],
+    "rank": 1
+  },
+  "tenant-acme/product-106::榨完能不能拧上盖直接带走": {
+    "expected": [
+      "spec_cup"
+    ],
+    "rank": 1
+  },
+  "tenant-acme/product-106::充一次电能打几杯": {
+    "expected": [
+      "spec_battery"
+    ],
+    "rank": 1
+  },
+  "tenant-acme/product-107::睡久了中间会不会塌陷": {
+    "expected": [
+      "spec_firmness"
+    ],
+    "rank": 1
+  },
+  "tenant-acme/product-107::腰不好的人睡这款合适吗": {
+    "expected": [
+      "spec_zone"
+    ],
+    "rank": 1
+  },
+  "tenant-acme/product-107::夏天睡会不会闷得慌": {
+    "expected": [
+      "spec_breathable"
+    ],
+    "rank": 1
+  },
+  "tenant-other/product-203::猫上完厕所会自己清吗": {
+    "expected": [
+      "spec_auto"
+    ],
+    "rank": 1
+  },
+  "tenant-other/product-203::家里两只猫，一盆够用吗": {
+    "expected": [
+      "spec_capacity"
+    ],
+    "rank": 1
+  },
+  "tenant-other/product-203::异味会不会很大": {
+    "expected": [
+      "spec_odor"
+    ],
+    "rank": 1
+  },
+  "tenant-other/product-204::能直接拎上飞机不托运吗": {
+    "expected": [
+      "spec_size"
+    ],
+    "rank": 1
+  },
+  "tenant-other/product-204::装满东西会不会很重不好搬": {
+    "expected": [
+      "spec_weight"
+    ],
+    "rank": 1
+  },
+  "tenant-other/product-204::拉起来轮子顺不顺滑": {
+    "expected": [
+      "spec_wheels"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-005::太阳很刺眼的时候表盘看得清吗": {
+    "expected": [
+      "spec_screen"
+    ],
+    "rank": 1
+  },
+  "tenant-demo/product-006::水箱加满一次能做几杯": {
+    "expected": [
+      "spec_water"
+    ],
+    "rank": 1
+  },
+  "tenant-acme/product-102::拦住 PM2.5 靠的是哪一层": {
+    "expected": [
+      "spec_filter"
+    ],
+    "rank": 1
+  },
+  "tenant-acme/product-103::睡两个人会不会挤": {
+    "expected": [
+      "spec_capacity"
+    ],
+    "rank": 1
   }
 }
