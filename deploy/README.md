@@ -58,7 +58,9 @@ make teach              # 全量门禁
 生产建议：`PRESALE_RERANKER_MODEL=models/bge-reranker-large` + pool 15。CI 的 `milvus-integration` job 用 deterministic 嵌入跑同一 harness 冒烟（指标须落在 [0,1]），不下载模型。
 
 ## 生成端忠实度评估（LLM-as-judge，可量化）
-`presale-eval-generation`（`make eval-generation`）在 10 条代表性 QA golden 上，对每条：检索证据 → 真实 LLM（`PRESALE_LLM_*`）生成答案 → 用 judge LLM 给 **faithfulness（忠实度，是否完全基于证据无编造）/ answer_correctness / unsupported_claims** 打分，聚合输出 mean_faithfulness / mean_answer_correctness。`make eval-generation-regression` 用 `tests/fixtures/generation_snapshot.json` 做回归守底（faithfulness 低于 `--floor` 0.4 或相对基线回退 >`--tolerance` 0.25 即非零退出）。解析与聚合是纯函数，有 CI 离线单测。
+`presale-eval-generation`（`make eval-generation`）在 18 条代表性 QA golden 上，对每条：检索证据 → 真实 LLM（`PRESALE_LLM_*`）生成答案 → 用 judge LLM 给 **faithfulness（忠实度）/ answer_correctness / gold_correctness / unsupported_claims** 打分，聚合输出 mean_faithfulness / mean_answer_correctness / **mean_gold_correctness**。`make eval-generation-regression` 用 `tests/fixtures/generation_snapshot.json` 做回归守底（faithfulness 或 **gold_correctness** 低于 `--floor` 0.4 或相对基线回退 >`--tolerance` 0.25 即非零退出）。解析与聚合是纯函数，有 CI 离线单测。
+
+**步骤 2：抓「忠实但错」**：golden 每条带**参考正确回答（gold）**，judge 据此额外打 `gold_correctness`——专门抓「答案忠实于证据、但相对正确答案答错/答非所问/不够」这类被 faithfulness 漏掉的情况。实测（glm-5.3，18 QA）：mean_faithfulness=1.0 且 **mean_gold_correctness=1.0**（成功答案既忠实又正确）；并有 CI 单测证明 judge 能对「faithfulness=1.0 但 gold_correctness 低」的忠实但错答案给出分化分数（gold_correctness < faithfulness）。
 
 当前基线（2026-09-19，检索为 large+pool15 且 40/40 正确，n=10，真实 LLM glm-5.3）：**mean_faithfulness=1.0、mean_answer_correctness=1.0、total_unsupported=0**。说明在检索正确的前提下，生成端高度忠实于证据（需真实密钥，不进 CI gate）。
 

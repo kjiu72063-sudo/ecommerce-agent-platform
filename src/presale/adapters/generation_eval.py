@@ -33,93 +33,120 @@ Transport = Callable[..., dict[str, Any]]
 
 
 def qa_golden() -> list[dict[str, str]]:
-    """A representative subset of golden questions used for generation faithfulness."""
+    """Golden QA for generation faithfulness + gold-correctness.
+
+    ``gold`` is the concise reference answer (derived from the catalog facts). It
+    lets the judge score ``gold_correctness`` separately from faithfulness, so we can
+    catch answers that are grounded in evidence yet factually wrong / off-point.
+    """
     return [
         {
             "tenant_id": "tenant-demo",
             "product_id": "product-001",
             "query": "这件防晒衣能挡住紫外线吗",
+            "gold": "能。实测紫外线防护系数 UPF50+，可有效阻挡紫外线防晒黑。",
         },
         {
             "tenant_id": "tenant-demo",
             "product_id": "product-002",
             "query": "零下很冷的天气穿它够暖和吗",
+            "gold": "能。零下严寒环境中仍能有效锁温抗寒。",
         },
         {
             "tenant_id": "tenant-demo",
             "product_id": "product-004",
             "query": "在地铁上打电话对方听得清吗",
+            "gold": "能。降噪麦克风拾音清晰，嘈杂环境通话对方仍听得清。",
         },
         {
             "tenant_id": "tenant-demo",
             "product_id": "product-005",
             "query": "戴着游泳能用来测心率吗",
+            "gold": "能。50 米防水可戴着游泳，并支持 24 小时心率监测。",
         },
         {
             "tenant_id": "tenant-demo",
             "product_id": "product-006",
             "query": "能自己做拿铁吗，奶泡绵不绵密",
+            "gold": "能。自动奶泡系统可打出绵密奶泡做拿铁。",
         },
         {
             "tenant_id": "tenant-demo",
             "product_id": "product-007",
             "query": "能自己规划路线不撞墙吗",
+            "gold": "能。激光导航自动规划路线，红外避障不硬撞家具。",
         },
         {
             "tenant_id": "tenant-demo",
             "product_id": "product-008",
             "query": "一坐就是八个小时对腰有支撑吗",
+            "gold": "能。独立腰托可调，久坐有支撑缓解腰酸。",
         },
-        {"tenant_id": "tenant-acme", "product_id": "product-101", "query": "能折叠带上地铁通勤吗"},
+        {
+            "tenant_id": "tenant-acme",
+            "product_id": "product-101",
+            "query": "能折叠带上地铁通勤吗",
+            "gold": "能。一键折叠可带上地铁通勤。",
+        },
         {
             "tenant_id": "tenant-acme",
             "product_id": "product-102",
             "query": "新装修的房间除甲醛效果好吗",
+            "gold": "能。甲醛净化 CADR 350，对刚装修房间的甲醛与异味有明显净化作用。",
         },
         {
             "tenant_id": "tenant-other",
             "product_id": "product-201",
             "query": "出差好几天不在家会自动喂猫吗",
+            "gold": "能。支持定时定量与远程 App 投喂，离家期间可自动供粮。",
         },
         {
             "tenant_id": "tenant-demo",
             "product_id": "product-009",
             "query": "装的水够不够健身喝，会不会漏",
+            "gold": "750ml 大容量够一次健身喝；旋盖加密封圈，倒置也不漏水。",
         },
         {
             "tenant_id": "tenant-demo",
             "product_id": "product-010",
             "query": "冬天贴身穿够暖吗，能塞羽绒服里当内搭吗",
+            "gold": "贴身穿较暖和，靠锁温空气层；修身剪裁可作羽绒服内搭。",
         },
         {
             "tenant_id": "tenant-demo",
             "product_id": "product-011",
             "query": "夏天戴的帽子能挡住脸不被晒吗",
+            "gold": "能。宽檐设计可遮住脸与脖子不被晒到。",
         },
         {
             "tenant_id": "tenant-acme",
             "product_id": "product-105",
             "query": "彩色衣服用这个洗衣液会掉色吗",
+            "gold": "不含荧光增白剂，彩色衣物不掉色。",
         },
         {
             "tenant_id": "tenant-acme",
             "product_id": "product-106",
             "query": "硬水果能打碎吗，榨完能不能直接带走喝",
+            "gold": "能。大功率电机可打碎硬果蔬；杯体一体式，榨完拧盖直接带走。",
         },
         {
             "tenant_id": "tenant-acme",
             "product_id": "product-107",
             "query": "睡久了会不会塌，腰不好的人睡合适吗",
+            "gold": "软硬适中偏硬不会塌；护腰三分区支撑，适合腰不好的人。",
         },
         {
             "tenant_id": "tenant-other",
             "product_id": "product-203",
             "query": "猫上完厕所会自己清理吗",
+            "gold": "能。猫咪使用后会自动清理结块猫砂。",
         },
         {
             "tenant_id": "tenant-other",
             "product_id": "product-204",
             "query": "能直接拎上飞机不托运吗",
+            "gold": "能。20 寸可登机，无需托运。",
         },
     ]
 
@@ -181,16 +208,21 @@ def qa_golden_adversarial() -> list[dict[str, str]]:
     ]
 
 
-def _judge_prompt(query: str, evidence: list[str], answer: str) -> str:
+def _judge_prompt(query: str, evidence: list[str], answer: str, gold: str | None = None) -> str:
     evidence_text = "\n".join(f"- {item}" for item in evidence) or "(无证据)"
+    gold_text = gold or "(未提供参考)"
     return (
-        "你是质检评审。判断客服助手给出的【答案】是否完全基于给定的【证据】、没有编造（幻觉）内容。\n"
+        "你是质检评审。判断客服助手给出的【答案】是否完全基于给定的【证据】、没有编造（幻觉）内容，"
+        "并结合【参考正确回答】判断答案是否正确/是否答到点子上（可据此抓出忠实但答错的情况）。\n"
         f"用户问题: {query}\n"
         f"证据:\n{evidence_text}\n"
+        f"参考正确回答: {gold_text}\n"
         f"答案: {answer}\n"
         '请只输出一个 JSON 对象：{"faithfulness": 0到1的小数（忠实度，1=完全基于证据无编造，'
         "0=完全编造、与证据冲突或无关）,"
         ' "answer_correctness": 0到1的小数（是否准确回答了问题）,'
+        ' "gold_correctness": 0到1的小数（对照参考回答是否正确，1=完全正确答到点上，'
+        "0=答错或答非所问，即使措辞忠实）,"
         ' "unsupported_claims": 证据不支持的主张列表（没有则为空数组）}'
     )
 
@@ -230,6 +262,7 @@ def parse_judge(text: str) -> dict[str, Any]:
     return {
         "faithfulness": _num(r'"faithfulness"\s*:\s*(\d+(?:\.\d+)?)', 0.0),
         "answer_correctness": _num(r'"answer_correctness"\s*:\s*(\d+(?:\.\d+)?)', 0.0),
+        "gold_correctness": _num(r'"gold_correctness"\s*:\s*(\d+(?:\.\d+)?)', 0.0),
         "unsupported_claims": unsupported,
     }
 
@@ -279,6 +312,7 @@ def evaluate_generation(
     rows: list[dict[str, Any]] = []
     for item in questions if questions is not None else qa_golden():
         query = item["query"]
+        gold = item.get("gold")
         if sever_evidence:
             evidence: list[str] = []
         else:
@@ -286,7 +320,7 @@ def evaluate_generation(
             evidence = [e.content for e in (retrieval.evidence_items or [])]
         answer = _chat(_answer_prompt(query, evidence), transport, base_url, model, api_key)
         judge_raw = _chat(
-            _judge_prompt(query, evidence, answer), transport, base_url, model, api_key
+            _judge_prompt(query, evidence, answer, gold), transport, base_url, model, api_key
         )
         rows.append(
             {
@@ -300,11 +334,13 @@ def evaluate_generation(
     n = len(rows)
     faithfulness = sum(r["faithfulness"] for r in rows) / n
     correctness = sum(r["answer_correctness"] for r in rows) / n
+    gold_correctness = sum(r["gold_correctness"] for r in rows) / n
     unsupported = sum(r["unsupported_claims"] for r in rows)
     return {
         "n": n,
         "mean_faithfulness": round(faithfulness, 4),
         "mean_answer_correctness": round(correctness, 4),
+        "mean_gold_correctness": round(gold_correctness, 4),
         "total_unsupported_claims": unsupported,
         "per_question": rows,
     }
@@ -404,6 +440,7 @@ def evaluate_end_to_end(
     rows: list[dict[str, Any]] = []
     for index, item in enumerate(questions if questions is not None else qa_golden()):
         query = item["query"]
+        gold = item.get("gold")
         try:
             q = _question(item["tenant_id"], item["product_id"], query, key=f"e2e-{index:05d}")
             retrieval = retriever.retrieve(q)
@@ -411,7 +448,7 @@ def evaluate_end_to_end(
             result = asyncio.run(runner.ask(q))
             answer = result.answer_draft.answer_text
             judge_raw = _chat(
-                _judge_prompt(query, evidence, answer), transport, base_url, model, api_key
+                _judge_prompt(query, evidence, answer, gold), transport, base_url, model, api_key
             )
             rows.append(
                 {
@@ -436,12 +473,14 @@ def evaluate_end_to_end(
     n_ok = len(ok)
     faithfulness = sum(r["faithfulness"] for r in ok) / n_ok if n_ok else 0.0
     correctness = sum(r["answer_correctness"] for r in ok) / n_ok if n_ok else 0.0
+    gold_correctness = sum(r["gold_correctness"] for r in ok) / n_ok if n_ok else 0.0
     unsupported = sum(r["unsupported_claims"] for r in ok)
     return {
         "n": n,
         "errors": n - n_ok,
         "mean_faithfulness": round(faithfulness, 4),
         "mean_answer_correctness": round(correctness, 4),
+        "mean_gold_correctness": round(gold_correctness, 4),
         "total_unsupported_claims": unsupported,
         "per_question": rows,
     }
@@ -591,7 +630,11 @@ def main(argv: list[str] | None = None) -> None:
         )
 
     current = {
-        _key(r): {"faithfulness": r["faithfulness"], "answer_correctness": r["answer_correctness"]}
+        _key(r): {
+            "faithfulness": r["faithfulness"],
+            "answer_correctness": r["answer_correctness"],
+            "gold_correctness": r["gold_correctness"],
+        }
         for r in report["per_question"]
         if "error" not in r
     }
@@ -612,15 +655,27 @@ def main(argv: list[str] | None = None) -> None:
                 regressions.append({"key": key, "reason": "new question"})
                 continue
             drop = old["faithfulness"] - row["faithfulness"]
-            if row["faithfulness"] < args.floor or drop > args.tolerance:
+            gold_drop = old.get("gold_correctness", 1.0) - row["gold_correctness"]
+            if (
+                row["faithfulness"] < args.floor
+                or drop > args.tolerance
+                or row["gold_correctness"] < args.floor
+                or gold_drop > args.tolerance
+            ):
                 regressions.append(
                     {
                         "key": key,
                         "reason": "faithfulness dropped"
                         if drop > args.tolerance
-                        else "below floor",
+                        else (
+                            "gold correctness dropped"
+                            if gold_drop > args.tolerance
+                            else "below floor"
+                        ),
                         "old": old["faithfulness"],
                         "new": row["faithfulness"],
+                        "old_gold": old.get("gold_correctness"),
+                        "new_gold": row["gold_correctness"],
                     }
                 )
         for item in regressions:
