@@ -181,3 +181,43 @@ def test_adversarial_no_undetected_when_judge_flags_or_assistant_withholds():
     )
     assert withheld["undetected_fabrications"] == 0
     assert all(r["withheld"] for r in withheld["per_question"])
+
+
+def test_evaluate_end_to_end_runs_real_runner_and_judges():
+    # Exercise the REAL PresaleQaRunner.ask (default deterministic generator +
+    # DeterministicKnowledgeRetriever) with a faked judge transport — no Net/LLM.
+    from presale.adapters.generation_eval import evaluate_end_to_end
+    from presale.answer import PresaleAnswerGenerator
+    from presale.knowledge import DeterministicKnowledgeRetriever, KnowledgeSource
+
+    sources = [
+        KnowledgeSource(
+            source_id="src-001",
+            version="2026.09.01",
+            tenant_id="tenant-demo",
+            product_id="product-001",
+            status="published",
+            fields={"spec": {"material": "防晒衣，能阻挡紫外线"}},
+        )
+    ]
+    retriever = DeterministicKnowledgeRetriever(sources)
+    generator = PresaleAnswerGenerator()
+    transport = _fake_transport("x", "y")
+
+    report = evaluate_end_to_end(
+        retriever,
+        sources=sources,
+        generator=generator,
+        transport=transport,
+        base_url="x",
+        model="y",
+        api_key="k",
+        questions=[
+            {"tenant_id": "tenant-demo", "product_id": "product-001", "query": "能防紫外线吗"}
+        ],
+    )
+
+    assert report["n"] == 1
+    assert report["per_question"][0]["query"] == "能防紫外线吗"
+    assert report["per_question"][0]["faithfulness"] == 1.0  # faked judge
+    assert report["per_question"][0]["answer"]  # runner produced a draft

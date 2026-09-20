@@ -14,6 +14,7 @@ when a question's faithfulness drops or falls below the floor.
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import os
 import re
@@ -23,8 +24,10 @@ from typing import Any, Callable
 
 from agent_platform_contracts.models import ActorRef, ActorType
 
+from ..cli import load_catalog
 from ..contracts import ProductQuestion
-from .openai_generator import default_transport
+from ..runner import PresaleQaRunner
+from .openai_generator import OpenAICompatibleGenerator, default_transport
 
 Transport = Callable[..., dict[str, Any]]
 
@@ -211,7 +214,7 @@ def _chat(prompt: str, transport: Transport, base_url: str, model: str, api_key:
     return completion["choices"][0]["message"]["content"]
 
 
-def _question(tenant: str, product: str, query: str) -> ProductQuestion:
+def _question(tenant: str, product: str, query: str, key: str = "gen-key-0001") -> ProductQuestion:
     return ProductQuestion(
         question_id="q-gen-0001",
         tenant_id=tenant,
@@ -219,7 +222,7 @@ def _question(tenant: str, product: str, query: str) -> ProductQuestion:
         product_id=product,
         question_text=query,
         requested_at=datetime(2026, 9, 19, tzinfo=timezone.utc),
-        idempotency_key="gen-key-0001",
+        idempotency_key=key,
     )
 
 
@@ -292,11 +295,31 @@ def evaluate_adversarial(
         questions=qa_golden_adversarial(),
         sever_evidence=sever_evidence,
     )
+    return mark_undetected(report)
+
+
+class _SeveredRetriever:
+    """Wrap a retriever so the runner/evidence see no evidence (retrieval failure)."""
+
+    def __init__(self, inner: Any) -> None:
+        self._inner = inner
+
+    def retrieve(self, question: ProductQuestion):
+        from ..knowledge import RetrievalResult, RetrievalStatus
+
+        return RetrievalResult(
+            status=RetrievalStatus.NO_EVIDENCE,
+            evidence_items=[],
+            reason_codes=["E2E_SEVERED"],
+        )
+
+
+def mark_undetected(report: dict[str, Any]) -> dict[str, Any]:
+    """Classify per-question answers as withheld vs undetected fabrication."""
     undetected = 0
     for row in report["per_question"]:
-        withheld = classify_response(row["answer"]) == "withheld"
-        row["withheld"] = withheld
-        if not withheld and row["unsupported_claims"] == 0:
+        row["withheld"] = classify_response(row["answer"]) == "withheld"
+        if not row["withheld"] and row["unsupported_claims"] == 0:
             row["undetected_fabrication"] = True
             undetected += 1
         else:
@@ -307,6 +330,60 @@ def evaluate_adversarial(
         "mean_faithfulness": report["mean_faithfulness"],
         "undetected_fabrications": undetected,
         "per_question": report["per_question"],
+    }
+
+
+def evaluate_end_to_end(
+    retriever: Any,
+    *,
+    sources: list[Any],
+    generator: Any,
+    transport: Transport,
+    base_url: str,
+    model: str,
+    api_key: str,
+    questions: list[dict[str, str]] | None = None,
+    sever_evidence: bool = False,
+) -> dict[str, Any]:
+    """Run the QA golden through the real ``PresaleQaRunner.ask`` production path.
+
+    Retrieval + generation go through the actual runner (not the rebuilt pipeline);
+    the produced answers are then judged by the same LLM-as-judge. ``sever_evidence``
+    wraps the retriever so the runner sees no evidence (total retrieval failure).
+    """
+    if sever_evidence:
+        retriever = _SeveredRetriever(retriever)
+    runner = PresaleQaRunner(sources=sources, retriever=retriever, generator=generator)
+    rows: list[dict[str, Any]] = []
+    for index, item in enumerate(questions if questions is not None else qa_golden()):
+        query = item["query"]
+        q = _question(item["tenant_id"], item["product_id"], query, key=f"e2e-{index:05d}")
+        retrieval = retriever.retrieve(q)
+        evidence = [e.content for e in (retrieval.evidence_items or [])]
+        result = asyncio.run(runner.ask(q))
+        answer = result.answer_draft.answer_text
+        judge_raw = _chat(
+            _judge_prompt(query, evidence, answer), transport, base_url, model, api_key
+        )
+        rows.append(
+            {
+                "tenant_id": item["tenant_id"],
+                "product_id": item["product_id"],
+                "query": query,
+                **parse_judge(judge_raw),
+                "answer": answer,
+            }
+        )
+    n = len(rows)
+    faithfulness = sum(r["faithfulness"] for r in rows) / n
+    correctness = sum(r["answer_correctness"] for r in rows) / n
+    unsupported = sum(r["unsupported_claims"] for r in rows)
+    return {
+        "n": n,
+        "mean_faithfulness": round(faithfulness, 4),
+        "mean_answer_correctness": round(correctness, 4),
+        "total_unsupported_claims": unsupported,
+        "per_question": rows,
     }
 
 
@@ -333,6 +410,16 @@ def main(argv: list[str] | None = None) -> None:
         action="store_true",
         help="force empty evidence (simulate total retrieval failure) for --adversarial",
     )
+    parser.add_argument(
+        "--e2e",
+        action="store_true",
+        help="run through the real PresaleQaRunner.ask (production path)",
+    )
+    parser.add_argument(
+        "--catalog",
+        default="src/presale/data/dev_catalog.json",
+        help="catalog for e2e runner sources (default dev_catalog.json)",
+    )
     args = parser.parse_args(argv)
 
     base_url, model, api_key = llm_config()
@@ -340,7 +427,34 @@ def main(argv: list[str] | None = None) -> None:
     if retriever is None:
         raise SystemExit("PRESALE_MILVUS_URI required (or another retriever)")
 
-    if args.adversarial:
+    if args.e2e:
+        generator = OpenAICompatibleGenerator(model=model, base_url=base_url, api_key=api_key)
+        sources = load_catalog(args.catalog)
+        if args.adversarial:
+            report = mark_undetected(
+                evaluate_end_to_end(
+                    retriever,
+                    sources=sources,
+                    generator=generator,
+                    transport=default_transport,
+                    base_url=base_url,
+                    model=model,
+                    api_key=api_key,
+                    questions=qa_golden_adversarial(),
+                    sever_evidence=args.sever_evidence,
+                )
+            )
+        else:
+            report = evaluate_end_to_end(
+                retriever,
+                sources=sources,
+                generator=generator,
+                transport=default_transport,
+                base_url=base_url,
+                model=model,
+                api_key=api_key,
+            )
+    elif args.adversarial:
         report = evaluate_adversarial(
             retriever,
             transport=default_transport,
@@ -349,6 +463,16 @@ def main(argv: list[str] | None = None) -> None:
             api_key=api_key,
             sever_evidence=args.sever_evidence,
         )
+    else:
+        report = evaluate_generation(
+            retriever,
+            transport=default_transport,
+            base_url=base_url,
+            model=model,
+            api_key=api_key,
+        )
+
+    if args.adversarial:
         print(
             json.dumps(
                 {k: v for k, v in report.items() if k != "per_question"},
@@ -366,9 +490,6 @@ def main(argv: list[str] | None = None) -> None:
         print(f"undetected_fabrications={report['undetected_fabrications']}")
         raise SystemExit(1 if report["undetected_fabrications"] else 0)
 
-    report = evaluate_generation(
-        retriever, transport=default_transport, base_url=base_url, model=model, api_key=api_key
-    )
     print(
         json.dumps(
             {k: v for k, v in report.items() if k != "per_question"}, ensure_ascii=False, indent=2
@@ -435,9 +556,12 @@ def main(argv: list[str] | None = None) -> None:
 
 
 __all__ = [
+    "evaluate_end_to_end",
     "evaluate_generation",
     "llm_config",
     "main",
+    "mark_undetected",
     "parse_judge",
     "qa_golden",
+    "qa_golden_adversarial",
 ]
