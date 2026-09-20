@@ -1,42 +1,82 @@
 {
   "tenant-demo/product-001::这件防晒衣能挡住紫外线吗": {
     "faithfulness": 1.0,
-    "answer_correctness": 1.0
+    "answer_correctness": 1.0,
+    "gold_correctness": 1.0
   },
   "tenant-demo/product-002::零下很冷的天气穿它够暖和吗": {
     "faithfulness": 1.0,
-    "answer_correctness": 1.0
+    "answer_correctness": 1.0,
+    "gold_correctness": 1.0
   },
   "tenant-demo/product-004::在地铁上打电话对方听得清吗": {
     "faithfulness": 1.0,
-    "answer_correctness": 1.0
+    "answer_correctness": 1.0,
+    "gold_correctness": 1.0
   },
   "tenant-demo/product-005::戴着游泳能用来测心率吗": {
     "faithfulness": 1.0,
-    "answer_correctness": 1.0
+    "answer_correctness": 1.0,
+    "gold_correctness": 1.0
   },
   "tenant-demo/product-006::能自己做拿铁吗，奶泡绵不绵密": {
     "faithfulness": 1.0,
-    "answer_correctness": 1.0
+    "answer_correctness": 1.0,
+    "gold_correctness": 1.0
   },
   "tenant-demo/product-007::能自己规划路线不撞墙吗": {
     "faithfulness": 1.0,
-    "answer_correctness": 1.0
+    "answer_correctness": 1.0,
+    "gold_correctness": 1.0
   },
   "tenant-demo/product-008::一坐就是八个小时对腰有支撑吗": {
     "faithfulness": 1.0,
-    "answer_correctness": 1.0
+    "answer_correctness": 1.0,
+    "gold_correctness": 1.0
   },
   "tenant-acme/product-101::能折叠带上地铁通勤吗": {
     "faithfulness": 1.0,
-    "answer_correctness": 1.0
+    "answer_correctness": 1.0,
+    "gold_correctness": 1.0
   },
   "tenant-acme/product-102::新装修的房间除甲醛效果好吗": {
     "faithfulness": 1.0,
-    "answer_correctness": 1.0
+    "answer_correctness": 1.0,
+    "gold_correctness": 1.0
   },
   "tenant-other/product-201::出差好几天不在家会自动喂猫吗": {
     "faithfulness": 1.0,
-    "answer_correctness": 1.0
+    "answer_correctness": 1.0,
+    "gold_correctness": 1.0
+  },
+  "tenant-demo/product-009::装的水够不够健身喝，会不会漏": {
+    "faithfulness": 1.0,
+    "answer_correctness": 1.0,
+    "gold_correctness": 1.0
+  },
+  "tenant-acme/product-105::彩色衣服用这个洗衣液会掉色吗": {
+    "faithfulness": 1.0,
+    "answer_correctness": 1.0,
+    "gold_correctness": 1.0
+  },
+  "tenant-acme/product-106::硬水果能打碎吗，榨完能不能直接带走喝": {
+    "faithfulness": 1.0,
+    "answer_correctness": 1.0,
+    "gold_correctness": 1.0
+  },
+  "tenant-acme/product-107::睡久了会不会塌，腰不好的人睡合适吗": {
+    "faithfulness": 1.0,
+    "answer_correctness": 1.0,
+    "gold_correctness": 1.0
+  },
+  "tenant-other/product-203::猫上完厕所会自己清理吗": {
+    "faithfulness": 1.0,
+    "answer_correctness": 1.0,
+    "gold_correctness": 1.0
+  },
+  "tenant-other/product-204::能直接拎上飞机不托运吗": {
+    "faithfulness": 1.0,
+    "answer_correctness": 1.0,
+    "gold_correctness": 1.0
   }
 }

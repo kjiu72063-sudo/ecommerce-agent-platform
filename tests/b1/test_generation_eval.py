@@ -13,10 +13,14 @@ from presale.adapters.generation_eval import (
 
 
 def test_parse_judge_extracts_numbers_and_clamps():
-    text = '{"faithfulness": 0.85, "answer_correctness": 1.2, "unsupported_claims": ["X", "Y"]}'
+    text = (
+        '{"faithfulness": 0.85, "answer_correctness": 1.2, '
+        '"gold_correctness": 0.6, "unsupported_claims": ["X", "Y"]}'
+    )
     parsed = parse_judge(text)
     assert parsed["faithfulness"] == 0.85
     assert parsed["answer_correctness"] == 1.0  # clamped
+    assert parsed["gold_correctness"] == 0.6
     assert parsed["unsupported_claims"] == 2
 
 
@@ -24,10 +28,12 @@ def test_parse_judge_tolerates_malformed_or_fragmented():
     assert parse_judge("not json at all") == {
         "faithfulness": 0.0,
         "answer_correctness": 0.0,
+        "gold_correctness": 0.0,
         "unsupported_claims": 0,
     }
     fragmented = (
-        '评语：答案忠实。\n"faithfulness":0.6\n"answer_correctness":0.7\n"unsupported_claims":[]'
+        '评语：答案忠实。\n"faithfulness":0.6\n"answer_correctness":0.7\n'
+        '"gold_correctness":0.5\n"unsupported_claims":[]'
     )
     parsed = parse_judge(fragmented)
     assert parsed["faithfulness"] == 0.6
@@ -57,7 +63,10 @@ def _fake_transport(base_url, model):
     def transport(**kwargs):
         prompt = kwargs["messages"][0]["content"]
         if "质检评审" in prompt:
-            content = '{"faithfulness": 1.0, "answer_correctness": 1.0, "unsupported_claims": []}'
+            content = (
+                '{"faithfulness": 1.0, "answer_correctness": 1.0, '
+                '"gold_correctness": 1.0, "unsupported_claims": []}'
+            )
         else:
             content = "这是一个仅基于证据生成的中文回答。"
         return {"choices": [{"message": {"content": content}}]}
@@ -88,8 +97,46 @@ def test_evaluate_generation_aggregates_per_question():
     assert report["n"] == 2
     assert report["mean_faithfulness"] == 1.0
     assert report["mean_answer_correctness"] == 1.0
+    assert report["mean_gold_correctness"] == 1.0
     assert report["total_unsupported_claims"] == 0
     assert {p["product_id"] for p in report["per_question"]} == {"product-001", "product-002"}
+
+
+def test_gold_correctness_catches_faithful_but_wrong():
+    # A judge that says the answer is fully grounded (faithfulness=1.0) but wrong
+    # vs the reference (gold_correctness low) must surface a divergence.
+    def judge(**kwargs):
+        prompt = kwargs["messages"][0]["content"]
+        if "质检评审" in prompt:
+            content = (
+                '{"faithfulness": 1.0, "answer_correctness": 0.2, '
+                '"gold_correctness": 0.2, "unsupported_claims": []}'
+            )
+        else:
+            content = "可以退货，运费由买家承担。"
+        return {"choices": [{"message": {"content": content}}]}
+
+    retriever = _FakeRetriever({"product-001": ["本商品七天无理由退货"]})
+    report = evaluate_generation(
+        retriever,
+        transport=judge,
+        base_url="x",
+        model="y",
+        api_key="k",
+        questions=[
+            {
+                "tenant_id": "tenant-demo",
+                "product_id": "product-001",
+                "query": "退货要钱吗",
+                "gold": "本商品支持七天无理由退货。",
+            }
+        ],
+    )
+
+    row = report["per_question"][0]
+    assert row["faithfulness"] == 1.0  # grounded in evidence
+    assert row["gold_correctness"] == 0.2  # but wrong vs reference -> caught
+    assert row["gold_correctness"] < row["faithfulness"]
 
 
 def test_qa_golden_is_nonempty_and_wellformed():
@@ -129,6 +176,7 @@ class _JudgeTransport:
                 {
                     "faithfulness": 0.2,
                     "answer_correctness": 0.3,
+                    "gold_correctness": 0.4,
                     "unsupported_claims": ["x"] * self._unsupported,
                 },
                 ensure_ascii=False,
