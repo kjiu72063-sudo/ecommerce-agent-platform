@@ -1,4 +1,4 @@
-.PHONY: up down ps models index-qdrant index-milvus eval eval-semantic eval-semantic-rerank eval-sweep eval-regression eval-generation eval-generation-regression eval-generation-adversarial qa-api teach
+.PHONY: up down ps models index-qdrant index-milvus eval eval-semantic eval-semantic-rerank eval-sweep eval-regression eval-generation eval-generation-regression eval-generation-adversarial eval-generation-e2e qa-api teach
 
 # 本地可复现的外部环境栈（Qdrant + Milvus + etcd，本地文件存储）
 up:
@@ -83,6 +83,16 @@ eval-generation-adversarial:
 	PRESALE_CATALOG=src/presale/data/dev_catalog.json PRESALE_HYBRID_POOL=15 \
 	uv run presale-eval-generation --adversarial && \
 	uv run presale-eval-generation --adversarial --sever-evidence
+
+# 生成端忠实度评估（真实端到端：走 PresaleQaRunner.ask 完整生产路径，而非评测重建管线）
+eval-generation-e2e:
+	HF_HUB_OFFLINE=1 PRESALE_EMBEDDING_MODEL=models/bge-large-zh-v1.5 \
+	PRESALE_RERANKER_MODEL=models/bge-reranker-large \
+	PRESALE_MILVUS_URI=http://localhost:19530 PRESALE_MILVUS_COLLECTION=presale_hybrid_1024 \
+	PRESALE_CATALOG=src/presale/data/dev_catalog.json PRESALE_HYBRID_POOL=15 \
+	uv run presale-eval-generation --e2e --diagnostics && \
+	uv run presale-eval-generation --e2e --adversarial && \
+	uv run presale-eval-generation --e2e --adversarial --sever-evidence
 
 # 启动同步 QA 服务（用 env 配置真实 LLM/检索）
 qa-api:

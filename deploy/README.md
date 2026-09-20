@@ -60,6 +60,8 @@ make teach              # 全量门禁
 
 当前基线（2026-09-19，检索为 large+pool15 且 40/40 正确，n=10，真实 LLM glm-5.3）：**mean_faithfulness=1.0、mean_answer_correctness=1.0、total_unsupported=0**。说明在检索正确的前提下，生成端高度忠实于证据（需真实密钥，不进 CI gate）。
 
+**真实端到端（`make eval-generation-e2e`）**：`--e2e` 让评估走**真实 `PresaleQaRunner.ask`**（注入真实 retriever + OpenAICompatibleGenerator 的完整生产路径：检索→上下文→生成→disposition→tracing），而非评测脚本重建的管线；`--e2e --adversarial` / `--e2e --adversarial --sever-evidence` 再加证据不足/全无。实测（glm-5.3）：正常 QA 各题 faithfulness=1.0；对抗两种模式均 4/4 拒答、`undetected_fabrications=0`——真实生产路径在任何证据条件下都不幻觉。
+
 **对抗级守卫（`make eval-generation-adversarial`）**：`--adversarial` 跑 4 条证据不足的对抗 QA（发票/发货/滤网单独购/退货），`--adversarial --sever-evidence` 再模拟检索彻底失效。断言管线**不得出现「未被判出的编造」**（助手要么拒答 withheld、要么其编造未被 judge 标出 unsupported），否则非零退出。实测（glm-5.3）：两种模式下均 4/4 withheld、`undetected_fabrications=0`——证据不足或全无时管线诚实拒答、不幻觉。该守卫最初还暴露并修正了拒答分类器对「未提及…建议咨询」措辞的漏判（假阳性），故 `classify_response` 的关键词表是逐步加固的。
 
 ## 注意
