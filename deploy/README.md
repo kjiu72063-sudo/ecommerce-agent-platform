@@ -37,9 +37,13 @@ make teach              # 全量门禁
 ## 检索评估（可量化）
 `presale-eval-retrieval`（`make eval` / `make eval-semantic` / `make eval-semantic-rerank`）在 `src/presale/data/dev_catalog.json`（22 商品、211 事实段落）+ 68 条改写句 golden set 上，度量段落级排序的 hit@k / MRR / precision@k（检索为商品作用域，故测的是「相关事实段落是否排进 top-k」）。`scripts/sweep_retrieval.py`（`make eval-sweep`）扫候选池/RRF/BM25 权重/重排方式；`scripts/eval_regression.py`（`make eval-regression`）把逐条结果与基线 snapshot（`tests/fixtures/retrieval_golden_snapshot.json`）对比，任何召回/排序回退即失败。
 
-基线（2026-09-19，Milvus 本地文件存储，Hybrid dense+BM25+RRF，top_k=5，n=68，pool=15，rrf_k=60；large 重排 + 分块修复后）：**hit@1=1.0、hit@3=1.0、hit@5=1.0、MRR=1.0**（recall=0、misrank=0）。
+基线（2026-09-20，Milvus 本地文件存储，Hybrid dense+BM25+RRF，top_k=5，n=112，pool=15，rrf_k=60；large 重排 + 分块修复后，**真实分布 golden**）：**hit@1=0.893、hit@3=0.982、MRR=0.936**（recall=2、misrank=10）。
 
-> **压测结论（重要）**：从 40→68 条 golden（语料 14→22 商品，含与既有商品**语义重叠的挑战者**）扩量后，检索初跑掉到 MRR=0.94 / hit@1=0.91——证明先前「1.0」是小编制语料的假象。缺口为 1 处 golden 双重答案（product-010 的 spec_fit 与 layering 都写「可作羽绒服内搭」）+ 5 处真实的分块问题（目标 chunk 缺意图关键词、商品内近义 chunk 混叠），修复后 68 条回到满分。这印证：**任何固定 golden 都可能被记忆，评估可信度取决于 golden 是否反映真实查询分布**。
+> **压测结论（重要）**：
+> 1. 从 40→68 条 golden（语料 14→22 商品，含语义重叠挑战者）扩量后检索初跑掉到 MRR 0.94——证明「1.0」是小编制假象；修复后 68 条回到满分。
+> 2. **更关键的**：为引入**真实查询分布**（而非手写改写句），用 `scripts/generate_realistic_golden.py` 以真实 LLM 生成 `百级（112）条真实买家口吻查询`（含口语、省略、错别字、反问），并按构造锚定到事实 chunk。**这组真实查询把检索拉到 MRR 0.936 / hit@1 0.893**——真实口语的歧义/噪声远比规整改写难，是当前最可信的检索基线。
+>
+> 这印证方法论：**任何固定 golden 都可能被记忆；查询分布越真实，衡量越可信**。当前 112 条真实 golden 的 0.936 才是反映真实检索水平的上限，后续改进（更强 embedding/分块/多证据融合）以此为准对比。
 
 | 管线 | hit@1 | hit@3 | hit@5 | MRR | prec@5 |
 |---|---|---|---|---|---|
