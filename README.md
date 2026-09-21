@@ -33,7 +33,7 @@ uv run pyright              # CI 寮哄埗锛坰rc/presale + src/agent_runtime�
 uv run pre-commit run --all-files   # 鏈湴閽╁瓙锛岄潪 CI 寮哄埗
 ```
 
-褰撳墠鍩虹嚎锛氬叏閲忔祴璇?296 passed锛堜互 `寮€鍙戞枃妗?09-璐ㄩ噺鍩虹嚎涓庨棬绂佸彴璐?md` 鐨勫甫鏃ユ湡鍙拌处涓哄噯锛夈€侰I 閫氳繃 GitHub Actions锛坄.github/workflows/ci.yml`锛夊湪 `main` 涓庢瘡涓?PR 涓婅繍琛岄棬绂侊紙ruff check/format src + pyright + pytest锛夊苟甯?`concurrency` 鍙栨秷鏃?run銆備粨搴撳凡鍏紑锛宍main` 鍚敤鍒嗘敮淇濇姢锛氱洿鎺?寮哄埗鎺ㄩ€佷笌鍒犻櫎琚锛堝惈绠＄悊鍛橈級銆佸繀椤昏蛋 PR銆佽姹?CI 閫氳繃銆佸己鍒剁嚎鎬у巻鍙测€斺€斿悎骞剁邯寰嬬敱骞冲彴寮哄埗銆傛祴璇曡鑼冨叆鍙ｄ綅浜?`tests/b1`銆乣tests/b2`銆乣tests/b3`锛涙棫 B 鐩綍涓殑娴嬭瘯淇濈暀浣滈樁娈佃縼绉诲弬鑰冿紝涓嶅啀浣滀负鏍圭骇榛樿鏀堕泦鍏ュ彛銆?
+褰撳墠鍩虹嚎锛氬叏閲忔祴璇?303 passed锛堜互 `寮€鍙戞枃妗?09-璐ㄩ噺鍩虹嚎涓庨棬绂佸彴璐?md` 鐨勫甫鏃ユ湡鍙拌处涓哄噯锛夈€侰I 閫氳繃 GitHub Actions锛坄.github/workflows/ci.yml`锛夊湪 `main` 涓庢瘡涓?PR 涓婅繍琛岄棬绂侊紙ruff check/format src + pyright + pytest锛夊苟甯?`concurrency` 鍙栨秷鏃?run銆備粨搴撳凡鍏紑锛宍main` 鍚敤鍒嗘敮淇濇姢锛氱洿鎺?寮哄埗鎺ㄩ€佷笌鍒犻櫎琚锛堝惈绠＄悊鍛橈級銆佸繀椤昏蛋 PR銆佽姹?CI 閫氳繃銆佸己鍒剁嚎鎬у巻鍙测€斺€斿悎骞剁邯寰嬬敱骞冲彴寮哄埗銆傛祴璇曡鑼冨叆鍙ｄ綅浜?`tests/b1`銆乣tests/b2`銆乣tests/b3`锛涙棫 B 鐩綍涓殑娴嬭瘯淇濈暀浣滈樁娈佃縼绉诲弬鑰冿紝涓嶅啀浣滀负鏍圭骇榛樿鏀堕泦鍏ュ彛銆?
 
 ## 杩愯 QA 鏈嶅姟
 
@@ -101,5 +101,6 @@ B0-濂戠害鍩虹/浠庨浂瀹炵幇/            # 鍘嗗彶/鏁欏瀹炵
 
 - 寮€鍙戞祦绋嬨€侀棬绂佷笌鍒嗘敮/PR 瑙勮寖瑙?[`CONTRIBUTING.md`](CONTRIBUTING.md)銆?
 - 鍚庡彴缁存姢锛?0 澶╀繚鐣欏綊妗ｏ級鐨勮皟搴﹀叆鍙ｏ紙HTTP 绔偣 + CLI锛夎 [`寮€鍙戞枃妗?09-璐ㄩ噺鍩虹嚎涓庨棬绂佸彴璐?md`](寮€鍙戞枃妗?09-璐ㄩ噺鍩虹嚎涓庨棬绂佸彴璐?md)銆?
+
 
 
