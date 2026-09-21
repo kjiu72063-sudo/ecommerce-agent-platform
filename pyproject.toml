@@ -31,8 +31,8 @@ quality = [
 hybrid = [
     "pymilvus>=2.4,<3.0",
 ]
-# 真实语义 embedding（bge-large-zh-v1.5 + torch）。体积大，仅本地/按需安装；
-# CI 集成 job 用 deterministic 嵌入，不装本 extra，避免每次拉 torch。
+# 鐪熷疄璇箟 embedding锛坆ge-large-zh-v1.5 + torch锛夈€備綋绉ぇ锛屼粎鏈湴/鎸夐渶瀹夎锛?
+# CI 闆嗘垚 job 鐢?deterministic 宓屽叆锛屼笉瑁呮湰 extra锛岄伩鍏嶆瘡娆℃媺 torch銆?
 embedding = [
     "sentence-transformers>=2.7,<5.0",
 ]
@@ -71,7 +71,9 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.pyright]
-include = ["src/presale", "src/agent_runtime"]
+# registry/ and runtime/ have 39 pre-existing type errors from B1/B2 prototype phase;
+# add them after a dedicated type-fix pass to avoid blocking CI.
+include = ["src/presale", "src/agent_runtime", "src/context"]
 pythonVersion = "3.13"
 typeCheckingMode = "basic"
 reportMissingTypeStubs = false
