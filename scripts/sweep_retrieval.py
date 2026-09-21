@@ -15,13 +15,12 @@ import json
 import os
 from pathlib import Path
 
-from presale.adapters.external_retrieval import ExternalRetrieval
 from presale.adapters.hybrid_retrieval import (
     BM25Index,
     CrossEncoderReranker,
     MilvusDense,
     SentenceTransformerEmbedding,
-    hybrid_transport,
+    hybrid_retriever_from_params,
     index_hybrid,
 )
 from presale.adapters.retrieval_eval import evaluate_retriever
@@ -82,19 +81,17 @@ def main() -> None:
         for rrf_k in _csv_ints(args.rrf_ks):
             for bm25_weight in _csv_floats(args.bm25_weights):
                 for name, reranker in rerankers.items():
-                    retriever = ExternalRetrieval(
-                        transport=hybrid_transport(
-                            embedding=embedding,
-                            dense=dense,
-                            bm25=bm25,
-                            top_k=args.top_k,
-                            pool=pool,
-                            dense_k=args.dense_k,
-                            bm25_k=args.bm25_k,
-                            bm25_weight=bm25_weight,
-                            rrf_k=rrf_k,
-                            reranker=reranker,
-                        )
+                    retriever = hybrid_retriever_from_params(
+                        embedding=embedding,
+                        dense=dense,
+                        bm25=bm25,
+                        top_k=args.top_k,
+                        pool=pool,
+                        dense_k=args.dense_k,
+                        bm25_k=args.bm25_k,
+                        bm25_weight=bm25_weight,
+                        rrf_k=rrf_k,
+                        reranker=reranker,
                     )
                     report = evaluate_retriever(retriever)
                     row = {

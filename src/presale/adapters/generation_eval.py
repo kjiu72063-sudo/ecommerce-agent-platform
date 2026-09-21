@@ -27,7 +27,6 @@ from agent_platform_contracts.models import ActorRef, ActorType
 from ..cli import load_catalog
 from ..contracts import ProductQuestion
 from ..runner import PresaleQaRunner
-from .openai_generator import OpenAICompatibleGenerator, default_transport
 
 Transport = Callable[..., dict[str, Any]]
 
@@ -492,6 +491,7 @@ def _key(row: dict[str, Any]) -> str:
 
 def main(argv: list[str] | None = None) -> None:
     from .hybrid_retrieval import hybrid_retriever_from_env
+    from .openai_generator import OpenAICompatibleGenerator, default_transport
 
     parser = argparse.ArgumentParser(description="Generation faithfulness evaluation.")
     parser.add_argument("--snapshot", help="snapshot path for regression compare")
