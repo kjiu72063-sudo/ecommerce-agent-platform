@@ -145,3 +145,56 @@ class PresaleRuntimeFactory:
             **ports,
         )
         return factory, store
+
+    @classmethod
+    def create_postgres(
+        cls,
+        *,
+        dsn: str | None = None,
+        definition_repository,
+        definition_selectors: dict[str, dict[str, str]],
+        sources,
+        generator=None,
+        retriever=None,
+    ) -> tuple["PresaleRuntimeFactory", "PostgresPresaleStore"] | tuple[None, None]:
+        """Create a production assembly backed by PostgreSQL.
+
+        ``dsn`` defaults to ``PRESALE_PG_DSN`` env var. Returns
+        ``(None, None)`` when no DSN is available.
+        """
+        from .adapters.postgres import (
+            PostgresAnswerDraftRepository,
+            PostgresDispositionRepository,
+            PostgresEvidenceRepository,
+            PostgresIdempotencyRepository,
+            PostgresPresaleStore,
+            PostgresProductQuestionRepository,
+            PostgresRunTraceRepository,
+        )
+
+        dsn = dsn or os.environ.get("PRESALE_PG_DSN")
+        if not dsn:
+            return None, None
+
+        store = PostgresPresaleStore(dsn=dsn)
+        ports = {
+            "question_repo": PostgresProductQuestionRepository(store),
+            "evidence_repo": PostgresEvidenceRepository(store),
+            "answer_repo": PostgresAnswerDraftRepository(store),
+            "disposition_repo": PostgresDispositionRepository(store),
+            "trace_repo": PostgresRunTraceRepository(store),
+            "idempotency_repo": PostgresIdempotencyRepository(store),
+        }
+        generator = generator if generator is not None else openai_generator_from_env()
+        if generator is not None:
+            ports["generator"] = generator
+        retriever = retriever if retriever is not None else external_retriever_from_env()
+        if retriever is not None:
+            ports["retriever"] = retriever
+        factory = cls(
+            definition_repository=definition_repository,
+            definition_selectors=definition_selectors,
+            sources=sources,
+            **ports,
+        )
+        return factory, store
