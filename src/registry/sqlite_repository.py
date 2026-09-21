@@ -54,7 +54,7 @@ class SQLiteDefinitionRepository(InMemoryDefinitionRepository):
         self._load()
 
     async def get_audit_logs(
-        self, resource_id: str = None, actor_id: str = None, limit: int = 100
+        self, resource_id: str | None = None, actor_id: str | None = None, limit: int = 100
     ) -> list[dict]:
         query = "SELECT * FROM audit_logs"
         conditions = []

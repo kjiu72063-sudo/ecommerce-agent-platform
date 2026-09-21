@@ -31,7 +31,9 @@ class TaskRepository(ABC):
         pass
 
     @abstractmethod
-    async def update_task_status(self, task_id: str, phase: str, updates: dict = None) -> bool:
+    async def update_task_status(
+        self, task_id: str, phase: str, updates: dict | None = None
+    ) -> bool:
         """更新任务状态"""
         pass
 
@@ -72,7 +74,7 @@ class RunRepository(ABC):
         pass
 
     @abstractmethod
-    async def update_run_status(self, run_id: str, phase: str, updates: dict = None) -> bool:
+    async def update_run_status(self, run_id: str, phase: str, updates: dict | None = None) -> bool:
         """更新 AgentRun 状态"""
         pass
 

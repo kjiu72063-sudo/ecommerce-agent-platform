@@ -35,7 +35,9 @@ class InMemoryTaskRepository(TaskRepository):
         task = self._tasks.get(task_id)
         return copy.deepcopy(task) if task else None
 
-    async def update_task_status(self, task_id: str, phase: str, updates: dict = None) -> bool:
+    async def update_task_status(
+        self, task_id: str, phase: str, updates: dict | None = None
+    ) -> bool:
         task = self._tasks.get(task_id)
         if not task:
             return False
@@ -93,7 +95,7 @@ class InMemoryRunRepository(RunRepository):
         run = self._runs.get(run_id)
         return copy.deepcopy(run) if run else None
 
-    async def update_run_status(self, run_id: str, phase: str, updates: dict = None) -> bool:
+    async def update_run_status(self, run_id: str, phase: str, updates: dict | None = None) -> bool:
         run = self._runs.get(run_id)
         if not run:
             return False

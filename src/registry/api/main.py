@@ -39,7 +39,7 @@ class ApiResponse(BaseModel):
     """统一响应格式"""
 
     status: str = "success"
-    data: dict = None
+    data: dict | None = None
     error: Optional[str] = None
 
 
@@ -247,6 +247,7 @@ async def get_dependencies(definition_id: str, version: Optional[str] = None):
                 raise HTTPException(status_code=404, detail="Definition not found")
             version = obj["metadata"]["version"]
 
+        assert version is not None
         deps = await service.repo.get_dependencies(definition_id, version)
         return ApiResponse(status="success", data={"dependencies": deps})
     except HTTPException:

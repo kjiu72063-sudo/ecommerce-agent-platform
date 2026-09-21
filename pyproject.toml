@@ -71,9 +71,7 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.pyright]
-# registry/ and runtime/ have 39 pre-existing type errors from B1/B2 prototype phase;
-# add them after a dedicated type-fix pass to avoid blocking CI.
-include = ["src/presale", "src/agent_runtime", "src/context"]
+include = ["src/presale", "src/agent_runtime", "src/context", "src/registry", "src/runtime"]
 pythonVersion = "3.13"
 typeCheckingMode = "basic"
 reportMissingTypeStubs = false

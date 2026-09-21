@@ -34,8 +34,8 @@ class EventStore:
         subject_id: str,
         subject_kind: str,
         data: dict,
-        trace_id: str = None,
-        span_id: str = None,
+        trace_id: str | None = None,
+        span_id: str | None = None,
     ) -> str:
         """发布事件"""
         sequence = await self.event_repo.get_next_sequence(subject_id)
