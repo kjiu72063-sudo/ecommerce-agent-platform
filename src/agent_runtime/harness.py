@@ -20,6 +20,18 @@ class LoopDecision(StrEnum):
 
 
 @dataclass
+class StepContext:
+    """Information Harness passes to Agent between steps in a multi-step loop.
+
+    First step gets ``None``; subsequent steps carry the previous step's index
+    and tool_calls so the Agent can adapt its behaviour.
+    """
+
+    step_index: int
+    previous_tool_calls: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass
 class AgentRunResult:
     """The raw result an Agent produces from one execution."""
 
@@ -53,15 +65,27 @@ class AgentOutcome:
 class Agent(Protocol):
     """A reusable business capability driven by the Harness."""
 
-    async def run(self, question: Any) -> AgentRunResult: ...
+    async def run(
+        self, question: Any, step_context: StepContext | None = None
+    ) -> AgentRunResult: ...
 
 
-class Loop:
-    """Decide, after each AgentStep, whether to continue or reach a terminal.
+class LoopStrategy(Protocol):
+    """Injectable decision strategy for multi-step agent loops.
+
+    Any object with a ``decide(step) -> LoopDecision`` method satisfies this
+    protocol — no inheritance required (structural typing).
+    """
+
+    def decide(self, step: AgentStep) -> LoopDecision: ...
+
+
+class SinglePassLoop:
+    """Default loop strategy: finalize or need_human on every step, never continue.
 
     Safe by default: a step that needs human review is terminal (never loops
     again); a completed step finalizes. The single-step presale agent never
-    triggers ``CONTINUE``; multi-step looping is exercised by other agents.
+    triggers ``CONTINUE``.
     """
 
     def decide(self, step: AgentStep) -> LoopDecision:
@@ -70,11 +94,15 @@ class Loop:
         return LoopDecision.FINALIZE
 
 
+# Backward-compatible alias: existing code using `Loop()` continues to work.
+Loop = SinglePassLoop
+
+
 class Harness:
     """Execute an Agent, record steps, and run the Loop to a terminal decision."""
 
-    def __init__(self, *, loop: Loop | None = None, max_steps: int = 5):
-        self._loop = loop or Loop()
+    def __init__(self, *, loop: LoopStrategy | None = None, max_steps: int = 5):
+        self._loop = loop or SinglePassLoop()
         self._max_steps = max_steps
 
     async def execute(self, question: Any, agent: Agent) -> AgentOutcome:
@@ -136,6 +164,8 @@ __all__ = [
     "Harness",
     "Loop",
     "LoopDecision",
+    "LoopStrategy",
+    "SinglePassLoop",
     "TerminalDecision",
     "format_outcome",
 ]

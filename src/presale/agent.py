@@ -14,7 +14,7 @@ class PresaleAgent:
     def __init__(self, runner: PresaleQaRunner):
         self._runner = runner
 
-    async def run(self, question: ProductQuestion) -> AgentRunResult:
+    async def run(self, question: ProductQuestion, step_context=None) -> AgentRunResult:
         result = await self._runner.ask(question)
         return AgentRunResult(
             run_ref=result.run_ref,
