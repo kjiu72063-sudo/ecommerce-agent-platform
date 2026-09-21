@@ -37,6 +37,7 @@
   },
   "tenant-demo/product-003::刚下过雨的石板坡上走会不会滑": {
     "expected": [
+      "spec_sole",
       "wet_grip"
     ],
     "rank": 1
@@ -417,13 +418,13 @@
     "expected": [
       "spec_material"
     ],
-    "rank": 2
+    "rank": 1
   },
   "tenant-demo/product-002::这羽绒服冬天穿抗冻不？里头塞的啥绒啊，厚实不？": {
     "expected": [
       "spec_fill"
     ],
-    "rank": 3
+    "rank": 1
   },
   "tenant-demo/product-002::这玩意儿扛得住东北大冬天不？会不会冻成冰棍啊？": {
     "expected": [
@@ -435,13 +436,13 @@
     "expected": [
       "spec_material"
     ],
-    "rank": null
+    "rank": 1
   },
   "tenant-demo/product-003::这鞋底儿防滑咋样啊？我上次下雨差点出溜倒了，心里阴影老大了。": {
     "expected": [
       "spec_sole"
     ],
-    "rank": 2
+    "rank": 1
   },
   "tenant-demo/product-004::这玩意儿充满一次能用多久？我老忘充电，怕带出去一会儿就没电了。": {
     "expected": [
@@ -453,7 +454,7 @@
     "expected": [
       "spec_noise"
     ],
-    "rank": 2
+    "rank": 1
   },
   "tenant-demo/product-005::这手环是不是能一天到晚都盯着我心跳和血氧啊？不带停的？": {
     "expected": [
@@ -477,7 +478,7 @@
     "expected": [
       "spec_fold"
     ],
-    "rank": 2
+    "rank": 1
   },
   "tenant-acme/product-102::这玩意儿过滤效果行不行啊？家里有老人小孩，怕空气里有病菌啥的能挡住不？": {
     "expected": [
@@ -489,7 +490,7 @@
     "expected": [
       "spec_cadr"
     ],
-    "rank": 2
+    "rank": 1
   },
   "tenant-other/product-201::这个储粮桶一次能装多少斤猫粮哇？我家那只吃货怕不是几天就干完了？": {
     "expected": [
@@ -525,7 +526,7 @@
     "expected": [
       "spec_map"
     ],
-    "rank": 2
+    "rank": 1
   },
   "tenant-demo/product-008::这个腰托能不能调啊？我坐着老是腰酸。": {
     "expected": [
@@ -543,7 +544,7 @@
     "expected": [
       "spec_waterproof"
     ],
-    "rank": 2
+    "rank": 1
   },
   "tenant-acme/product-103::我们俩一人一个气垫床，塞进去会不会挤得没法转身？": {
     "expected": [
@@ -597,7 +598,7 @@
     "expected": [
       "spec_material"
     ],
-    "rank": 2
+    "rank": 1
   },
   "tenant-demo/product-011::这帽子戴上能挡太阳不？晒不晒脸啊？": {
     "expected": [
@@ -633,13 +634,13 @@
     "expected": [
       "spec_cup"
     ],
-    "rank": 2
+    "rank": 1
   },
   "tenant-acme/product-107::这款睡久了腰会不得劲吗？": {
     "expected": [
       "spec_firmness"
     ],
-    "rank": null
+    "rank": 1
   },
   "tenant-acme/product-107::这个护腰对我这种腰不行的人管用吗？怕戴了跟没戴一样……": {
     "expected": [
