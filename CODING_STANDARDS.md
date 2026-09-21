@@ -5,7 +5,7 @@
 
 ## 门禁范围
 - lint/format：`ruff check/format src`
-- 类型：`pyright`（限定 `src/presale` + `src/agent_runtime`）
+- 类型：`pyright`（限定 `src/presale` + `src/agent_runtime` + `src/context`）
 - 测试：`pytest`（tests/）
 
 ## 评审必查规则
@@ -21,6 +21,11 @@
 
 3. **跨边界只依赖端口/契约**
    业务模块不得依赖其它业务模块的具体实现；新代码只依赖既有端口（`RetrievalPort` / `GeneratorPort` / Repository 端口）或契约对象。
+
+4. **LoopStrategy 与 Agent 协议变更**
+   - 新增 LoopStrategy 必须通过 `Harness.execute` 验证（不直接测试内部实现）；
+   - `Agent.run` 签名变更需同步更新所有测试替身（FakeAgent 等），不允许只改实现不改测试；
+   - `LoopDecision` 枚举变更需同步更新 `Harness.execute` 的决策分支。
 
 ## 流程收敛判据
 - 连续 2 轮审计无新增中/高危缺陷、且无新纪律违规 → 视为收敛，**停止审计-修复循环**（改为按需 review）。
