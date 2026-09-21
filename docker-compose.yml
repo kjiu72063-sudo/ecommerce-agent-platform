@@ -67,8 +67,25 @@ services:
   #   volumes:
   #     - neo4j_data:/data
 
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: presale
+      POSTGRES_USER: presale
+      POSTGRES_PASSWORD: presale
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U presale -d presale"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
 volumes:
   qdrant_data:
   etcd_data:
   milvus_data:
+  postgres_data:
   # neo4j_data:
