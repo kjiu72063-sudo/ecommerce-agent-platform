@@ -108,8 +108,13 @@ class Harness:
     async def execute(self, question: Any, agent: Agent) -> AgentOutcome:
         steps: list[AgentStep] = []
         last: AgentRunResult | None = None
-        for _ in range(self._max_steps):
-            last = await agent.run(question)
+        for i in range(self._max_steps):
+            ctx = (
+                StepContext(step_index=i + 1, previous_tool_calls=list(steps[-1].tool_calls))
+                if i > 0
+                else None
+            )
+            last = await agent.run(question, step_context=ctx)
             steps.append(
                 AgentStep(
                     index=len(steps) + 1,
