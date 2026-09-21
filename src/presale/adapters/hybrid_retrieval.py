@@ -331,6 +331,40 @@ def index_hybrid(
     return len(points)
 
 
+def hybrid_retriever_from_params(
+    *,
+    embedding: Embedding,
+    dense: MilvusDense,
+    bm25: BM25Index,
+    top_k: int = 5,
+    rrf_k: int = 60,
+    pool: int | None = None,
+    dense_k: int | None = None,
+    bm25_k: int | None = None,
+    bm25_weight: float = 1.0,
+    reranker: Callable[[str, list[dict[str, Any]]], list[dict[str, Any]]] | None = None,
+) -> ExternalRetrieval:
+    """Build an ExternalRetrieval (port) with explicit hybrid parameters.
+
+    Unlike :func:`hybrid_retriever_from_env`, this factory accepts all fusion
+    parameters explicitly, making it suitable for parameter sweeps and tests.
+    """
+    return ExternalRetrieval(
+        transport=hybrid_transport(
+            embedding=embedding,
+            dense=dense,
+            bm25=bm25,
+            top_k=top_k,
+            rrf_k=rrf_k,
+            pool=pool,
+            dense_k=dense_k,
+            bm25_k=bm25_k,
+            bm25_weight=bm25_weight,
+            reranker=reranker,
+        )
+    )
+
+
 def hybrid_retriever_from_env() -> ExternalRetrieval | None:
     """Build a Hybrid external retriever when PRESALE_MILVUS_URI is set."""
     uri = os.environ.get("PRESALE_MILVUS_URI")

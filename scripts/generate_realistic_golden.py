@@ -20,7 +20,6 @@ import os
 import re
 
 from presale.adapters.generation_eval import llm_config
-from presale.adapters.openai_generator import default_transport
 from presale.cli import load_catalog
 
 # Locators we prefer to generate realistic queries for (fact chunks). description/
@@ -72,6 +71,8 @@ def _pick_locators(fields: dict) -> list[str]:
 
 
 def _chat(prompt: str, base_url: str, model: str, api_key: str) -> str:
+    from presale.adapters.openai_generator import default_transport
+
     completion = default_transport(
         api_key=api_key,
         base_url=base_url,

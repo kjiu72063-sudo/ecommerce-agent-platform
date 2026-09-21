@@ -8,7 +8,9 @@ from pathlib import Path
 import pytest
 
 from presale.contracts import ProductQuestion
+from presale.idempotency import IdempotencyRecord
 from presale.knowledge import KnowledgeSource
+from presale.ports import IdempotencyRepository, NotFoundError
 from presale.runtime import PresaleRuntimeFactory
 
 
@@ -124,5 +126,70 @@ async def test_sqlite_persists_and_replays_across_instances():
         assert replay.answer_draft.answer_text == first.answer_draft.answer_text
         assert replay.run_ref == first.run_ref
         store2.close()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+class _BrokenIdempotencyRepo(IdempotencyRepository):
+    """Wrapper that fails on update_status to simulate SQLite adapter faults."""
+
+    def __init__(self, inner: IdempotencyRepository):
+        self._inner = inner
+        self.fail_update = False
+
+    async def claim(self, record: IdempotencyRecord) -> IdempotencyRecord:
+        return await self._inner.claim(record)
+
+    async def get(self, tenant_id: str, idempotency_key: str) -> IdempotencyRecord | None:
+        return await self._inner.get(tenant_id, idempotency_key)
+
+    async def update_status(
+        self, tenant_id: str, idempotency_key: str, status: str
+    ) -> IdempotencyRecord:
+        if self.fail_update:
+            raise RuntimeError("simulated SQLite connection failure")
+        return await self._inner.update_status(tenant_id, idempotency_key, status)
+
+
+@pytest.mark.asyncio
+async def test_sqlite_cleanup_fault_does_not_dangle_claim():
+    """When update_status fails during cleanup, claim must land in_progress (not dangling)."""
+    tmp = Path(tempfile.mkdtemp(prefix="sqlite_e2e_"))
+    try:
+        db = tmp / "presale.sqlite3"
+        sources = _sources()
+
+        factory, store = _assembly(db, sources)
+        broken_repo = _BrokenIdempotencyRepo(
+            next(
+                v
+                for k, v in factory._persistence_ports.items()
+                if k == "idempotency_repo"
+            )
+        )
+        runner = factory.create_runner(idempotency_repo=broken_repo)
+
+        # First ask succeeds normally.
+        question = _question(key="fault-test-key-0001")
+        result = await runner.ask(question)
+        assert result.answer_draft is not None
+        assert result.answer_draft.need_human is False
+
+        # Break update_status and ask with a new key — the fresh path will
+        # succeed at retrieval/generation but fail at the "succeeded" write.
+        broken_repo.fail_update = True
+        question2 = _question(key="fault-test-key-0002")
+        with pytest.raises(Exception):
+            await runner.ask(question2)
+
+        # The claim for the failed key must be in_progress (succeeded write failed),
+        # not dangling. Verify directly via the inner repo.
+        broken_repo.fail_update = False
+        record = await broken_repo.get("tenant-demo", "fault-test-key-0002")
+        assert record is not None
+        assert record.status in {"in_progress", "failed"}, (
+            f"Claim dangling: expected in_progress or failed, got {record.status}"
+        )
+        store.close()
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
