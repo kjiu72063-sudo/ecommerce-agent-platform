@@ -109,19 +109,6 @@ class Harness:
         )
 
 
-__all__ = [
-    "Agent",
-    "AgentOutcome",
-    "AgentRunResult",
-    "AgentStep",
-    "Harness",
-    "Loop",
-    "LoopDecision",
-    "TerminalDecision",
-    "format_outcome",
-]
-
-
 def format_outcome(outcome: AgentOutcome) -> dict[str, Any]:
     """Render an AgentOutcome as observable, machine-readable output."""
     return {
@@ -139,3 +126,16 @@ def format_outcome(outcome: AgentOutcome) -> dict[str, Any]:
         "answer_text": outcome.answer_draft.answer_text if outcome.answer_draft else None,
         "need_human": outcome.answer_draft.need_human if outcome.answer_draft else None,
     }
+
+
+__all__ = [
+    "Agent",
+    "AgentOutcome",
+    "AgentRunResult",
+    "AgentStep",
+    "Harness",
+    "Loop",
+    "LoopDecision",
+    "TerminalDecision",
+    "format_outcome",
+]

@@ -75,12 +75,13 @@ BM25 为进程内（CJK 字级分词）；Milvus 稠密点按 `tenant_id`/`produ
 ```text
 src/
 ├── agent_platform_contracts/  # B0 唯一运行时包和契约资产
-├── registry/                  # B1 能力注册中心
-├── runtime/                   # B2 状态与持久化
-├── context/                   # B3 Context 引擎
-└── presale/                   # B1 售前商品问答 V1 切片（幂等/SQLite/生产装配）
+├── registry/                  # B1 能力注册中心（Tool/Skill/Prompt CRUD + 依赖解析）
+├── runtime/                   # B2 状态与持久化（Task/AgentRun/Event/Checkpoint 生命周期）
+├── context/                   # B3 Context 引擎（组装/去重/预算校验）
+├── agent_runtime/             # B4 Harness/Loop/Agent 可复用执行层（非 B2 runtime）
+└── presale/                   # 售前商品问答 V1 业务切片（幂等/SQLite/RAG/装配）
 
-tests/                         # 根级规范测试
+tests/                         # 根级规范测试（tests/b1, tests/b2, tests/b3）
 B0-契约基础/contracts/          # B0 契约包来源与交付材料
 B0-契约基础/从零实现/            # 历史/教学实现，不是运行时权威来源
 开发文档/                       # 设计、实现和阶段指南

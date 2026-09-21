@@ -65,4 +65,5 @@
 
 - `max_steps` 默认 5（决策 D-B5）；是否需要运行时可配置留待 ticket 阶段定。
 - 决策信号来源：本轮为 AgentStep 的 `need_human` + 步数计数；置信度驱动留待后续。
+- **`CONTINUE` 分支状态**：`Loop.decide` 的 `CONTINUE` 返回值结构性存在但当前永不触发——默认 `Loop` 实现对非 `need_human` 步骤直接 `FINALIZE`。多步工具循环的 `continue` 触发、可配置迭代策略（single_pass/react/repair/ralph）属于 **B5 Loop 引擎** 范围，不在本 Harness 最小闭环范围内。
 - 发布到 issue tracker 时打 `ready-for-agent` 标签。
