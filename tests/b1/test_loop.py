@@ -349,3 +349,144 @@ async def test_format_outcome_renders_multi_step():
     assert len(result["steps"]) == 2
     assert result["steps"][0]["index"] == 1
     assert result["steps"][1]["index"] == 2
+
+
+# --- B5 T03: RetryOnLowEvidenceLoop ---
+
+
+from agent_runtime.harness import RetryOnLowEvidenceLoop
+
+
+class SteppedAgent:
+    """Agent that returns different tool_calls per step to simulate varied evidence."""
+
+    def __init__(self, step_results: list[list[dict]]):
+        self._step_results = step_results
+        self.calls = 0
+
+    async def run(self, question, step_context=None):
+        idx = min(self.calls, len(self._step_results) - 1)
+        tool_calls = self._step_results[idx]
+        self.calls += 1
+        need = any(
+            tc.get("status") in ("no_evidence", "conflict", "out_of_scope")
+            and not any(t.get("status") == "matched" for t in tool_calls)
+            for tc in tool_calls
+        )
+        return AgentRunResult(
+            run_ref="run_stepped",
+            need_human=False,
+            tool_calls=tool_calls,
+            answer_draft=f"draft_{self.calls}",
+        )
+
+
+@pytest.mark.asyncio
+async def test_retry_evidence_found_finalize_immediately():
+    """T04: Evidence matched -> FINALIZE, 1 step."""
+    agent = SteppedAgent(step_results=[[{"tool": "retrieve", "status": "matched"}]])
+    harness = Harness(loop=RetryOnLowEvidenceLoop(), max_steps=5)
+
+    outcome = await harness.execute(question(), agent)
+
+    assert outcome.terminal is TerminalDecision.FINALIZE
+    assert len(outcome.steps) == 1
+    assert agent.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_retry_no_evidence_then_matched():
+    """T05: No evidence -> CONTINUE -> matched -> FINALIZE, 2 steps."""
+    agent = SteppedAgent(
+        step_results=[
+            [{"tool": "retrieve", "status": "no_evidence"}],
+            [{"tool": "retrieve", "status": "matched"}],
+        ]
+    )
+    harness = Harness(loop=RetryOnLowEvidenceLoop(max_retries=2), max_steps=5)
+
+    outcome = await harness.execute(question(), agent)
+
+    assert outcome.terminal is TerminalDecision.FINALIZE
+    assert len(outcome.steps) == 2
+    assert agent.calls == 2
+
+
+@pytest.mark.asyncio
+async def test_retry_no_evidence_exhausts_retries():
+    """T06: No evidence -> continuous -> MAX_STEPS (max_retries+1 steps)."""
+    agent = SteppedAgent(
+        step_results=[[{"tool": "retrieve", "status": "no_evidence"}]]
+    )
+    harness = Harness(loop=RetryOnLowEvidenceLoop(max_retries=2), max_steps=5)
+
+    outcome = await harness.execute(question(), agent)
+
+    assert outcome.terminal is TerminalDecision.MAX_STEPS
+    assert len(outcome.steps) == 3  # 1 initial + 2 retries
+    assert agent.calls == 3
+
+
+@pytest.mark.asyncio
+async def test_retry_need_human_stops_mid_retry():
+    """T07: No evidence -> CONTINUE -> need_human=True -> NEED_HUMAN."""
+
+    class NeedHumanOnSecondStep:
+        def __init__(self):
+            self.calls = 0
+
+        async def run(self, question, step_context=None):
+            self.calls += 1
+            if self.calls == 1:
+                return AgentRunResult(
+                    run_ref="run_nh",
+                    need_human=False,
+                    tool_calls=[{"tool": "retrieve", "status": "no_evidence"}],
+                )
+            return AgentRunResult(run_ref="run_nh", need_human=True, tool_calls=[])
+
+    agent = NeedHumanOnSecondStep()
+    harness = Harness(loop=RetryOnLowEvidenceLoop(max_retries=3), max_steps=5)
+
+    outcome = await harness.execute(question(), agent)
+
+    assert outcome.terminal is TerminalDecision.NEED_HUMAN
+    assert len(outcome.steps) == 2
+    assert agent.calls == 2
+
+
+def test_retry_max_retries_configurable():
+    """RetryOnLowEvidenceLoop accepts custom max_retries."""
+    loop = RetryOnLowEvidenceLoop(max_retries=5)
+    assert loop._max_retries == 5
+
+
+@pytest.mark.asyncio
+async def test_retry_default_max_retries():
+    """RetryOnLowEvidenceLoop defaults to max_retries=2."""
+    agent = SteppedAgent(
+        step_results=[[{"tool": "retrieve", "status": "no_evidence"}]]
+    )
+    harness = Harness(loop=RetryOnLowEvidenceLoop(), max_steps=10)
+
+    outcome = await harness.execute(question(), agent)
+
+    assert outcome.terminal is TerminalDecision.MAX_STEPS
+    assert len(outcome.steps) == 3  # 1 initial + 2 default retries
+
+
+@pytest.mark.asyncio
+async def test_retry_with_conflict_status():
+    """Conflict evidence also triggers CONTINUE (not just no_evidence)."""
+    agent = SteppedAgent(
+        step_results=[
+            [{"tool": "retrieve", "status": "conflict"}],
+            [{"tool": "retrieve", "status": "matched"}],
+        ]
+    )
+    harness = Harness(loop=RetryOnLowEvidenceLoop(max_retries=2), max_steps=5)
+
+    outcome = await harness.execute(question(), agent)
+
+    assert outcome.terminal is TerminalDecision.FINALIZE
+    assert len(outcome.steps) == 2
