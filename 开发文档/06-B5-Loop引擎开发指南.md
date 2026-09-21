@@ -1,9 +1,18 @@
 # B5 Loop 引擎开发指南
 
-> 文档版本：1.0.0
+> **⚠️ 已废弃**：本文件是 B5 的早期规划文档（2026-09-01），已被实际实现取代。
+> 权威来源：
+> - 设计：`docs/spec-b5-loop-engine.md`
+> - 领域模型：`docs/domain-model-b4b6.md`
+> - 领域决策：`docs/domain-decisions.md`（D-B9~D-B14）
+> - ADR：`docs/adr/0001-agent-protocol-step-context.md`
+> - 复盘：`docs/retro-b5b6-loop-engine.md`
+
+> 文档版本：1.0.0（已废弃）
 > 创建日期：2026-09-01
+> 废弃日期：2026-09-21
 > 前置依赖：B4 Agent 执行器
-> 预计工期：3-4 周
+> 预计工期：3-4 周（实际 1 天完成）
 
 ---
 
