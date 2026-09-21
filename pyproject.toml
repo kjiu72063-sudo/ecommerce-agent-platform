@@ -36,6 +36,9 @@ hybrid = [
 embedding = [
     "sentence-transformers>=2.7,<5.0",
 ]
+postgres = [
+    "asyncpg>=0.29,<1.0",
+]
 
 [project.scripts]
 presale-qa-api = "presale.api.qa:main"
