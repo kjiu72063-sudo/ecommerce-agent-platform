@@ -33,7 +33,7 @@ class FakeAgent:
         self.need_human = need_human
         self.calls = 0
 
-    async def run(self, question):
+    async def run(self, question, step_context=None):
         self.calls += 1
         return AgentRunResult(run_ref="run_x", need_human=self.need_human)
 
@@ -218,3 +218,134 @@ def test_presale_agent_accepts_step_context():
     sig = inspect.signature(PresaleAgent.run)
     params = list(sig.parameters.keys())
     assert "step_context" in params, f"PresaleAgent.run params: {params}"
+
+
+# --- B5 T02: Harness multi-step loop + StepContext passing ---
+
+
+class ContextTrackingAgent:
+    """FakeAgent that records step_context received at each step."""
+
+    def __init__(self, *, need_human=False, tool_calls=None):
+        self.need_human = need_human
+        self._tool_calls = tool_calls or []
+        self.received_contexts: list[StepContext | None] = []
+        self.calls = 0
+
+    async def run(self, question, step_context=None):
+        self.received_contexts.append(step_context)
+        self.calls += 1
+        return AgentRunResult(
+            run_ref="run_track",
+            need_human=self.need_human,
+            tool_calls=list(self._tool_calls),
+        )
+
+
+class AlwaysContinueLoop:
+    def decide(self, step):
+        return LoopDecision.CONTINUE
+
+
+class ContinueThenFinalize:
+    def __init__(self, continues=2):
+        self._continues = continues
+
+    def decide(self, step):
+        if step.index <= self._continues:
+            return LoopDecision.CONTINUE
+        return LoopDecision.FINALIZE
+
+
+@pytest.mark.asyncio
+async def test_step_context_none_on_first_step():
+    """First step receives step_context=None."""
+    agent = ContextTrackingAgent()
+    harness = Harness(loop=ContinueThenFinalize(continues=0), max_steps=5)
+
+    await harness.execute(question(), agent)
+
+    assert agent.received_contexts[0] is None
+
+
+@pytest.mark.asyncio
+async def test_step_context_passed_on_subsequent_steps():
+    """Step N+1 receives StepContext with N's index and tool_calls."""
+    tool_calls_step1 = [{"tool": "retrieve", "status": "no_evidence"}]
+    agent = ContextTrackingAgent(tool_calls=tool_calls_step1)
+    harness = Harness(loop=ContinueThenFinalize(continues=1), max_steps=5)
+
+    await harness.execute(question(), agent)
+
+    assert len(agent.received_contexts) == 2  # step1 + step2
+    assert agent.received_contexts[0] is None
+    ctx2 = agent.received_contexts[1]
+    assert ctx2 is not None
+    assert ctx2.step_index == 2
+    assert ctx2.previous_tool_calls == tool_calls_step1
+
+
+@pytest.mark.asyncio
+async def test_max_steps_terminal_outputs_last_answer_draft():
+    """MAX_STEPS terminal includes last step's answer_draft (D-B11)."""
+
+    class DraftAgent:
+        def __init__(self):
+            self.calls = 0
+
+        async def run(self, question, step_context=None):
+            self.calls += 1
+            return AgentRunResult(
+                run_ref="run_draft",
+                need_human=False,
+                answer_draft=f"draft_step_{self.calls}",
+            )
+
+    agent = DraftAgent()
+    harness = Harness(loop=AlwaysContinueLoop(), max_steps=3)
+
+    outcome = await harness.execute(question(), agent)
+
+    assert outcome.terminal is TerminalDecision.MAX_STEPS
+    assert outcome.answer_draft == "draft_step_3"
+    assert len(outcome.steps) == 3
+
+
+@pytest.mark.asyncio
+async def test_agent_exception_propagates_from_multi_step():
+    """Agent exception at step 2 propagates uncaught (D-B13)."""
+
+    class FailOnSecondStep:
+        def __init__(self):
+            self.calls = 0
+
+        async def run(self, question, step_context=None):
+            self.calls += 1
+            if self.calls >= 2:
+                raise RuntimeError("step 2 failure")
+            return AgentRunResult(run_ref="run_fail", need_human=False)
+
+    agent = FailOnSecondStep()
+    harness = Harness(loop=AlwaysContinueLoop(), max_steps=5)
+
+    with pytest.raises(RuntimeError, match="step 2 failure"):
+        await harness.execute(question(), agent)
+
+    assert agent.calls == 2  # step1 succeeded, step2 raised
+
+
+@pytest.mark.asyncio
+async def test_format_outcome_renders_multi_step():
+    """format_outcome correctly renders multi-step outcome."""
+    from agent_runtime.harness import format_outcome
+
+    agent = ContextTrackingAgent(tool_calls=[{"tool": "retrieve"}])
+    harness = Harness(loop=ContinueThenFinalize(continues=1), max_steps=5)
+
+    outcome = await harness.execute(question(), agent)
+    result = format_outcome(outcome)
+
+    assert result["terminal"] == "finalize"
+    assert len(result["steps"]) == 2
+    assert result["steps"][0]["index"] == 1
+    assert result["steps"][1]["index"] == 2
