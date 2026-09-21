@@ -32,7 +32,7 @@ GOLDEN: list[tuple[str, str, str, set[str]]] = [
     ("tenant-demo", "product-002", "在户外冻很久会抵抗得住吗", {"extreme_cold"}),
     ("tenant-demo", "product-002", "这东西能扔进机器里搅洗吗", {"care"}),
     ("tenant-demo", "product-002", "下点小雪花它能挡一挡吗", {"spec_waterproof"}),
-    ("tenant-demo", "product-003", "刚下过雨的石板坡上走会不会滑", {"wet_grip"}),
+    ("tenant-demo", "product-003", "刚下过雨的石板坡上走会不会滑", {"spec_sole", "wet_grip"}),
     ("tenant-demo", "product-003", "鞋底够不够厚，踩石子路硌脚吗", {"rough_ground"}),
     ("tenant-demo", "product-004", "车厢里很吵，打电话对方听得清吗", {"call_quality"}),
     ("tenant-demo", "product-004", "充满一次能连续撑上大半天吗", {"spec_battery"}),
