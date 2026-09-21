@@ -190,10 +190,10 @@ class InMemoryDefinitionRepository(DefinitionRepository):
         resource_kind: str,
         actor_type: str,
         actor_id: str,
-        tenant_id: str = None,
-        before_state: dict = None,
-        after_state: dict = None,
-        details: dict = None,
+        tenant_id: str | None = None,
+        before_state: dict | None = None,
+        after_state: dict | None = None,
+        details: dict | None = None,
     ) -> None:
         """保存审计日志"""
         self._audit_logs.append(
@@ -212,7 +212,7 @@ class InMemoryDefinitionRepository(DefinitionRepository):
         )
 
     async def get_audit_logs(
-        self, resource_id: str = None, actor_id: str = None, limit: int = 100
+        self, resource_id: str | None = None, actor_id: str | None = None, limit: int = 100
     ) -> list[dict]:
         logs = self._audit_logs
         if resource_id:

@@ -65,11 +65,11 @@ class RegistryService:
         validated = model_class.model_validate(payload)
 
         # 2. 计算内容摘要（使用 mode='json' 确保 Decimal 等类型可序列化）
-        spec_dict = validated.spec.model_dump(mode="json")
+        spec_dict = validated.spec.model_dump(mode="json")  # type: ignore[reportAttributeAccessIssue]
         content_digest = canonical_sha256(spec_dict)
 
         # 3. 检查是否已存在
-        metadata = validated.metadata
+        metadata = validated.metadata  # type: ignore[reportAttributeAccessIssue]
         existing = await self.repo.get_by_nkv(metadata.namespace, metadata.key, metadata.version)
         if existing:
             raise ValueError(
@@ -106,7 +106,7 @@ class RegistryService:
     # ============================================================
 
     async def transition_state(
-        self, id: str, target_phase: str, reason: str = None, actor: dict = None
+        self, id: str, target_phase: str, reason: str | None = None, actor: dict | None = None
     ) -> dict:
         """迁移定义对象状态
 
@@ -184,7 +184,7 @@ class RegistryService:
             raise ValueError(f"Definition not found: {id}")
 
         # 使用 Pydantic 验证新 payload
-        kind = obj["kind"].lower().replace("-", "_")
+        kind: str = obj["kind"].lower().replace("-", "_")
         # 从 RESOURCE_MODELS 查找
         model_class = None
         for key, cls in RESOURCE_MODELS.items():
@@ -212,7 +212,7 @@ class RegistryService:
         validated = model_class.model_validate(payload)
 
         # 计算新的 content_digest
-        spec_dict = validated.spec.model_dump(mode="json")
+        spec_dict = validated.spec.model_dump(mode="json")  # type: ignore[reportAttributeAccessIssue]
         new_digest = canonical_sha256(spec_dict)
 
         # 更新对象
@@ -371,6 +371,6 @@ class RegistryService:
             source_id=source_id,
             source_version=source_version,
             target_id=ref["id"],
-            target_version=ref.get("version"),
+            target_version=ref["version"],
             dependency_type=dependency_type,
         )

@@ -54,7 +54,7 @@ class RunService:
     async def get_runs_by_task(self, task_id: str) -> list[dict]:
         return await self.run_repo.get_runs_by_task(task_id)
 
-    async def _transition(self, run_id: str, target: str, reason: str = None) -> dict:
+    async def _transition(self, run_id: str, target: str, reason: str | None = None) -> dict:
         run = await self.run_repo.get_run(run_id)
         if not run:
             raise ValueError(f"AgentRun not found: {run_id}")
@@ -117,5 +117,5 @@ class RunService:
             await self.event_store.publish("run.failed", run_id, "AgentRun", {"error": error})
         return {"id": run_id, "phase": "failed"}
 
-    async def cancel_run(self, run_id: str, reason: str = None) -> dict:
+    async def cancel_run(self, run_id: str, reason: str | None = None) -> dict:
         return await self._transition(run_id, "cancelled", reason)

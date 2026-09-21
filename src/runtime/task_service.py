@@ -118,7 +118,7 @@ class TaskService:
 
             return {"id": task_id, "phase": "running"}
 
-    async def complete_task(self, task_id: str, artifact_id: str = None) -> dict:
+    async def complete_task(self, task_id: str, artifact_id: str | None = None) -> dict:
         """完成任务"""
         async with self._transaction():
             task = await self.task_repo.get_task(task_id)
@@ -169,7 +169,7 @@ class TaskService:
 
             return {"id": task_id, "phase": "failed"}
 
-    async def cancel_task(self, task_id: str, reason: str = None) -> dict:
+    async def cancel_task(self, task_id: str, reason: str | None = None) -> dict:
         """取消任务"""
         async with self._transaction():
             task = await self.task_repo.get_task(task_id)

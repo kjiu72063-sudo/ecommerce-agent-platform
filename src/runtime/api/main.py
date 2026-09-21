@@ -35,7 +35,7 @@ def get_event_store() -> EventStore:
 
 class ApiResponse(BaseModel):
     status: str = "success"
-    data: dict = None
+    data: dict | None = None
     error: Optional[str] = None
 
 
@@ -129,7 +129,7 @@ async def start_task(task_id: str):
 
 
 @app.post("/api/v2/tasks/{task_id}/complete", response_model=ApiResponse)
-async def complete_task(task_id: str, artifact_id: str = None):
+async def complete_task(task_id: str, artifact_id: str | None = None):
     """完成任务"""
     try:
         service = get_task_service()
