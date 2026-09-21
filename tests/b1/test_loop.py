@@ -1,10 +1,12 @@
 """T03: Loop terminal semantics and the max_steps bound."""
 
+import inspect
 from datetime import datetime, timezone
 
 import pytest
 
 from agent_runtime.harness import (
+    Agent,
     AgentRunResult,
     Harness,
     Loop,
@@ -103,3 +105,116 @@ async def test_default_loop_finalizes_single_step_without_continue():
     assert outcome.terminal is TerminalDecision.FINALIZE
     assert len(outcome.steps) == 1
     assert agent.calls == 1
+
+
+# --- B5 T01: LoopStrategy Protocol + SinglePassLoop ---
+
+
+from agent_runtime.harness import LoopStrategy, SinglePassLoop, StepContext
+
+
+def test_single_pass_loop_need_human():
+    """SinglePassLoop returns NEED_HUMAN when step.need_human is True."""
+    loop = SinglePassLoop()
+    step_need = type("S", (), {"need_human": True})()
+    assert loop.decide(step_need) is LoopDecision.NEED_HUMAN
+
+
+def test_single_pass_loop_finalize():
+    """SinglePassLoop returns FINALIZE when step.need_human is False."""
+    loop = SinglePassLoop()
+    step_ok = type("S", (), {"need_human": False})()
+    assert loop.decide(step_ok) is LoopDecision.FINALIZE
+
+
+def test_loop_alias_is_single_pass_loop():
+    """Loop is an alias for SinglePassLoop (backward compatibility)."""
+    assert Loop is SinglePassLoop
+
+
+def test_single_pass_loop_satisfies_loop_strategy():
+    """SinglePassLoop satisfies the LoopStrategy Protocol (structural typing)."""
+    loop = SinglePassLoop()
+    # Protocol check: must have a decide method accepting AgentStep
+    assert hasattr(loop, "decide") and callable(loop.decide)
+
+
+@pytest.mark.asyncio
+async def test_harness_accepts_loop_strategy_protocol():
+    """Harness accepts any object satisfying LoopStrategy (not just Loop subclass)."""
+
+    class CustomStrategy:
+        def decide(self, step):
+            if step.need_human:
+                return LoopDecision.NEED_HUMAN
+            return LoopDecision.FINALIZE
+
+    agent = FakeAgent(need_human=False)
+    harness = Harness(loop=CustomStrategy(), max_steps=3)
+
+    outcome = await harness.execute(question(), agent)
+
+    assert outcome.terminal is TerminalDecision.FINALIZE
+    assert len(outcome.steps) == 1
+
+
+def test_step_context_creation():
+    """StepContext carries step_index and previous_tool_calls."""
+    ctx = StepContext(step_index=2, previous_tool_calls=[{"tool": "retrieve", "status": "no_evidence"}])
+    assert ctx.step_index == 2
+    assert len(ctx.previous_tool_calls) == 1
+    assert ctx.previous_tool_calls[0]["status"] == "no_evidence"
+
+
+@pytest.mark.asyncio
+async def test_agent_protocol_accepts_step_context():
+    """Agent.run accepts optional step_context (D-B10 / ADR-0001)."""
+
+    class ContextRecordingAgent:
+        def __init__(self):
+            self.received_ctx = None
+
+        async def run(self, question, step_context=None):
+            self.received_ctx = step_context
+            return AgentRunResult(run_ref="run_ctx", need_human=False)
+
+    agent = ContextRecordingAgent()
+    ctx = StepContext(step_index=2, previous_tool_calls=[{"tool": "retrieve"}])
+
+    # Calling with step_context should not raise
+    result = await agent.run(question(), step_context=ctx)
+
+    assert agent.received_ctx is ctx
+    assert result.run_ref == "run_ctx"
+
+
+@pytest.mark.asyncio
+async def test_agent_run_without_step_context_backward_compat():
+    """Agent.run called without step_context still works (backward compat)."""
+
+    class SimpleAgent:
+        async def run(self, question, step_context=None):
+            return AgentRunResult(run_ref="run_simple", need_human=False)
+
+    agent = SimpleAgent()
+    result = await agent.run(question())
+
+    assert result.run_ref == "run_simple"
+
+
+def test_agent_protocol_signature_includes_step_context():
+    """Agent Protocol declares step_context in its run signature."""
+    import inspect
+
+    sig = inspect.signature(Agent.run)
+    params = list(sig.parameters.keys())
+    assert "step_context" in params, f"Agent.run params: {params}"
+
+
+def test_presale_agent_accepts_step_context():
+    """PresaleAgent.run signature accepts step_context parameter."""
+    from presale.agent import PresaleAgent
+
+    sig = inspect.signature(PresaleAgent.run)
+    params = list(sig.parameters.keys())
+    assert "step_context" in params, f"PresaleAgent.run params: {params}"
