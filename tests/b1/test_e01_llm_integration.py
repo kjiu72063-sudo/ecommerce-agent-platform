@@ -180,3 +180,137 @@ async def test_create_openai_agent_transport_exception():
 
     with pytest.raises(QaRuntimeError, match="LLM_CALL_FAILED"):
         await Harness().execute(question(), agent)
+
+
+# --- E-02: create_sqlite() full assembly + idempotency + failure ---
+
+import shutil
+import tempfile
+from pathlib import Path
+
+from presale.adapters.openai_generator import OpenAICompatibleGenerator
+from presale.runtime import PresaleRuntimeFactory
+
+
+class CallCountingTransport:
+    """Transport that counts calls and returns configurable responses."""
+
+    def __init__(self, responses=None, *, fail_on_call=False):
+        self._responses = responses or [
+            {"choices": [{"message": {"content": "SQLite LLM answer."}}]}
+        ]
+        self._fail_on_call = fail_on_call
+        self.calls = 0
+
+    def __call__(self, *, api_key, base_url, model, messages, timeout_s):
+        self.calls += 1
+        if self._fail_on_call:
+            raise ConnectionError("LLM unreachable")
+        idx = min(self.calls - 1, len(self._responses) - 1)
+        return self._responses[idx]
+
+
+def _sqlite_assembly(transport):
+    """Create a SQLite-backed factory with injected generator transport."""
+    tmp = Path(tempfile.mkdtemp(prefix="e02_sqlite_"))
+    db = tmp / "presale.sqlite3"
+    registry = Registry(
+        [
+            definition("AgentSpec", "agt_01111111-1111-7111-8111-111111111111", "presale-agent"),
+            definition(
+                "PromptPackage", "prm_01111111-1111-7111-8111-111111111111", "presale-prompt"
+            ),
+            definition(
+                "ContextPolicy", "cpo_01111111-1111-7111-8111-111111111111", "presale-context"
+            ),
+        ]
+    )
+    generator = OpenAICompatibleGenerator(
+        model="gpt-test",
+        base_url="https://example.test/v1",
+        api_key="test-key",
+        transport=transport,
+    )
+    factory, store = PresaleRuntimeFactory.create_sqlite(
+        database=str(db),
+        definition_repository=registry,
+        definition_selectors={
+            "agent_spec": {"kind": "AgentSpec", "namespace": "presale", "key": "presale-agent"},
+            "prompt_package": {
+                "kind": "PromptPackage",
+                "namespace": "presale",
+                "key": "presale-prompt",
+            },
+            "context_policy": {
+                "kind": "ContextPolicy",
+                "namespace": "presale",
+                "key": "presale-context",
+            },
+        },
+        sources=[source()],
+        generator=generator,
+    )
+    return factory, store, tmp
+
+
+@pytest.mark.asyncio
+async def test_sqlite_assembly_with_real_generator():
+    """E-02: create_sqlite + injected generator → FINALIZE + answer_draft."""
+    transport = CallCountingTransport()
+    factory, store, tmp = _sqlite_assembly(transport)
+    try:
+        agent = factory.create_agent()
+
+        outcome = await Harness().execute(question(), agent)
+
+        assert outcome.terminal is TerminalDecision.FINALIZE
+        assert outcome.answer_draft is not None
+        assert outcome.answer_draft.answer_text == "SQLite LLM answer."
+        assert transport.calls == 1
+    finally:
+        store.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@pytest.mark.asyncio
+async def test_sqlite_idempotent_replay_skips_generator():
+    """E-02: Same key replay → same answer_draft, generator NOT called again."""
+    transport = CallCountingTransport()
+    factory, store, tmp = _sqlite_assembly(transport)
+    try:
+        agent = factory.create_agent()
+
+        first = await Harness().execute(question(key="e02-idem-0001"), agent)
+        assert transport.calls == 1
+
+        # Second call with same key should replay, not re-generate
+        second = await Harness().execute(question(key="e02-idem-0001"), agent)
+        assert transport.calls == 1  # still 1, not 2
+        assert second.answer_draft.answer_id == first.answer_draft.answer_id
+        assert second.answer_draft.answer_text == first.answer_draft.answer_text
+    finally:
+        store.close()
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+@pytest.mark.asyncio
+async def test_sqlite_generator_failure_marks_claim():
+    """E-02: Generator exception → QaRuntimeError, claim not dangling."""
+    transport = CallCountingTransport(fail_on_call=True)
+    factory, store, tmp = _sqlite_assembly(transport)
+    try:
+        agent = factory.create_agent()
+
+        with pytest.raises(QaRuntimeError, match="LLM_CALL_FAILED"):
+            await Harness().execute(question(key="e02-fail-0001"), agent)
+
+        # Verify claim is in failed state (not dangling)
+        from presale.adapters.sqlite import SQLiteIdempotencyRepository
+
+        repo = SQLiteIdempotencyRepository(store)
+        record = await repo.get("tenant-demo", "e02-fail-0001")
+        assert record is not None
+        assert record.status == "failed"
+    finally:
+        store.close()
+        shutil.rmtree(tmp, ignore_errors=True)
