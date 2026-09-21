@@ -17,6 +17,7 @@ class LoopDecision(StrEnum):
     CONTINUE = "continue"
     FINALIZE = "finalize"
     NEED_HUMAN = "need_human"
+    STOP = "stop"
 
 
 @dataclass
@@ -98,6 +99,32 @@ class SinglePassLoop:
 Loop = SinglePassLoop
 
 
+class RetryOnLowEvidenceLoop:
+    """Loop strategy that retries when retrieval has no evidence.
+
+    Decision logic (in order):
+    1. ``step.need_human`` is True → NEED_HUMAN
+    2. At least one tool_call with ``status == "matched"`` → FINALIZE
+    3. ``step.index >= max_retries + 1`` → FINALIZE (retries exhausted)
+    4. Otherwise → CONTINUE
+
+    ``max_retries`` defaults to 2 (3 total attempts including the first).
+    The strategy is deterministic: it reads only AgentStep signals, no LLM.
+    """
+
+    def __init__(self, max_retries: int = 2):
+        self._max_retries = max_retries
+
+    def decide(self, step: AgentStep) -> LoopDecision:
+        if step.need_human:
+            return LoopDecision.NEED_HUMAN
+        if any(tc.get("status") == "matched" for tc in step.tool_calls):
+            return LoopDecision.FINALIZE
+        if step.index >= self._max_retries + 1:
+            return LoopDecision.STOP
+        return LoopDecision.CONTINUE
+
+
 class Harness:
     """Execute an Agent, record steps, and run the Loop to a terminal decision."""
 
@@ -128,6 +155,9 @@ class Harness:
                 break
             if decision is LoopDecision.NEED_HUMAN:
                 terminal = TerminalDecision.NEED_HUMAN
+                break
+            if decision is LoopDecision.STOP:
+                terminal = TerminalDecision.MAX_STEPS
                 break
             # CONTINUE: run another step (bounded by the range / max_steps).
         else:
@@ -170,6 +200,7 @@ __all__ = [
     "Loop",
     "LoopDecision",
     "LoopStrategy",
+    "RetryOnLowEvidenceLoop",
     "SinglePassLoop",
     "TerminalDecision",
     "format_outcome",
