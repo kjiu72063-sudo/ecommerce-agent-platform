@@ -35,6 +35,9 @@ jobs:
       - name: Test
         run: uv run pytest -q
 
+      - name: Check baseline sync
+        run: python scripts/check_baseline.py
+
   milvus-integration:
     # Real Milvus Hybrid RAG e2e: reuses the repo's reproducible stack
     # (docker compose up -d etcd milvus). Skipped/not run in the gate job.
