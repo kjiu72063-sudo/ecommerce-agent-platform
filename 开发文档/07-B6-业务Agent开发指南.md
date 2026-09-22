@@ -1,9 +1,18 @@
 # B6 业务 Agent 开发指南
 
-> 文档版本：1.0.0
+> **⚠️ 已废弃**：本文件是 B6 的早期规划文档（2026-09-01），已被实际实现取代。
+> 权威来源：
+> - 设计：`docs/spec-b6-business-agent.md`
+> - 领域模型：`docs/domain-model-b4b6.md`
+> - 领域决策：`docs/domain-decisions.md`（D-B1~D-B14）
+> - 复盘：`docs/retro-b5b6-loop-engine.md`、`docs/retro-six-directions-deepening.md`
+> - 首个业务 Agent 实例：`src/review_agent/`（ReviewAnalyzerAgent）
+
+> 文档版本：1.0.0（已废弃）
 > 创建日期：2026-09-01
+> 废弃日期：2026-09-22
 > 前置依赖：B5 Loop 引擎
-> 预计工期：4-6 周
+> 预计工期：4-6 周（实际 B6 集成验证 1 天内完成）
 
 ---
 
