@@ -73,6 +73,21 @@ jobs:
           PRESALE_MILVUS_URI=http://127.0.0.1:19530 \
           uv run pytest -q tests/b1/test_milvus_integration.py
 
+      # Retrieval quality regression gate: index dev_catalog into Milvus with the
+      # deterministic embedding, evaluate the golden set, and compare per-query
+      # ranks against the committed snapshot. Any regression fails the check
+      # (--fail-on-regression), so a change that degrades retrieval cannot merge.
+      - name: Retrieval eval regression gate
+        run: |
+          PRESALE_MILVUS_URI=http://127.0.0.1:19530 \
+          PRESALE_EMBEDDING=deterministic \
+          PRESALE_CATALOG=src/presale/data/dev_catalog.json \
+          uv run presale-eval --mode retrieval --output /tmp/retrieval_current.json
+          PRESALE_MILVUS_URI=http://127.0.0.1:19530 \
+          PRESALE_EMBEDDING=deterministic \
+          PRESALE_CATALOG=src/presale/data/dev_catalog.json \
+          uv run presale-eval --compare tests/fixtures/retrieval_golden_snapshot.json /tmp/retrieval_current.json --fail-on-regression
+
       - name: Tear down stack
         if: always()
         run: docker compose down

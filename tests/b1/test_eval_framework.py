@@ -6,12 +6,21 @@ fake retriever/transport — no real Milvus or LLM required.
 
 from __future__ import annotations
 
+import json
+import tempfile
+from pathlib import Path
+
+import pytest
+
 from presale.adapters.eval_framework import (
     build_retriever,
     run_end_to_end,
     run_generation,
     run_retrieval,
     summarize,
+)
+from presale.adapters.eval_framework import (
+    main as eval_main,
 )
 from presale.knowledge import EvidenceItem, KnowledgeSource
 
@@ -163,3 +172,80 @@ def test_summarize_generation():
     )
     text = summarize("generation", report)
     assert "faithfulness" in text
+
+
+# --- 方向2: --fail-on-regression ---
+
+
+def _write_tmp_report(tmp: str, report: dict, name: str) -> str:
+    p = Path(tmp) / name
+    p.write_text(json.dumps(report, ensure_ascii=False), encoding="utf-8")
+    return str(p)
+
+
+def _report_with_rank(rank) -> dict:
+    return {
+        "mode": "retrieval",
+        "n": 1,
+        "per_question": [
+            {
+                "query": "大热天会晒黑吗",
+                "tenant_id": "tenant-demo",
+                "product_id": "product-001",
+                "expected": ["spec_upf"],
+                "rank": rank,
+                "recalled": rank is not None,
+            }
+        ],
+    }
+
+
+def test_compare_fail_on_regression_exit_1():
+    """方向2: --compare with regression + --fail-on-regression exits 1."""
+    with tempfile.TemporaryDirectory() as tmp:
+        a = _write_tmp_report(tmp, _report_with_rank(1), "a.json")
+        b = _write_tmp_report(tmp, _report_with_rank(3), "b.json")
+        with pytest.raises(SystemExit) as exc:
+            eval_main(["--compare", a, b, "--fail-on-regression"])
+        assert exc.value.code == 1
+
+
+def test_compare_no_regression_exit_0():
+    """方向2: --compare without regression exits 0 even with --fail-on-regression."""
+    with tempfile.TemporaryDirectory() as tmp:
+        a = _write_tmp_report(tmp, _report_with_rank(1), "a.json")
+        b = _write_tmp_report(tmp, _report_with_rank(1), "b.json")
+        rc = eval_main(["--compare", a, b, "--fail-on-regression"])
+        assert rc == 0
+
+
+def test_compare_improved_exit_0():
+    """方向2: only improvements do not fail the gate."""
+    with tempfile.TemporaryDirectory() as tmp:
+        a = _write_tmp_report(tmp, _report_with_rank(3), "a.json")
+        b = _write_tmp_report(tmp, _report_with_rank(1), "b.json")
+        rc = eval_main(["--compare", a, b, "--fail-on-regression"])
+        assert rc == 0
+
+
+def test_compare_accepts_flat_snapshot_format():
+    """方向2: compare_reports accepts eval_regression flat snapshot (key -> {expected, rank})."""
+    from presale.adapters.eval_framework import compare_reports
+
+    flat = {
+        "tenant-demo/product-001::大热天会晒黑吗": {"expected": ["spec_upf"], "rank": 1},
+    }
+    report = {
+        "mode": "retrieval",
+        "n": 1,
+        "per_question": [
+            {
+                "query": "tenant-demo/product-001::大热天会晒黑吗",
+                "rank": 3,
+            }
+        ],
+    }
+    result = compare_reports(flat, report)
+    assert result["summary"]["regressed"] == 1
+    assert result["regressed"][0]["old"] == 1
+    assert result["regressed"][0]["new"] == 3
