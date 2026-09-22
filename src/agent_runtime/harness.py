@@ -125,6 +125,84 @@ class RetryOnLowEvidenceLoop:
         return LoopDecision.CONTINUE
 
 
+def _any_status(step: AgentStep, status: str) -> bool:
+    return any(tc.get("status") == status for tc in step.tool_calls)
+
+
+class RepairLoop:
+    """Loop strategy that retries a failed step (status == "error").
+
+    Decision logic:
+    1. ``step.need_human`` → NEED_HUMAN
+    2. Any tool_call with ``status == "error"``:
+       - ``step.index < max_attempts`` → CONTINUE (retry)
+       - otherwise → STOP (attempts exhausted)
+    3. Otherwise → FINALIZE
+
+    ``max_attempts`` defaults to 3 (initial + 2 retries).
+    """
+
+    def __init__(self, max_attempts: int = 3):
+        self._max_attempts = max_attempts
+
+    def decide(self, step: AgentStep) -> LoopDecision:
+        if step.need_human:
+            return LoopDecision.NEED_HUMAN
+        if _any_status(step, "error"):
+            return LoopDecision.CONTINUE if step.index < self._max_attempts else LoopDecision.STOP
+        return LoopDecision.FINALIZE
+
+
+class ReviewRefineLoop:
+    """Loop strategy that iterates a draft through review (status == "review").
+
+    Decision logic:
+    1. ``step.need_human`` → NEED_HUMAN
+    2. Any tool_call with ``status == "review"``:
+       - ``step.index < max_refinements`` → CONTINUE (refine again)
+       - otherwise → STOP (refinements exhausted)
+    3. Otherwise (e.g. status == "approved") → FINALIZE
+
+    ``max_refinements`` defaults to 2 (initial draft + 2 polish rounds).
+    """
+
+    def __init__(self, max_refinements: int = 2):
+        self._max_refinements = max_refinements
+
+    def decide(self, step: AgentStep) -> LoopDecision:
+        if step.need_human:
+            return LoopDecision.NEED_HUMAN
+        if _any_status(step, "review"):
+            return (
+                LoopDecision.CONTINUE if step.index < self._max_refinements else LoopDecision.STOP
+            )
+        return LoopDecision.FINALIZE
+
+
+class ReactLoop:
+    """Loop strategy for observe-act-repeat agents (status == "act" to keep going).
+
+    Decision logic:
+    1. ``step.need_human`` → NEED_HUMAN
+    2. Any tool_call with ``status == "act"``:
+       - ``step.index < max_actions`` → CONTINUE
+       - otherwise → STOP (action budget exhausted)
+    3. Otherwise (status == "done" or no action signal) → FINALIZE
+
+    ``max_actions`` defaults to 5, bounded by the Harness ``max_steps``.
+    """
+
+    def __init__(self, max_actions: int = 5):
+        self._max_actions = max_actions
+
+    def decide(self, step: AgentStep) -> LoopDecision:
+        if step.need_human:
+            return LoopDecision.NEED_HUMAN
+        if _any_status(step, "act"):
+            return LoopDecision.CONTINUE if step.index < self._max_actions else LoopDecision.STOP
+        return LoopDecision.FINALIZE
+
+
 class Harness:
     """Execute an Agent, record steps, and run the Loop to a terminal decision."""
 
@@ -200,7 +278,10 @@ __all__ = [
     "Loop",
     "LoopDecision",
     "LoopStrategy",
+    "ReactLoop",
+    "RepairLoop",
     "RetryOnLowEvidenceLoop",
+    "ReviewRefineLoop",
     "SinglePassLoop",
     "TerminalDecision",
     "format_outcome",
