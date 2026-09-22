@@ -10,9 +10,9 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
+from agent_platform_contracts.models import ObjectRef, ResourceKind
 from agent_runtime.harness import AgentRunResult
 from presale.answer import AnswerDraft
-from presale.contracts import ProductQuestion
 from presale.knowledge import KnowledgeSource
 
 # Sentiment keyword dictionaries
@@ -133,23 +133,36 @@ class ReviewAnalyzerAgent:
         value = (value & ~(0x3 << 62)) | (0x2 << 62)
         return f"run_{uuid.UUID(int=value)}"
 
-    async def run(self, question: ProductQuestion, step_context=None) -> AgentRunResult:
+    async def run(self, question, step_context=None) -> AgentRunResult:
         tool_calls: list[dict[str, Any]] = []
 
+        # Accept either a ProductQuestion or a bare text string (the coordinator
+        # forwards a previous agent's answer_text when present).
+        if isinstance(question, str):
+            product_id: str | None = None
+            question_id = "question-review-from-text"
+            question_text = question
+        else:
+            product_id = question.product_id
+            question_id = question.question_id
+            question_text = question.question_text
+
         # Tool 1: retrieve_knowledge (deterministic)
-        evidence = [src for src in self._sources if src.product_id == question.product_id]
+        evidence = [
+            src for src in self._sources if product_id is not None and src.product_id == product_id
+        ]
         retrieve_status = "matched" if evidence else "no_evidence"
         tool_calls.append(
             {
                 "tool": "retrieve_knowledge",
-                "product_id": question.product_id,
+                "product_id": product_id,
                 "status": retrieve_status,
                 "evidence_count": len(evidence),
             }
         )
 
         # Tool 2: analyze_review (analyze the question text as a "review")
-        analysis = analyze_review(question.question_text)
+        analysis = analyze_review(question_text)
         tool_calls.append(
             {
                 "tool": "analyze_review",
@@ -171,8 +184,8 @@ class ReviewAnalyzerAgent:
 
         draft = AnswerDraft(
             answer_id="review-draft",
-            question_id=question.question_id,
-            run_ref={"kind": "AgentRun", "id": self._make_run_id()},
+            question_id=question_id,
+            run_ref=ObjectRef(kind=ResourceKind.AGENT_RUN, id=self._make_run_id()),
             answer_text=answer_text,
             evidence_refs=[],
             confidence_signal="unavailable",
