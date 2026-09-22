@@ -69,23 +69,46 @@ services:
 
   postgres:
     image: postgres:15-alpine
+    profiles: ["postgres", "production"]
     environment:
       POSTGRES_DB: presale
       POSTGRES_USER: presale
-      POSTGRES_PASSWORD: presale
+      POSTGRES_PASSWORD: ${PRESALE_PG_PASSWORD:-presale}
+      PRESALE_PG_PRODUCTION: ${PRESALE_PG_PRODUCTION:-0}
+      # A second compose file (deploy/postgres.production.yml) sets this to 1.
     ports:
       - "5432:5432"
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        if [ "$$PRESALE_PG_PRODUCTION" = "1" ]; then
+          case "$$PRESALE_PG_PASSWORD" in
+            ""|presale) echo "production profile requires PRESALE_PG_PASSWORD" >&2; exit 1 ;;
+          esac
+        fi
+        exec docker-entrypoint.sh postgres \
+          -c logging_collector=on \
+          -c log_directory=/var/log/postgresql \
+          -c log_truncate_on_rotation=on
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - presale_pg_logs:/var/log/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U presale -d presale"]
       interval: 5s
       timeout: 5s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
 
 volumes:
   qdrant_data:
   etcd_data:
   milvus_data:
   postgres_data:
+  presale_pg_logs:
   # neo4j_data:

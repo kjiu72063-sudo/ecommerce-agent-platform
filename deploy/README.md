@@ -15,6 +15,7 @@ docker compose ps
 | Milvus | 19530/9091 | 向量检索（Hybrid RAG 阶段 1 稠密端） |
 | etcd | 2379 | Milvus 元数据依赖（不作为业务入口） |
 | Neo4j | 7474/7687 | RAG 阶段 2（GraphRAG，默认注释，用时启用） |
+| PostgreSQL | 5432 | presale 六端口持久化（profile `postgres` 或 `production`） |
 
 ## 用 Makefile 复现（推荐）
 ```bash
@@ -26,8 +27,38 @@ make models             # 装 bge-large-zh-v1.5（真实语义 embedding，阶�
 make teach              # 全量门禁
 ```
 
+## PostgreSQL（presale 持久化）
+
+开发栈：
+
+```bash
+docker compose --profile postgres up -d postgres
+```
+
+生产 profile 使用同一镜像，但要求自行设置口令，并加上日志卷、资源限制与不为空的数据卷：
+
+```bash
+export PRESALE_PG_PASSWORD='<自行设置>'
+docker compose -f docker-compose.yml -f deploy/postgres.production.yml --profile production up -d postgres
+```
+
+默认开发口令只在未设置 `PRESALE_PG_PASSWORD` 时生效，生产 profile 拒绝这个默认值。连接串：
+
+```text
+postgresql://presale:<口令>@127.0.0.1:5432/presale
+```
+
+把已有 SQLite 运行记录迁过来（只搬 presale 六张表，不碰 B1/B2 的其他库）：
+
+```bash
+uv sync --extra postgres
+presale-migrate-pg --sqlite ./presale.sqlite3 --dsn "$PRESALE_PG_DSN"
+```
+
+重复执行是按主键覆盖，不会把同一行插两次。迁移前会拒绝口令为 `presale` 的目标库，除非显式加上 `--allow-default-password`（仅限本机开发）。CI 的 `postgres-integration` job 用一次性容器跑同一组集成测试。
+
 ## 版本锁定
-镜像 tag 固定：`qdrant/qdrant:v1.12.4`、`milvusdb/milvus:v2.4.1`、`quay.io/coreos/etcd:v3.5.14`。换版本在 `docker-compose.yml` 改后，重新 `docker compose up -d`（会按 lock 复现）。
+镜像 tag 固定：`qdrant/qdrant:v1.12.4`、`milvusdb/milvus:v2.4.1`、`quay.io/coreos/etcd:v3.5.14`、`postgres:15-alpine`。换版本在 `docker-compose.yml` 改后，重新 `docker compose up -d`（会按 lock 复现）。
 
 ## 模型（可选、本地）
 真实语义 embedding 用 bge-large-zh-v1.5，重排可选 bge-reranker-base/large：`make models`（`uv sync --extra embedding` + `python scripts/download_models.py all` 经 hf-mirror GET 拉到 `./models`，已 `.gitignore`；支持断点续传，`scripts/download_models.py <name>` 单模型）。装好后 embedding 用 `PRESALE_EMBEDDING_MODEL=models/bge-large-zh-v1.5`、重排用 `PRESALE_RERANKER_MODEL=models/bge-reranker-large`（离线加载加 `HF_HUB_OFFLINE=1`）。若不想下载模型，用 `PRESALE_EMBEDDING=deterministic` 哈希伪向量先验证管道。

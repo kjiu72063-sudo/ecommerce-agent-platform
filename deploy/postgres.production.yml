@@ -1,0 +1,8 @@
+# 生产 profile 的口令门禁。与根 compose 叠加使用：
+# PRESALE_PG_PASSWORD='<自行设置>' docker compose \
+#   -f docker-compose.yml -f deploy/postgres.production.yml \
+#   --profile production up -d postgres
+services:
+  postgres:
+    environment:
+      PRESALE_PG_PRODUCTION: "1"

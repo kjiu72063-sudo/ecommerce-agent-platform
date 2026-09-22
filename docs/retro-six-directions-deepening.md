@@ -64,10 +64,9 @@ ReviewAnalyzerAgent 初版构造"无证据但 need_human=False"的 draft 被合�
 
 | 严重度 | 建议 | 说明 |
 |---|---|---|
-| 中 | 评估回归门禁接入 CI | F 已产出 compare 能力，应固化为 CI 硬门禁（方向 2） |
 | 中 | 本地依赖同步纳入习惯 | 新增依赖/extra 后先 `uv sync --extra test --extra quality` 再跑测试 |
-| 低 | B5 剩余策略补全 | ReactLoop/RepairLoop/ReviewRefineLoop（方向 3） |
-| 低 | 多 Agent 协作设计门禁 | 建议先 `/purpose-first-system-design` 再拆票（方向 4） |
+
+上表中的评估回归门禁、三种剩余 Loop、多 Agent 协作已分别由方向 2（PR #108）、方向 3（PR #109）、方向 4（PR #112）落地，不再作为待办。
 
 ---
 

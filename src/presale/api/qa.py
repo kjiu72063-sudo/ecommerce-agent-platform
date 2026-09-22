@@ -62,8 +62,30 @@ def build_runner() -> PresaleQaRunner:
         "generator": openai_generator_from_env(),
         "retriever": external_retriever_from_env(),
     }
+    pg_dsn = os.environ.get("PRESALE_PG_DSN")
+    if pg_dsn:
+        from ..adapters.postgres import (
+            PostgresAnswerDraftRepository,
+            PostgresDispositionRepository,
+            PostgresEvidenceRepository,
+            PostgresIdempotencyRepository,
+            PostgresPresaleStore,
+            PostgresProductQuestionRepository,
+            PostgresRunTraceRepository,
+        )
+
+        store = PostgresPresaleStore(pg_dsn)
+        opts.update(
+            question_repo=PostgresProductQuestionRepository(store),
+            evidence_repo=PostgresEvidenceRepository(store),
+            answer_repo=PostgresAnswerDraftRepository(store),
+            disposition_repo=PostgresDispositionRepository(store),
+            trace_repo=PostgresRunTraceRepository(store),
+            idempotency_repo=PostgresIdempotencyRepository(store),
+        )
+        opts["_pg_store"] = store
     db = os.environ.get("PRESALE_DB")
-    if db:
+    if db and not pg_dsn:
         from ..adapters.sqlite import (
             SQLiteAnswerDraftRepository,
             SQLiteDispositionRepository,
@@ -83,6 +105,7 @@ def build_runner() -> PresaleQaRunner:
             trace_repo=SQLiteRunTraceRepository(store),
             idempotency_repo=SQLiteIdempotencyRepository(store),
         )
+    opts.pop("_pg_store", None)
     return PresaleQaRunner(**{key: value for key, value in opts.items() if value is not None})
 
 
@@ -106,6 +129,28 @@ def get_runner() -> PresaleQaRunner:
 @app.get("/api/v1/presale/qa/health")
 def health() -> dict[str, str]:
     return {"status": "healthy"}
+
+
+@app.get("/api/v1/presale/qa/ready")
+async def ready() -> dict[str, str]:
+    """Readiness probe. PostgreSQL is checked only when PRESALE_PG_DSN is set."""
+    dsn = os.environ.get("PRESALE_PG_DSN")
+    if not dsn:
+        return {"status": "ready", "persistence": "default"}
+    try:
+        import asyncpg  # pyright: ignore[reportMissingImports]
+    except ImportError as exc:
+        raise HTTPException(status_code=503, detail="asyncpg is not installed") from exc
+    try:
+        conn = await asyncpg.connect(dsn, timeout=3)
+    except Exception as exc:
+        logger.warning("postgres readiness failed: %s", type(exc).__name__)
+        raise HTTPException(status_code=503, detail="postgres unavailable") from exc
+    try:
+        await conn.execute("SELECT 1")
+    finally:
+        await conn.close()
+    return {"status": "ready", "persistence": "postgres"}
 
 
 @app.get("/api/v1/presale/qa/metrics")

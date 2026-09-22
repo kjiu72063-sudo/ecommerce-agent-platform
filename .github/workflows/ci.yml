@@ -91,3 +91,35 @@ jobs:
       - name: Tear down stack
         if: always()
         run: docker compose down
+
+  postgres-integration:
+    name: postgres-integration (presale adapters)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: presale
+          POSTGRES_USER: presale
+          POSTGRES_PASSWORD: ci-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U presale -d presale"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.13"
+
+      - name: Sync dependencies (incl. postgres)
+        run: uv sync --extra test --extra quality --extra postgres
+
+      - name: PostgreSQL adapter integration
+        env:
+          PRESALE_PG_DSN: postgresql://presale:ci-only@127.0.0.1:5432/presale
+        run: uv run pytest -q tests/b1/test_postgres_integration.py

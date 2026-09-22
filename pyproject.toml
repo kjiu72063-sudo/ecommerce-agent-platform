@@ -47,6 +47,7 @@ presale-index-hybrid = "presale.adapters.hybrid_retrieval:main"
 presale-eval-retrieval = "presale.adapters.retrieval_eval:main"
 presale-eval-generation = "presale.adapters.generation_eval:main"
 presale-eval = "presale.adapters.eval_framework:main"
+presale-migrate-pg = "presale.migrate_sqlite_to_postgres:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

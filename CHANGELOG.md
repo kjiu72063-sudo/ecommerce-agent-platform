@@ -7,6 +7,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/), versioning foll
 ## [Unreleased]
 
 ### Added
+- **AgentCoordinator** (方向4): sequential multi-agent orchestration. The previous answer text is the next question; NEED_HUMAN or MAX_STEPS short-circuits the rest. Presale → Review use case. 9 tests.
+- **RepairLoop / ReviewRefineLoop / ReactLoop** (方向3): deterministic step-signal strategies. Exhausted attempts stop rather than finalize. 14 tests.
+- **Retrieval regression gate** (方向2): CI compares `presale-eval --mode retrieval` against the committed snapshot and fails on regression.
 - **ReviewAnalyzerAgent** (`D-01`): New business agent with `retrieve_knowledge` + `analyze_review` tools. Deterministic sentiment analysis and keyword extraction. Always requires human review per AnswerDraft evidence contract. 8 tests.
 - **PostgreSQL adapters** (`B-01/B-02/B-03`): `PostgresPresaleStore` + 6 PostgreSQL repositories (Question/Evidence/Answer/Disposition/Idempotency/Trace). `PresaleRuntimeFactory.create_postgres()` assembly entry. Docker Compose PostgreSQL service. 7 integration tests.
 - **LLM integration tests** (`E-01/E-02`): `create_openai_agent()` assembly + failure paths (empty/malformed/exception). `create_sqlite()` full assembly + idempotent replay + failure path. 7 tests.
