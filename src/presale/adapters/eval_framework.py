@@ -15,6 +15,7 @@ import argparse
 import json
 import os
 import sys
+from pathlib import Path
 from typing import Any
 
 from .retrieval_eval import evaluate_retriever
@@ -168,6 +169,55 @@ def _run_mode(mode: str, args: argparse.Namespace) -> dict[str, Any]:
     return {"mode": mode, **report}
 
 
+def compare_reports(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
+    """Diff two evaluation reports per-query and return regressed/improved lists.
+
+    Both reports must contain a ``per_question`` list; each row must have a
+    ``query`` key. Rows may carry ``rank`` (retrieval) or ``error``/metric
+    fields (generation/end-to-end).
+    """
+    aq = {q["query"]: q for q in a.get("per_question", [])}
+    bq = {q["query"]: q for q in b.get("per_question", [])}
+    regressed: list[dict[str, Any]] = []
+    improved: list[dict[str, Any]] = []
+    added: list[str] = []
+    for key, row_b in bq.items():
+        row_a = aq.get(key)
+        if row_a is None:
+            added.append(key)
+            continue
+        if "rank" in row_a and "rank" in row_b:
+            if row_b["rank"] is None and row_a["rank"] is not None:
+                # recall lost: ranked before, now not found
+                regressed.append({"query": key, "old": row_a["rank"], "new": None})
+            elif row_a["rank"] is None and row_b["rank"] is not None:
+                # recall restored: not found before, now ranked
+                improved.append({"query": key, "old": None, "new": row_b["rank"]})
+            elif row_b["rank"] is not None and row_b["rank"] > row_a["rank"]:
+                regressed.append({"query": key, "old": row_a["rank"], "new": row_b["rank"]})
+            elif row_b["rank"] is not None and row_b["rank"] < row_a["rank"]:
+                improved.append({"query": key, "old": row_a["rank"], "new": row_b["rank"]})
+        elif "error" in row_a and "error" not in row_b:
+            improved.append({"query": key, "old": "error", "new": "ok"})
+        elif "error" not in row_a and "error" in row_b:
+            regressed.append({"query": key, "old": "ok", "new": "error"})
+    removed = [key for key in aq if key not in bq]
+    return {
+        "regressed": regressed,
+        "improved": improved,
+        "added": added,
+        "removed": removed,
+        "summary": {"regressed": len(regressed), "improved": len(improved)},
+    }
+
+
+def write_report(report: dict[str, Any], path: str) -> None:
+    """Persist an evaluation report as JSON, creating parent directories."""
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="presale-eval",
@@ -187,11 +237,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.compare:
         a_path, b_path = args.compare
         try:
-            a = json.loads(open(a_path, encoding="utf-8").read())
-            b = json.loads(open(b_path, encoding="utf-8").read())
-        except OSError as exc:
+            a = json.loads(Path(a_path).read_text(encoding="utf-8"))
+            b = json.loads(Path(b_path).read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
             raise SystemExit(f"cannot read compare file: {exc}") from exc
-        _print_compare(a, b)
+        result = compare_reports(a, b)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
         return 0
 
     if args.mode == "all":
@@ -206,8 +257,7 @@ def main(argv: list[str] | None = None) -> int:
         combined = _run_mode(args.mode, args)
 
     if args.output:
-        with open(args.output, "w", encoding="utf-8") as f:
-            json.dump(combined, f, ensure_ascii=False, indent=2)
+        write_report(combined, args.output)
         print(f"wrote report: {args.output}")
 
     if args.mode == "all":
@@ -225,53 +275,14 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def _print_compare(a: dict[str, Any], b: dict[str, Any]) -> None:
-    """Diff two result JSON files per-query and print regressed/improved."""
-    aq = {q["query"]: q for q in a.get("per_question", [])}
-    bq = {q["query"]: q for q in b.get("per_question", [])}
-    regressed, improved, added, removed = [], [], [], []
-    for key, row_b in bq.items():
-        row_a = aq.get(key)
-        if row_a is None:
-            added.append(key)
-            continue
-        if "rank" in row_a and "rank" in row_b:
-            if row_b["rank"] is not None and (
-                row_a["rank"] is None or row_b["rank"] > row_a["rank"]
-            ):
-                regressed.append({"query": key, "old": row_a["rank"], "new": row_b["rank"]})
-            elif row_a["rank"] is not None and (
-                row_b["rank"] is None or row_b["rank"] < row_a["rank"]
-            ):
-                improved.append({"query": key, "old": row_a["rank"], "new": row_b["rank"]})
-        elif "error" in row_a and "error" not in row_b:
-            improved.append({"query": key, "old": "error", "new": "ok"})
-        elif "error" not in row_a and "error" in row_b:
-            regressed.append({"query": key, "old": "ok", "new": "error"})
-    for key in aq:
-        if key not in bq:
-            removed.append(key)
-    print(
-        json.dumps(
-            {
-                "regressed": regressed,
-                "improved": improved,
-                "added": added,
-                "removed": removed,
-                "summary": {"regressed": len(regressed), "improved": len(improved)},
-            },
-            ensure_ascii=False,
-            indent=2,
-        )
-    )
-
-
 __all__ = [
     "MODES",
     "build_retriever",
+    "compare_reports",
     "main",
     "run_end_to_end",
     "run_generation",
     "run_retrieval",
     "summarize",
+    "write_report",
 ]
