@@ -169,15 +169,33 @@ def _run_mode(mode: str, args: argparse.Namespace) -> dict[str, Any]:
     return {"mode": mode, **report}
 
 
+def _as_per_question(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Normalize a report to {query: row} for comparison.
+
+    Accepts either the full report shape (``{"per_question": [...]}``) or the
+    legacy eval_regression flat snapshot shape (``{"key": {"expected": [...],
+    "rank": ...}}``), where each key is the ``tenant/product::query`` string.
+    """
+    rows = data.get("per_question")
+    if rows is not None:
+        return {q["query"]: q for q in rows}
+    # Flat snapshot: key is tenant/product::query.
+    return {
+        key: {"query": key, "rank": row.get("rank") if isinstance(row, dict) else None}
+        for key, row in data.items()
+        if isinstance(row, dict)
+    }
+
+
 def compare_reports(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
     """Diff two evaluation reports per-query and return regressed/improved lists.
 
-    Both reports must contain a ``per_question`` list; each row must have a
-    ``query`` key. Rows may carry ``rank`` (retrieval) or ``error``/metric
-    fields (generation/end-to-end).
+    Accepts either the full report shape (``per_question`` list) or the legacy
+    election flat snapshot shape (``{"key": {"expected", "rank"}}``).
+    Rows may carry ``rank`` (retrieval) or ``error``/metric fields.
     """
-    aq = {q["query"]: q for q in a.get("per_question", [])}
-    bq = {q["query"]: q for q in b.get("per_question", [])}
+    aq = _as_per_question(a)
+    bq = _as_per_question(b)
     regressed: list[dict[str, Any]] = []
     improved: list[dict[str, Any]] = []
     added: list[str] = []
@@ -231,6 +249,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--compare", nargs=2, metavar=("A", "B"), help="compare two result JSONs")
     parser.add_argument("--output", metavar="FILE", help="write the report JSON to FILE")
+    parser.add_argument(
+        "--fail-on-regression",
+        action="store_true",
+        help="exit non-zero when --compare finds regressions (CI gate)",
+    )
     args = parser.parse_args(argv)
 
     # --compare is offline: read two result files and diff them.
@@ -243,6 +266,8 @@ def main(argv: list[str] | None = None) -> int:
             raise SystemExit(f"cannot read compare file: {exc}") from exc
         result = compare_reports(a, b)
         print(json.dumps(result, ensure_ascii=False, indent=2))
+        if args.fail_on_regression and result["summary"]["regressed"]:
+            raise SystemExit(1)
         return 0
 
     if args.mode == "all":
