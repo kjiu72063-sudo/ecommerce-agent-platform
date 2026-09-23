@@ -19,6 +19,7 @@ import json
 import os
 import re
 import tempfile
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -544,8 +545,22 @@ def evaluate_idempotency_replay(
         idempotency_repo=SQLiteIdempotencyRepository(store),
     )
     q = _question(item["tenant_id"], item["product_id"], item["query"], key="e2e-replay-0001")
+
+    def _ask_once():
+        # A burst of e2e calls can leave the provider slow; one retry absorbs a
+        # transient read timeout on the first generation without masking a
+        # persistent failure.
+        from ..runner import QaRuntimeError
+
+        try:
+            return asyncio.run(runner.ask(q))
+        except QaRuntimeError:
+            time.sleep(2)
+            return asyncio.run(runner.ask(q))
+
     try:
-        first = asyncio.run(runner.ask(q))
+        first = _ask_once()
+        calls_after_first = calls
         second = asyncio.run(runner.ask(q))
         return {
             "question": item["query"],
@@ -556,7 +571,7 @@ def evaluate_idempotency_replay(
             "same_answer": first.answer_draft.model_dump(mode="json")
             == second.answer_draft.model_dump(mode="json"),
             "generator_calls": calls,
-            "replayed_without_generation": calls == 1,
+            "replayed_without_generation": calls == calls_after_first and calls_after_first >= 1,
         }
     finally:
         store.close()
