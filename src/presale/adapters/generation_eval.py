@@ -547,16 +547,23 @@ def evaluate_idempotency_replay(
     q = _question(item["tenant_id"], item["product_id"], item["query"], key="e2e-replay-0001")
 
     def _ask_once():
-        # A burst of e2e calls can leave the provider slow; one retry absorbs a
-        # transient read timeout on the first generation without masking a
-        # persistent failure.
+        # A burst of e2e calls can leave the provider briefly 5xx/slow; absorb
+        # up to two transient failures on the first generation without masking
+        # a persistent failure. The second call never retries — replay must
+        # read the durable draft.
         from ..runner import QaRuntimeError
 
-        try:
-            return asyncio.run(runner.ask(q))
-        except QaRuntimeError:
-            time.sleep(2)
-            return asyncio.run(runner.ask(q))
+        delays = (3, 8)
+        last_error: QaRuntimeError | None = None
+        for attempt in range(len(delays) + 1):
+            try:
+                return asyncio.run(runner.ask(q))
+            except QaRuntimeError as exc:
+                last_error = exc
+                if attempt == len(delays):
+                    raise
+                time.sleep(delays[attempt])
+        raise last_error if last_error else QaRuntimeError("REPLAY_ASK_FAILED")
 
     try:
         first = _ask_once()

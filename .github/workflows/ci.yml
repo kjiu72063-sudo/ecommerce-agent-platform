@@ -196,6 +196,8 @@ jobs:
           PRESALE_CATALOG: src/presale/data/dev_catalog.json
           PRESALE_GEN_TIMEOUT_S: "120"
         run: |
+          # Let the provider cool down after the e2e burst before replay.
+          sleep 30
           uv run presale-eval-generation --idempotency-replay \
             --replay-db /tmp/replay.sqlite3
 
