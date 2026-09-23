@@ -553,7 +553,8 @@ def evaluate_idempotency_replay(
         # read the durable draft.
         from ..runner import QaRuntimeError
 
-        delays = (5, 15)
+        # 429/502 after a heavy e2e burst needs minute-scale backoff, not seconds.
+        delays = (30, 60)
         last_error: QaRuntimeError | None = None
         for attempt in range(len(delays) + 1):
             try:
