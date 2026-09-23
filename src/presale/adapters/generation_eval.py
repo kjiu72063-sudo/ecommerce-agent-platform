@@ -553,7 +553,7 @@ def evaluate_idempotency_replay(
         # read the durable draft.
         from ..runner import QaRuntimeError
 
-        delays = (3, 8)
+        delays = (5, 15)
         last_error: QaRuntimeError | None = None
         for attempt in range(len(delays) + 1):
             try:
