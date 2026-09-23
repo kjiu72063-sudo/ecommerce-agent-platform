@@ -181,6 +181,7 @@ jobs:
           PRESALE_EMBEDDING: deterministic
           PRESALE_CATALOG: src/presale/data/dev_catalog.json
           PRESALE_HYBRID_POOL: "15"
+          PRESALE_GEN_TIMEOUT_S: "120"
         run: |
           uv run presale-eval-generation --e2e --diagnostics \
             --snapshot tests/fixtures/generation_snapshot.json
@@ -193,6 +194,7 @@ jobs:
           PRESALE_MILVUS_URI: http://127.0.0.1:19530
           PRESALE_EMBEDDING: deterministic
           PRESALE_CATALOG: src/presale/data/dev_catalog.json
+          PRESALE_GEN_TIMEOUT_S: "120"
         run: |
           uv run presale-eval-generation --idempotency-replay \
             --replay-db /tmp/replay.sqlite3

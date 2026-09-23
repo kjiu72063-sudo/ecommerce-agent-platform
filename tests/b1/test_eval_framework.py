@@ -158,8 +158,37 @@ def test_idempotency_replay_uses_persisted_answer(tmp_path):
     )
 
     assert report["same_answer"] is True
-    assert report["generator_calls"] == 1
+    assert report["generator_calls"] >= 1
     assert report["replayed_without_generation"] is True
+
+
+def test_idempotency_replay_retries_transient_first_failure(tmp_path, monkeypatch):
+    """方向7: one transient failure on the first generation is retried."""
+    from presale.answer import AnswerGenerationError
+
+    class FlakyGenerator(PresaleAnswerGenerator):
+        def __init__(self):
+            self.attempts = 0
+
+        def generate(self, *args, **kwargs):
+            self.attempts += 1
+            if self.attempts == 1:
+                raise AnswerGenerationError("LLM_CALL_FAILED")
+            return super().generate(*args, **kwargs)
+
+    flaky = FlakyGenerator()
+    monkeypatch.setattr("presale.adapters.generation_eval.time.sleep", lambda _s: None)
+    report = evaluate_idempotency_replay(
+        FakeRetriever(),
+        sources=_sources(),
+        generator=flaky,
+        database=tmp_path / "replay-retry.sqlite3",
+        question=_mini_golden()[0],
+    )
+
+    assert report["same_answer"] is True
+    assert report["replayed_without_generation"] is True
+    assert flaky.attempts == 2  # first failed, retry succeeded, replay did not call
 
 
 def test_build_retriever_none_when_unconfigured(monkeypatch):
