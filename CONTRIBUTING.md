@@ -22,7 +22,7 @@
 
 ## 2. 门禁（Gate）
 
-合并到 `main` 前必须通过以下全部检查。**CI 在 `main` 与每个 PR 上强制执行前四条**（ruff check/format src + pyright + pytest）；`pre-commit` 是本地便捷钩子，内部运行的正是前四条的等价内容，非 CI 强制：
+合并到 `main` 前必须通过以下全部检查。**CI 在 `main` 与每个 PR 上强制执行前四条，并校验质量台账顶行与实测测试数一致**（ruff check/format src + pyright + pytest + `scripts/check_baseline.py`）；`pre-commit` 是本地便捷钩子，非 CI 强制：
 
 ```bash
 uv run pytest -q            # 全量测试（tests/）          <- CI 强制
@@ -30,7 +30,13 @@ uv run ruff check src       # lint（仅 src 为门禁范围）   <- CI 强制
 uv run ruff format --check src                          <- CI 强制
 uv run pyright              # 类型（src/presale+agent_runtime）<- CI 强制
 uv run pre-commit run --all-files   # 本地钩子，非 CI 强制
+python scripts/check_baseline.py            # CI 强制：台账顶行 == pytest 通过数
 ```
+
+另有两个不阻塞语法门禁、但阻断合并的集成 job：
+
+- **检索回归**：Milvus job 用确定性嵌入跑 `presale-eval --mode retrieval`，再 `--compare --fail-on-regression` 对照 `tests/fixtures/retrieval_golden_snapshot.json`。排序或召回回退即失败。
+- **PostgreSQL**：`postgres-integration` job 拉起 `postgres:15-alpine`，设置 `PRESALE_PG_DSN` 后跑 `tests/b1/test_postgres_integration.py`。未设置该变量时，这组测试在本地全量 pytest 中跳过。
 
 - **契约优先**：实现必须遵守 B0 契约模型、JSON Schema 与状态机。
 - **测试先行**：先补测试再改实现；覆盖错误路径与跨租户/并发等安全语义。
@@ -57,4 +63,4 @@ uv run pre-commit run --all-files   # 本地钩子，非 CI 强制
 
 ## 5. 本地边界
 
-只承诺单进程本地内存/SQLite 闭环。B4 之前不引入模型调用、完整 Harness 或 Loop 策略；不承诺 PostgreSQL、消息队列、分布式事务或多进程一致性。
+默认运行形态是单进程本地内存/SQLite。Harness、Loop 与两个业务 Agent 已交付；PostgreSQL 只覆盖 presale 六个端口，不承诺消息队列、分布式事务或多进程一致性。

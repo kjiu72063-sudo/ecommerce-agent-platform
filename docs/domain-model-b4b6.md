@@ -1,7 +1,7 @@
 # B4–B6 领域模型（Harness / Loop / Agent）
 
 > 状态：领域模型已确认（决策 A 分层包装）
-> 更新时间：2026-09-16
+> 更新时间：2026-09-22
 > 适用范围：可复用的 Agent 执行与决策循环层；本轮驱动只读售前问答
 > 词汇表见 `CONTEXT.md`，决策见 `docs/domain-decisions.md`
 
@@ -39,7 +39,8 @@
 
 - **A（matched）**：retrieve 返回证据 → 生成草稿（need_human=false）→ Loop `finalize` → 输出 + AgentRun 完成 + Event 记录 ToolCall/决策。
 - **B（无证据）**：retrieve 返回 NO_EVIDENCE → 草稿 need_human=true → Loop `need_human`（终态）→ 转人工；AgentRun 以"需人工"而非"失败"结束。
-- **C（未来多步）**：max_steps=5；第 1 步非终态 → continue → …直到 finalize / need_human / 耗尽。本轮 continue 不触发。
+- **C（多步）**：max_steps=5。策略看到对应信号才 continue：无证据重查、工具 error 重试、review 再精炼、act 继续行动。次数耗尽是 stop，不是再转成 finalize。
+- **D（顺序编排）**：售前问答的回答文本可以交给评价分析。任一 Agent 需要人工或步数耗尽，后面的 Agent 不运行；整体终态取这一步，不拼接后续结果。
 
 ## 5. 待规格阶段细化（不阻塞方向）
 

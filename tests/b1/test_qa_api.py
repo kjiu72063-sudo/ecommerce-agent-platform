@@ -33,6 +33,14 @@ def write_catalog(tmp_path):
     return str(path)
 
 
+def test_ready_without_postgres(monkeypatch):
+    monkeypatch.delenv("PRESALE_PG_DSN", raising=False)
+    resp = TestClient(app).get("/api/v1/presale/qa/ready")
+
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "ready", "persistence": "default"}
+
+
 def test_health(tmp_path, monkeypatch):
     monkeypatch.setenv("PRESALE_CATALOG", write_catalog(tmp_path))
     resp = TestClient(app).get("/api/v1/presale/qa/health")

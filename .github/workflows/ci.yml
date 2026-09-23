@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -87,6 +88,112 @@ jobs:
           PRESALE_EMBEDDING=deterministic \
           PRESALE_CATALOG=src/presale/data/dev_catalog.json \
           uv run presale-eval --compare tests/fixtures/retrieval_golden_snapshot.json /tmp/retrieval_current.json --fail-on-regression
+
+      - name: Tear down stack
+        if: always()
+        run: docker compose down
+
+  postgres-integration:
+    name: postgres-integration (presale adapters)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: presale
+          POSTGRES_USER: presale
+          POSTGRES_PASSWORD: ci-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U presale -d presale"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.13"
+
+      - name: Sync dependencies (incl. postgres)
+        run: uv sync --extra test --extra quality --extra postgres
+
+      - name: PostgreSQL adapter integration
+        env:
+          PRESALE_PG_DSN: postgresql://presale:ci-only@127.0.0.1:5432/presale
+        run: uv run pytest -q tests/b1/test_postgres_integration.py
+
+  real-llm-acceptance:
+    # 方向7: real end-to-end LLM + idempotent replay, manual only so every
+    # PR does not burn tokens. Requires repository secrets PRESALE_LLM_*.
+    name: real-llm-acceptance (manual)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.13"
+
+      - name: Check secrets
+        env:
+          PRESALE_LLM_BASE_URL: ${{ secrets.PRESALE_LLM_BASE_URL }}
+          PRESALE_LLM_MODEL: ${{ secrets.PRESALE_LLM_MODEL }}
+          PRESALE_LLM_API_KEY: ${{ secrets.PRESALE_LLM_API_KEY }}
+        run: |
+          for v in PRESALE_LLM_BASE_URL PRESALE_LLM_MODEL PRESALE_LLM_API_KEY; do
+            [ -n "${!v}" ] || { echo "missing secret $v" >&2; exit 1; }
+          done
+
+      - name: Sync dependencies (incl. hybrid)
+        run: uv sync --extra test --extra quality --extra hybrid
+
+      - name: Start Milvus stack (etcd + milvus, local storage)
+        run: docker compose up -d etcd milvus
+
+      - name: Wait for Milvus health
+        run: |
+          ok=""
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:9091/healthz >/dev/null 2>&1; then
+              echo "milvus healthy"; ok=1; break
+            fi
+            echo "waiting for milvus (attempt $i)"; sleep 5
+          done
+          [ -n "$ok" ] || { echo "milvus did not become healthy"; exit 1; }
+
+      - name: Index dev catalog (deterministic embedding)
+        run: |
+          PRESALE_MILVUS_URI=http://127.0.0.1:19530 \
+          PRESALE_EMBEDDING=deterministic \
+          PRESALE_CATALOG=src/presale/data/dev_catalog.json \
+          uv run presale-index-hybrid src/presale/data/dev_catalog.json
+
+      - name: Real end-to-end faithfulness + generation regression
+        env:
+          PRESALE_LLM_BASE_URL: ${{ secrets.PRESALE_LLM_BASE_URL }}
+          PRESALE_LLM_MODEL: ${{ secrets.PRESALE_LLM_MODEL }}
+          PRESALE_LLM_API_KEY: ${{ secrets.PRESALE_LLM_API_KEY }}
+          PRESALE_MILVUS_URI: http://127.0.0.1:19530
+          PRESALE_CATALOG: src/presale/data/dev_catalog.json
+          PRESALE_HYBRID_POOL: "15"
+        run: |
+          uv run presale-eval-generation --e2e --diagnostics \
+            --snapshot tests/fixtures/generation_snapshot.json
+
+      - name: Idempotent replay (one real question, second call must not regenerate)
+        env:
+          PRESALE_LLM_BASE_URL: ${{ secrets.PRESALE_LLM_BASE_URL }}
+          PRESALE_LLM_MODEL: ${{ secrets.PRESALE_LLM_MODEL }}
+          PRESALE_LLM_API_KEY: ${{ secrets.PRESALE_LLM_API_KEY }}
+          PRESALE_MILVUS_URI: http://127.0.0.1:19530
+          PRESALE_CATALOG: src/presale/data/dev_catalog.json
+        run: |
+          uv run presale-eval-generation --idempotency-replay \
+            --replay-db /tmp/replay.sqlite3
 
       - name: Tear down stack
         if: always()

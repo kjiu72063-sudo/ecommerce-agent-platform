@@ -11,8 +11,10 @@ instance (``docker compose up -d postgres``).
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING
 
-import asyncpg  # pyright: ignore[reportMissingImports]
+if TYPE_CHECKING:
+    import asyncpg  # pyright: ignore[reportMissingImports]
 
 from ..answer import AnswerDraft
 from ..contracts import ProductQuestion
@@ -50,6 +52,9 @@ CREATE TABLE IF NOT EXISTS presale_evidence (
     tenant_id TEXT NOT NULL,
     content JSONB NOT NULL
 );
+ALTER TABLE presale_evidence ADD COLUMN IF NOT EXISTS source_row INTEGER;
+CREATE UNIQUE INDEX IF NOT EXISTS presale_evidence_source_row_key
+    ON presale_evidence (source_row) WHERE source_row IS NOT NULL;
 CREATE TABLE IF NOT EXISTS presale_answers (
     run_ref TEXT PRIMARY KEY,
     tenant_id TEXT NOT NULL,
@@ -76,7 +81,9 @@ class PostgresPresaleStore:
         self.pool: asyncpg.Pool | None = None
         self._initialized = False
 
-    async def _ensure_init(self) -> asyncpg.Pool:
+    async def _ensure_init(self):
+        import asyncpg  # pyright: ignore[reportMissingImports]
+
         if self.pool is None:
             self.pool = await asyncpg.create_pool(self._dsn, min_size=1, max_size=5)
         assert self.pool is not None
@@ -90,6 +97,7 @@ class PostgresPresaleStore:
         if self.pool is not None:
             await self.pool.close()
             self.pool = None
+            self._initialized = False
 
 
 def _json_dumps(obj) -> str:
@@ -285,6 +293,8 @@ class PostgresIdempotencyRepository(IdempotencyRepository):
 
             if self._claim_barrier is not None:
                 await self._claim_barrier()
+
+            import asyncpg  # pyright: ignore[reportMissingImports]
 
             try:
                 await conn.execute(

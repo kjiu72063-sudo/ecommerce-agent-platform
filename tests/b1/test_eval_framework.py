@@ -22,6 +22,8 @@ from presale.adapters.eval_framework import (
 from presale.adapters.eval_framework import (
     main as eval_main,
 )
+from presale.adapters.generation_eval import evaluate_idempotency_replay
+from presale.answer import PresaleAnswerGenerator
 from presale.knowledge import EvidenceItem, KnowledgeSource
 
 
@@ -143,6 +145,21 @@ def test_run_end_to_end_returns_report():
     )
     assert "mean_faithfulness" in report
     assert report["n"] >= 1
+
+
+def test_idempotency_replay_uses_persisted_answer(tmp_path):
+    """方向7: replay returns the durable answer without a second generation."""
+    report = evaluate_idempotency_replay(
+        FakeRetriever(),
+        sources=_sources(),
+        generator=PresaleAnswerGenerator(),
+        database=tmp_path / "replay.sqlite3",
+        question=_mini_golden()[0],
+    )
+
+    assert report["same_answer"] is True
+    assert report["generator_calls"] == 1
+    assert report["replayed_without_generation"] is True
 
 
 def test_build_retriever_none_when_unconfigured(monkeypatch):

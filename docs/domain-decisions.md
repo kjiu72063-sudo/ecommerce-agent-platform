@@ -1,7 +1,7 @@
 # V1 领域决策记录
 
 > 状态：关键领域决策已确认
-> 更新时间：2026-09-07
+> 更新时间：2026-09-22
 > 适用范围：只读、带依据、可转人工的内部售前商品问答
 
 ## 1. 已确认决策
@@ -129,8 +129,11 @@ ProductQuestion
 | D-B1 | 里程碑目标 | 最小可观察 Agent 闭环：Harness 执行 Agent + Loop 决策，驱动现有售前问答 |
 | D-B2 | Loop 终态 | need_human 或达到 max_steps 即终态；不再在已需人工时继续循环 |
 | D-B3 | 首实例 | 复用现有售前 QA，暴露 `retrieve` 工具（只读） |
-| D-B4 | 本轮循环语义 | 单步终态：continue 分支结构性保留但不触发；多步重查留待后续加工具 |
+| D-B4 | 本轮循环语义 | 单步终态仍是默认；多步策略已交付，且只根据步骤信号决定，不在策略内调用模型 |
 | D-B5 | max_steps | 默认 5（有界，防失控） |
+| D-B9 | 多步策略 | `RetryOnLowEvidenceLoop`（无证据重查）、`RepairLoop`（工具 error 重试）、`ReviewRefineLoop`（review 再精炼）、`ReactLoop`（act 继续行动）；各自次数耗尽为 stop，need_human 优先于继续 |
+| D-B10 | 顺序编排 | `AgentCoordinator` 线性执行多个 Agent；前一个回答文本传给后一个；NEED_HUMAN 或 MAX_STEPS 立即停止后续 Agent |
+| D-B11 | 评价分析 | `ReviewAnalyzerAgent` 的输出是推荐，始终 need_human；不把它当成已核实的商品事实 |
 | D-B6 | Harness 与现有 runner 关系 | **分层包装**：Harness 是通用执行壳，把售前问答作为 Agent 实例驱动一个 AgentRun + Loop；`PresaleQaRunner.ask` 内部业务流不变 |
 | D-B7 | 时序 | 同步、请求内直连（无异步队列） |
 | D-B8 | 副作用 | 本轮工具为只读检索，不新增有副作用的工具 |

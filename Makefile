@@ -1,4 +1,4 @@
-.PHONY: up down ps models index-qdrant index-milvus eval eval-semantic eval-semantic-rerank eval-sweep eval-regression eval-generation eval-generation-regression eval-generation-adversarial eval-generation-e2e qa-api teach
+.PHONY: up down ps models index-qdrant index-milvus eval eval-semantic eval-semantic-rerank eval-sweep eval-regression eval-generation eval-generation-regression eval-generation-adversarial eval-generation-e2e eval-idempotency-replay eval-real-acceptance qa-api teach
 
 # 本地可复现的外部环境栈（Qdrant + Milvus + etcd，本地文件存储）
 up:
@@ -93,6 +93,19 @@ eval-generation-e2e:
 	uv run presale-eval-generation --e2e --diagnostics && \
 	uv run presale-eval-generation --e2e --adversarial && \
 	uv run presale-eval-generation --e2e --adversarial --sever-evidence
+
+# 方向7: 真实 LLM 幂等重放（同一问题连调两次，第二次只读持久结果，不得再生成）
+eval-idempotency-replay:
+	PRESALE_MILVUS_URI=http://127.0.0.1:19530 \
+	PRESALE_EMBEDDING=deterministic \
+	PRESALE_CATALOG=src/presale/data/dev_catalog.json \
+	uv run presale-eval-generation --idempotency-replay --replay-db /tmp/replay.sqlite3
+
+# 方向7: 完整真实验收（e2e 保真度 + 快照回退 + 幂等重放）。需 PRESALE_LLM_*。
+eval-real-acceptance:
+	$(MAKE) eval-idempotency-replay
+	uv run presale-eval-generation --e2e --diagnostics \
+	  --snapshot tests/fixtures/generation_snapshot.json
 
 # 启动同步 QA 服务（用 env 配置真实 LLM/检索）
 qa-api:
