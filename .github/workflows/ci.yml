@@ -172,6 +172,22 @@ jobs:
           PRESALE_CATALOG=src/presale/data/dev_catalog.json \
           uv run presale-index-hybrid src/presale/data/dev_catalog.json
 
+      # Replay first: it needs only 1-2 LLM calls while the provider is fresh.
+      # The e2e burst that follows can make the provider briefly 5xx, and e2e
+      # itself tolerates per-question errors.
+      - name: Idempotent replay (one real question, second call must not regenerate)
+        env:
+          PRESALE_LLM_BASE_URL: ${{ secrets.PRESALE_LLM_BASE_URL }}
+          PRESALE_LLM_MODEL: ${{ secrets.PRESALE_LLM_MODEL }}
+          PRESALE_LLM_API_KEY: ${{ secrets.PRESALE_LLM_API_KEY }}
+          PRESALE_MILVUS_URI: http://127.0.0.1:19530
+          PRESALE_EMBEDDING: deterministic
+          PRESALE_CATALOG: src/presale/data/dev_catalog.json
+          PRESALE_GEN_TIMEOUT_S: "120"
+        run: |
+          uv run presale-eval-generation --idempotency-replay \
+            --replay-db /tmp/replay.sqlite3
+
       - name: Real end-to-end faithfulness + generation regression
         env:
           PRESALE_LLM_BASE_URL: ${{ secrets.PRESALE_LLM_BASE_URL }}
@@ -185,21 +201,6 @@ jobs:
         run: |
           uv run presale-eval-generation --e2e --diagnostics \
             --snapshot tests/fixtures/generation_snapshot.json
-
-      - name: Idempotent replay (one real question, second call must not regenerate)
-        env:
-          PRESALE_LLM_BASE_URL: ${{ secrets.PRESALE_LLM_BASE_URL }}
-          PRESALE_LLM_MODEL: ${{ secrets.PRESALE_LLM_MODEL }}
-          PRESALE_LLM_API_KEY: ${{ secrets.PRESALE_LLM_API_KEY }}
-          PRESALE_MILVUS_URI: http://127.0.0.1:19530
-          PRESALE_EMBEDDING: deterministic
-          PRESALE_CATALOG: src/presale/data/dev_catalog.json
-          PRESALE_GEN_TIMEOUT_S: "120"
-        run: |
-          # Let the provider cool down after the e2e burst before replay.
-          sleep 30
-          uv run presale-eval-generation --idempotency-replay \
-            --replay-db /tmp/replay.sqlite3
 
       - name: Tear down stack
         if: always()
