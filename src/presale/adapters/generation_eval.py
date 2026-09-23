@@ -18,6 +18,7 @@ import asyncio
 import json
 import os
 import re
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -485,6 +486,84 @@ def evaluate_end_to_end(
     }
 
 
+def evaluate_idempotency_replay(
+    retriever: Any,
+    *,
+    sources: list[Any],
+    generator: Any,
+    question: dict[str, str] | None = None,
+    database: str | Path | None = None,
+) -> dict[str, Any]:
+    """Run one real-generation question twice through durable SQLite state.
+
+    The second call uses the same idempotency key. A successful replay must
+    return the persisted draft and must not invoke the generator again.
+    """
+    from ..adapters.sqlite import (
+        SQLiteAnswerDraftRepository,
+        SQLiteDispositionRepository,
+        SQLiteEvidenceRepository,
+        SQLiteIdempotencyRepository,
+        SQLitePresaleStore,
+        SQLiteProductQuestionRepository,
+        SQLiteRunTraceRepository,
+    )
+    from ..answer import GeneratorPort
+
+    item = question or qa_golden()[0]
+    tmp_dir: tempfile.TemporaryDirectory[str] | None = None
+    if database is None:
+        tmp_dir = tempfile.TemporaryDirectory()
+        db_path = Path(tmp_dir.name) / "replay.sqlite3"
+    else:
+        db_path = Path(database)
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    store = SQLitePresaleStore(db_path)
+    calls = 0
+
+    class CountingGenerator(GeneratorPort):
+        def generate(self, question, retrieval, *, run_ref, configuration_refs):
+            nonlocal calls
+            calls += 1
+            return generator.generate(
+                question,
+                retrieval,
+                run_ref=run_ref,
+                configuration_refs=configuration_refs,
+            )
+
+    runner = PresaleQaRunner(
+        sources=sources,
+        retriever=retriever,
+        generator=CountingGenerator(),
+        question_repo=SQLiteProductQuestionRepository(store),
+        evidence_repo=SQLiteEvidenceRepository(store),
+        answer_repo=SQLiteAnswerDraftRepository(store),
+        disposition_repo=SQLiteDispositionRepository(store),
+        trace_repo=SQLiteRunTraceRepository(store),
+        idempotency_repo=SQLiteIdempotencyRepository(store),
+    )
+    q = _question(item["tenant_id"], item["product_id"], item["query"], key="e2e-replay-0001")
+    try:
+        first = asyncio.run(runner.ask(q))
+        second = asyncio.run(runner.ask(q))
+        return {
+            "question": item["query"],
+            "first_run_ref": first.run_ref,
+            "second_run_ref": second.run_ref,
+            "first_answer_id": first.answer_draft.answer_id,
+            "second_answer_id": second.answer_draft.answer_id,
+            "same_answer": first.answer_draft.model_dump(mode="json")
+            == second.answer_draft.model_dump(mode="json"),
+            "generator_calls": calls,
+            "replayed_without_generation": calls == 1,
+        }
+    finally:
+        store.close()
+        if tmp_dir is not None:
+            tmp_dir.cleanup()
+
+
 def _key(row: dict[str, Any]) -> str:
     return f"{row['tenant_id']}/{row['product_id']}::{row['query']}"
 
@@ -519,12 +598,37 @@ def main(argv: list[str] | None = None) -> None:
         default="src/presale/data/dev_catalog.json",
         help="catalog for e2e runner sources (default dev_catalog.json)",
     )
+    parser.add_argument(
+        "--idempotency-replay",
+        action="store_true",
+        help="run one real question twice through durable SQLite state",
+    )
+    parser.add_argument(
+        "--replay-db",
+        help="SQLite path for --idempotency-replay (default: temporary database)",
+    )
     args = parser.parse_args(argv)
 
     base_url, model, api_key = llm_config()
     retriever = hybrid_retriever_from_env()
     if retriever is None:
         raise SystemExit("PRESALE_MILVUS_URI required (or another retriever)")
+
+    if args.idempotency_replay:
+        generator = OpenAICompatibleGenerator(
+            model=model,
+            base_url=base_url,
+            api_key=api_key,
+            timeout_s=float(os.environ.get("PRESALE_GEN_TIMEOUT_S", "60")),
+        )
+        report = evaluate_idempotency_replay(
+            retriever,
+            sources=load_catalog(args.catalog),
+            generator=generator,
+            database=args.replay_db,
+        )
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        raise SystemExit(0 if report["replayed_without_generation"] else 1)
 
     if args.e2e:
         generator = OpenAICompatibleGenerator(

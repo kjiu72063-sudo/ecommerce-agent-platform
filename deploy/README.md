@@ -106,6 +106,16 @@ presale-migrate-pg --sqlite ./presale.sqlite3 --dsn "$PRESALE_PG_DSN"
 ## Corrective-RAG：低置信自动转人工
 `PresaleQaRunner` 新路径在生成 draft 后、落库前执行低置信门：`NO_EVIDENCE`/`CONFLICT` 或命中证据少于 `PRESALE_MIN_EVIDENCE_FOR_ANSWER` 时，强制 `need_human=True` 并追加 `NO_EVIDENCE`/`CONFLICT`/`LOW_CONFIDENCE` reason code；默认阈值为 1（保持兼容），生产可设 `PRESALE_MIN_EVIDENCE_FOR_ANSWER=2` 等提高门槛。该门不碰 claim/重放状态机，只影响新生成 draft；API 的 `format_outcome` 已将 `need_human` 暴露到响应顶层，调用方可据此进入人工队列。4 个单测覆盖低置信升级、足量证据不升级、无证据结构约束、重放不重新门控。
 
+## 方向7 真实 LLM 手动验收
+
+真实模型验收**不进普通 PR**，只由 `workflow_dispatch` 手动触发（Actions → CI → Run workflow）。仓库需配置三个 secrets：`PRESALE_LLM_BASE_URL`、`PRESALE_LLM_MODEL`、`PRESALE_LLM_API_KEY`。job 内容：
+
+1. 确定性嵌入把 `dev_catalog` 索引进 Milvus；
+2. `presale-eval-generation --e2e --snapshot generation_snapshot.json`：真实端到端忠实度 + 与既有基线的回退比较（回退超容差即失败）；
+3. `presale-eval-generation --idempotency-replay`：同一问题经 SQLite 持久化连调两次，断言第二次复用已落库草稿、transport 只发生一次。
+
+本地等价入口：`make eval-real-acceptance`（需先起 Milvus 并设好 `PRESALE_LLM_*`）。幂等重放单跑用 `make eval-idempotency-replay`。
+
 ## 注意
 - Milvus **单独** `docker run` 裸镜像无法工作——它需要 etcd 提供元数据，且此仓库用 **本地文件存储**（`COMMON_STORAGETYPE=local`）而非 MinIO。请用 `docker compose up` 一起拉起。
 - 为什么没有 MinIO：本机 1Panel 镜像站未缓存 `minio/minio` 镜像（`docker pull` 报 403），故 Milvus 单机用 local 存储以绕开对象存储依赖。**生产/正式若需 MinIO 对象存储**，加回 minio 服务并把 `COMMON_STORAGETYPE` 改回 `remote`、补 `MINIO_ADDRESS`。

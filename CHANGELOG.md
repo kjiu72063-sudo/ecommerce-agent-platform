@@ -7,6 +7,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/), versioning foll
 ## [Unreleased]
 
 ### Added
+- **Direction 7 real LLM acceptance**: `--idempotency-replay` runs one real question twice through durable SQLite state and fails if the second call regenerates; manual `workflow_dispatch` CI job runs e2e faithfulness + generation snapshot regression + replay (secrets `PRESALE_LLM_*`, never on PRs). Offline tests cover the replay contract. Baseline 366.
 - **AgentCoordinator** (方向4): sequential multi-agent orchestration. The previous answer text is the next question; NEED_HUMAN or MAX_STEPS short-circuits the rest. Presale → Review use case. 9 tests.
 - **RepairLoop / ReviewRefineLoop / ReactLoop** (方向3): deterministic step-signal strategies. Exhausted attempts stop rather than finalize. 14 tests.
 - **Retrieval regression gate** (方向2): CI compares `presale-eval --mode retrieval` against the committed snapshot and fails on regression.
