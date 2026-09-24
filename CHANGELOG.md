@@ -30,6 +30,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/), versioning foll
 - **Specs**: `docs/spec-b5-loop-engine.md`, `docs/spec-b6-business-agent.md`.
 
 ### Fixed
+- **compare_reports retrieval key mismatch**: retrieval reports use `per_query` (bare query text) while snapshots use `tenant/product::query` keys — compare never saw rank regressions (`regressed` stayed 0). `_as_per_question` now accepts `per_query` and normalizes list rows to composite keys. Retrieval snapshot regenerated from CI deterministic-embedding results (aligned gates). 1 test. Baseline 397.
 - 39 pyright type errors in `src/registry/` and `src/runtime/` (all `param: T = None` → `param: T | None = None`).
 - Port boundary violations: `generation_eval.py` lazy import, `sweep_retrieval.py` parameterized factory, `generate_realistic_golden.py` lazy import.
 - Structural issues R-1 through R-5 (README baseline, pyright scope, module boundaries, Loop CONTINUE semantics, `__all__` position).

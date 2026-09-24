@@ -96,11 +96,11 @@ def test_compare_recall_lost_regressed():
 
 
 def test_compare_new_query_added():
-    """F-02: query present in B but absent in A is listed as added."""
+    """F-02: query present in B but absent in A is listed as added (composite key)."""
     a = _retrieval_report("旧查询", 1)
     b = _retrieval_report("新查询", 1)
     result = compare_reports(a, b)
-    assert result["added"] == ["新查询"]
+    assert result["added"] == ["tenant-demo/product-001::新查询"]
 
 
 def test_compare_error_to_ok_improved():

@@ -95,9 +95,6 @@ jobs:
             "tests/fixtures/retrieval_golden_snapshot.json::eval-artifacts/retrieval_current.json" \
             --fail-on-regression \
             --csv eval-artifacts/regression_summary.csv
-          # TEMP(verify): force failure after CSVs exist so upload-artifact runs.
-          echo "forced failure to verify eval-artifacts upload"
-          exit 1
 
       - name: Upload golden regression artifacts
         if: failure()

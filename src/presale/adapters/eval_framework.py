@@ -672,21 +672,37 @@ def _run_mode(
     return {"mode": mode, "golden": golden_meta(mode), **report}
 
 
-def _as_per_question(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    """Normalize a report to {query: row} for comparison.
+def _row_key(row: dict[str, Any]) -> str:
+    """Stable compare key: ``tenant/product::query`` when ids are present."""
+    query = str(row.get("query") or "")
+    if "::" in query:
+        return query
+    tenant_id = row.get("tenant_id")
+    product_id = row.get("product_id")
+    if tenant_id and product_id:
+        return f"{tenant_id}/{product_id}::{query}"
+    return query
 
-    Accepts either the full report shape (``{"per_question": [...]}``) or the
-    legacy eval_regression flat snapshot shape (``{"key": {"expected": [...],
-    "rank": ...}}``), where each key is the ``tenant/product::query`` string.
+
+def _as_per_question(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Normalize a report to {key: row} for comparison.
+
+    Accepts ``per_question`` or ``per_query`` list shapes (retrieval uses
+    ``per_query``; other modes use ``per_question``) and the legacy
+    flat snapshot shape (``{"tenant/product::query": {"rank": ...}}``).
+    List rows are keyed as ``tenant/product::query`` so they match snapshots.
     """
     rows = data.get("per_question")
+    if rows is None:
+        rows = data.get("per_query")
     if rows is not None:
-        return {q["query"]: q for q in rows}
-    # Flat snapshot: key is tenant/product::query.
+        return {_row_key(q): q for q in rows}
+    # Flat snapshot: key is tenant/product::query. Skip known aggregate dicts.
+    skip = {"golden", "hit_at_k", "latency", "tokens", "cost", "terminals"}
     return {
         key: {"query": key, "rank": row.get("rank") if isinstance(row, dict) else None}
         for key, row in data.items()
-        if isinstance(row, dict)
+        if isinstance(row, dict) and key not in skip
     }
 
 

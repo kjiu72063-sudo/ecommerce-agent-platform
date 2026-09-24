@@ -381,6 +381,37 @@ def test_compare_accepts_flat_snapshot_format():
     assert result["regressed"][0]["new"] == 3
 
 
+def test_compare_accepts_retrieval_per_query_vs_flat_snapshot():
+    """compare 识别 retrieval 的 per_query 列表，并用 tenant/product::query 对齐快照键。"""
+    from presale.adapters.eval_framework import compare_reports
+
+    flat = {
+        "tenant-demo/product-001::大热天会晒黑吗": {"expected": ["spec_upf"], "rank": 1},
+    }
+    retrieval_report = {
+        "mode": "retrieval",
+        "n": 1,
+        "mrr": 0.5,
+        "per_query": [
+            {
+                "query": "大热天会晒黑吗",
+                "tenant_id": "tenant-demo",
+                "product_id": "product-001",
+                "rank": 3,
+                "recalled": True,
+            }
+        ],
+        "hit_at_k": {"hit@1": 0.0},
+        "golden": {"catalog_sha256": "abc"},
+    }
+    result = compare_reports(flat, retrieval_report)
+    assert result["summary"]["regressed"] == 1
+    assert result["regressed"][0]["old"] == 1
+    assert result["regressed"][0]["new"] == 3
+    assert result["removed"] == []
+    assert result["added"] == []
+
+
 # --- 方向8余量: review / multi-agent modes ---
 
 
