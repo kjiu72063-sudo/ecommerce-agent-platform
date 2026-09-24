@@ -125,3 +125,108 @@ def test_rrf_weighted_equal_scores_break_ties_by_id():
     # Swapping input order must not change the fused order.
     fused_swapped = _rrf_weighted(list(reversed(dense)), list(reversed(bm25)))
     assert [h["source_id"] for h in fused_swapped] == ["src-a", "src-z"]
+
+
+class EmptyMilvus(FakeMilvus):
+    """Dense side returns no hits (filtered ANN empty) while BM25 still has data."""
+
+    def search(self, collection_name, data, limit, output_fields, filter=""):
+        return [[]]
+
+
+def test_bm25_search_scopes_tenant_product_before_topk():
+    """Scope before top-k: other products must not occupy the result slots."""
+    bm25 = BM25Index()
+    index_hybrid(
+        [
+            source(
+                source_id="target",
+                tenant_id="tenant-acme",
+                product_id="product-103",
+                fields={"spec": {"capacity": "标称双人，空间可放下两张睡垫"}},
+            ),
+            source(
+                source_id="noise-1",
+                tenant_id="tenant-other",
+                product_id="product-201",
+                fields={"spec": {"capacity": "大容量粮仓 气垫床 挤 转身 画质"}},
+            ),
+            source(
+                source_id="noise-2",
+                tenant_id="tenant-demo",
+                product_id="product-002",
+                fields={"spec": {"waterproof": "气垫床 挤 转身 画质 容量"}},
+            ),
+        ],
+        embedding=fake_embed,
+        dense=MilvusDense(collection="presale", dim=2, client=FakeMilvus()),
+        bm25=bm25,
+    )
+    query = "我们俩一人一个气垫床，塞进去会不会挤得没法转身？"
+
+    unscoped = bm25.search(query, 5)
+    assert unscoped  # global ranking still available without scope
+    scoped = bm25.search(query, 5, tenant_id="tenant-acme", product_id="product-103")
+    assert scoped
+    assert all(h["tenant_id"] == "tenant-acme" and h["product_id"] == "product-103" for h in scoped)
+    assert any(h["locator"] == "spec.capacity" for h in scoped)
+
+
+def test_hybrid_transport_dense_empty_keeps_product_evidence():
+    """Dense empty + global BM25 would wipe the product after top_k trim; scope fixes it."""
+    bm25 = BM25Index()
+    dense = MilvusDense(collection="presale", dim=2, client=EmptyMilvus())
+    index_hybrid(
+        [
+            source(
+                source_id="tent",
+                tenant_id="tenant-acme",
+                product_id="product-103",
+                fields={
+                    "spec": {
+                        "capacity": "标称双人，空间可放下两张睡垫",
+                        "waterproof": "防雨不渗水",
+                    }
+                },
+            ),
+            source(
+                source_id="filler-a",
+                tenant_id="tenant-other",
+                product_id="product-201",
+                fields={"spec": {"note": "气垫床 挤 转身 容量 双人 睡垫 大容量"}},
+            ),
+            source(
+                source_id="filler-b",
+                tenant_id="tenant-demo",
+                product_id="product-002",
+                fields={"spec": {"note": "气垫床 挤 转身 容量 双人 睡垫"}},
+            ),
+        ],
+        embedding=fake_embed,
+        dense=dense,
+        bm25=bm25,
+    )
+    transport = hybrid_transport(embedding=fake_embed, dense=dense, bm25=bm25, top_k=5, pool=15)
+    retrieval = ExternalRetrieval(transport=transport)
+    q = ProductQuestion(
+        question_id="q-dense-empty",
+        tenant_id="tenant-acme",
+        submitted_by={
+            "actor_type": "user",
+            "actor_id": "usr_0198f6d0-7ef0-7b0e-a0d3-5f9c96c7f411",
+        },
+        product_id="product-103",
+        question_text="我们俩一人一个气垫床，塞进去会不会挤得没法转身？",
+        requested_at=datetime(2026, 9, 18, tzinfo=timezone.utc),
+        idempotency_key="dense-empty-0001",
+    )
+
+    result = retrieval.retrieve(q)
+
+    assert result.status is RetrievalStatus.MATCHED
+    assert result.evidence_items
+    assert all(
+        e.tenant_id == "tenant-acme" and e.product_id == "product-103"
+        for e in result.evidence_items
+    )
+    assert any(e.locator == "spec.capacity" for e in result.evidence_items)
