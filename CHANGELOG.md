@@ -7,6 +7,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/), versioning foll
 ## [Unreleased]
 
 ### Added
+- **CI golden regression batch CSV + artifacts**: milvus retrieval gate now writes `retrieval_run.csv` + uses `--compare-batch` with `regression_summary.csv`; on failure uploads `eval-artifacts/` (JSON + both CSVs) via `actions/upload-artifact`. Baseline 396.
 - **presale-eval batch + CSV**: `--inputs g1.json g2.json` runs one mode once per golden file; `--csv summary.csv` writes one row per file (or one row for a single run) with flattened metrics; `--compare-batch base::curr ...` runs golden regression over multiple pairs (Windows-safe `::` separator) and honors `--fail-on-regression`. 6 tests. Baseline 396.
 - **Direction 5 business agents (mock external services)**: `LiveClipperAgent` (mock ASR transcript + mock ffmpeg cut; deterministic product-segment extraction) and `ContentCreatorAgent` (template copy + mock image generator). Both emit NEED_HUMAN drafts per the no-evidence contract. `presale-eval --mode live-clipper|content-creator` offline goldens. 11 tests. Baseline 390.
 - **Direction 8 Markdown report + golden versioning**: `render_markdown` / `--output *.md` emit a metric table and per-question preview; every eval report stamps `golden_meta` (generation/review golden versions + sizes, catalog sha256 prefix, timestamp). `presale-eval-generation --save` writes `_meta` into the generation snapshot. Update policy documented in `deploy/README.md`. 4 tests. Baseline 378.
