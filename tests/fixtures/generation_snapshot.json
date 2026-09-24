@@ -54,6 +54,16 @@
     "answer_correctness": 1.0,
     "gold_correctness": 1.0
   },
+  "tenant-demo/product-010::冬天贴身穿够暖吗，能塞羽绒服里当内搭吗": {
+    "faithfulness": 1.0,
+    "answer_correctness": 1.0,
+    "gold_correctness": 1.0
+  },
+  "tenant-demo/product-011::夏天戴的帽子能挡住脸不被晒吗": {
+    "faithfulness": 1.0,
+    "answer_correctness": 1.0,
+    "gold_correctness": 1.0
+  },
   "tenant-acme/product-105::彩色衣服用这个洗衣液会掉色吗": {
     "faithfulness": 1.0,
     "answer_correctness": 1.0,
