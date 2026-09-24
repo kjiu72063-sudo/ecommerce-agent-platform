@@ -7,6 +7,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/), versioning foll
 ## [Unreleased]
 
 ### Added
+- **Direction 8 e2e latency & cost**: `CallMeter` instruments generation/judge transports; e2e report gains `latency` (wall/mean ask/judge, per-call p50/p95), `tokens` (prompt/completion split by role), and optional `cost.estimated_usd` from `PRESALE_LLM_INPUT_PRICE_PER_M` / `PRESALE_LLM_OUTPUT_PRICE_PER_M`. Per-question rows carry `ask_latency_ms` / `judge_latency_ms` / `total_latency_ms`. `summarize()` appends latency/tokens/cost. Baseline 370.
 - **Direction 7 real LLM acceptance**: `--idempotency-replay` runs one real question twice through durable SQLite state and fails if the second call regenerates; manual `workflow_dispatch` CI job runs e2e faithfulness + generation snapshot regression + replay (secrets `PRESALE_LLM_*`, never on PRs). Offline tests cover the replay contract. Baseline 366.
 - **AgentCoordinator** (方向4): sequential multi-agent orchestration. The previous answer text is the next question; NEED_HUMAN or MAX_STEPS short-circuits the rest. Presale → Review use case. 9 tests.
 - **RepairLoop / ReviewRefineLoop / ReactLoop** (方向3): deterministic step-signal strategies. Exhausted attempts stop rather than finalize. 14 tests.

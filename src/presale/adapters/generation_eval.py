@@ -33,6 +33,49 @@ from ..runner import PresaleQaRunner
 Transport = Callable[..., dict[str, Any]]
 
 
+class CallMeter:
+    """Accumulate wall-clock latency and token usage for instrumented LLM calls."""
+
+    def __init__(self) -> None:
+        self.durations_s: list[float] = []
+        self.prompt_tokens = 0
+        self.completion_tokens = 0
+        self.calls = 0
+
+    def record(self, duration_s: float, completion: dict[str, Any] | None) -> None:
+        self.calls += 1
+        self.durations_s.append(duration_s)
+        usage = (completion or {}).get("usage") or {}
+        self.prompt_tokens += int(usage.get("prompt_tokens") or 0)
+        self.completion_tokens += int(usage.get("completion_tokens") or 0)
+
+    def wrap(self, transport: Transport) -> Transport:
+        def wrapped(**kwargs: Any) -> dict[str, Any]:
+            started = time.perf_counter()
+            result = transport(**kwargs)
+            self.record(time.perf_counter() - started, result)
+            return result
+
+        return wrapped
+
+    def latency_ms(self) -> dict[str, Any]:
+        if not self.durations_s:
+            return {"calls": 0, "mean_ms": None, "p50_ms": None, "p95_ms": None}
+        ordered = sorted(self.durations_s)
+        n = len(ordered)
+
+        def pct(p: float) -> float:
+            idx = min(n - 1, max(0, round(p * (n - 1))))
+            return round(ordered[idx] * 1000, 1)
+
+        return {
+            "calls": n,
+            "mean_ms": round(sum(ordered) / n * 1000, 1),
+            "p50_ms": pct(0.5),
+            "p95_ms": pct(0.95),
+        }
+
+
 def qa_golden() -> list[dict[str, str]]:
     """Golden QA for generation faithfulness + gold-correctness.
 
@@ -417,6 +460,36 @@ def mark_undetected(report: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _token_price_per_1m(env_name: str) -> float | None:
+    raw = os.environ.get(env_name)
+    if not raw:
+        return None
+    try:
+        return float(raw)
+    except ValueError:
+        return None
+
+
+def _estimate_cost_usd(prompt_tokens: int, completion_tokens: int) -> dict[str, Any]:
+    """Estimate USD cost from env prices (per 1M tokens); null when unpriced."""
+    in_price = _token_price_per_1m("PRESALE_LLM_INPUT_PRICE_PER_M")
+    out_price = _token_price_per_1m("PRESALE_LLM_OUTPUT_PRICE_PER_M")
+    if in_price is None or out_price is None:
+        return {
+            "estimated_usd": None,
+            "input_price_per_m": in_price,
+            "output_price_per_m": out_price,
+            "priced": False,
+        }
+    total = prompt_tokens / 1_000_000 * in_price + completion_tokens / 1_000_000 * out_price
+    return {
+        "estimated_usd": round(total, 6),
+        "input_price_per_m": in_price,
+        "output_price_per_m": out_price,
+        "priced": True,
+    }
+
+
 def evaluate_end_to_end(
     retriever: Any,
     *,
@@ -434,41 +507,71 @@ def evaluate_end_to_end(
     Retrieval + generation go through the actual runner (not the rebuilt pipeline);
     the produced answers are then judged by the same LLM-as-judge. ``sever_evidence``
     wraps the retriever so the runner sees no evidence (total retrieval failure).
+
+    The report includes per-question and aggregate **latency** (ask / judge) and
+    **token cost** (from OpenAI-compatible ``usage``; USD only when
+    ``PRESALE_LLM_INPUT_PRICE_PER_M`` / ``PRESALE_LLM_OUTPUT_PRICE_PER_M`` are set).
     """
     if sever_evidence:
         retriever = _SeveredRetriever(retriever)
+
+    gen_meter = CallMeter()
+    if generator is not None and hasattr(generator, "_transport"):
+        generator._transport = gen_meter.wrap(generator._transport)
+    judge_meter = CallMeter()
+    judged_transport = judge_meter.wrap(transport)
+
     runner = PresaleQaRunner(sources=sources, retriever=retriever, generator=generator)
     rows: list[dict[str, Any]] = []
+    wall_started = time.perf_counter()
     for index, item in enumerate(questions if questions is not None else qa_golden()):
         query = item["query"]
         gold = item.get("gold")
+        ask_s: float | None = None
+        judge_s: float | None = None
         try:
             q = _question(item["tenant_id"], item["product_id"], query, key=f"e2e-{index:05d}")
             retrieval = retriever.retrieve(q)
             evidence = [e.content for e in (retrieval.evidence_items or [])]
+            ask_started = time.perf_counter()
             result = asyncio.run(runner.ask(q))
+            ask_s = time.perf_counter() - ask_started
             answer = result.answer_draft.answer_text
+            judge_started = time.perf_counter()
             judge_raw = _chat(
-                _judge_prompt(query, evidence, answer, gold), transport, base_url, model, api_key
+                _judge_prompt(query, evidence, answer, gold),
+                judged_transport,
+                base_url,
+                model,
+                api_key,
             )
-            rows.append(
-                {
-                    "tenant_id": item["tenant_id"],
-                    "product_id": item["product_id"],
-                    "query": query,
-                    **parse_judge(judge_raw),
-                    "answer": answer,
-                }
-            )
+            judge_s = time.perf_counter() - judge_started
+            row: dict[str, Any] = {
+                "tenant_id": item["tenant_id"],
+                "product_id": item["product_id"],
+                "query": query,
+                **parse_judge(judge_raw),
+                "answer": answer,
+            }
+            if ask_s is not None:
+                row["ask_latency_ms"] = round(ask_s * 1000, 1)
+            if judge_s is not None:
+                row["judge_latency_ms"] = round(judge_s * 1000, 1)
+            if ask_s is not None and judge_s is not None:
+                row["total_latency_ms"] = round((ask_s + judge_s) * 1000, 1)
+            rows.append(row)
         except Exception as exc:  # noqa: BLE001 - surface the failing question, keep going
-            rows.append(
-                {
-                    "tenant_id": item["tenant_id"],
-                    "product_id": item["product_id"],
-                    "query": query,
-                    "error": str(exc),
-                }
-            )
+            failed: dict[str, Any] = {
+                "tenant_id": item["tenant_id"],
+                "product_id": item["product_id"],
+                "query": query,
+                "error": str(exc),
+            }
+            if ask_s is not None:
+                failed["ask_latency_ms"] = round(ask_s * 1000, 1)
+            rows.append(failed)
+    wall_s = time.perf_counter() - wall_started
+
     ok = [r for r in rows if "error" not in r]
     n = len(rows)
     n_ok = len(ok)
@@ -476,6 +579,21 @@ def evaluate_end_to_end(
     correctness = sum(r["answer_correctness"] for r in ok) / n_ok if n_ok else 0.0
     gold_correctness = sum(r["gold_correctness"] for r in ok) / n_ok if n_ok else 0.0
     unsupported = sum(r["unsupported_claims"] for r in ok)
+
+    def _latencies(key: str) -> list[float]:
+        return [r[key] / 1000.0 for r in ok if key in r]
+
+    ask_lat = _latencies("ask_latency_ms")
+    judge_lat = _latencies("judge_latency_ms")
+    total_lat = _latencies("total_latency_ms")
+
+    def _mean(values: list[float]) -> float | None:
+        return round(sum(values) / len(values) * 1000, 1) if values else None
+
+    prompt_tokens = gen_meter.prompt_tokens + judge_meter.prompt_tokens
+    completion_tokens = gen_meter.completion_tokens + judge_meter.completion_tokens
+    cost = _estimate_cost_usd(prompt_tokens, completion_tokens)
+
     return {
         "n": n,
         "errors": n - n_ok,
@@ -483,6 +601,23 @@ def evaluate_end_to_end(
         "mean_answer_correctness": round(correctness, 4),
         "mean_gold_correctness": round(gold_correctness, 4),
         "total_unsupported_claims": unsupported,
+        "latency": {
+            "wall_s": round(wall_s, 2),
+            "mean_ask_ms": _mean(ask_lat),
+            "mean_judge_ms": _mean(judge_lat),
+            "mean_total_ms": _mean(total_lat),
+            "generation_calls": gen_meter.latency_ms(),
+            "judge_calls": judge_meter.latency_ms(),
+        },
+        "tokens": {
+            "prompt": prompt_tokens,
+            "completion": completion_tokens,
+            "generation_prompt": gen_meter.prompt_tokens,
+            "generation_completion": gen_meter.completion_tokens,
+            "judge_prompt": judge_meter.prompt_tokens,
+            "judge_completion": judge_meter.completion_tokens,
+        },
+        "cost": cost,
         "per_question": rows,
     }
 

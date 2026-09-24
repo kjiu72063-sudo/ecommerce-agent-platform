@@ -83,13 +83,14 @@ class FakeTransport:
 
     def __call__(self, *, api_key, base_url, model, messages, timeout_s):
         last = messages[-1]["content"] if messages else ""
+        usage = {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}
         if "质检评审" in last or "judge" in last:
             judge = (
                 '{"faithfulness": 1, "answer_correctness": 1, '
                 '"gold_correctness": 1, "unsupported_claims": 0}'
             )
-            return {"choices": [{"message": {"content": judge}}]}
-        return {"choices": [{"message": {"content": "根据资料，适合夏季使用。"}}]}
+            return {"choices": [{"message": {"content": judge}}], "usage": usage}
+        return {"choices": [{"message": {"content": "根据资料，适合夏季使用。"}}], "usage": usage}
 
 
 def _sources():
@@ -102,6 +103,18 @@ def _sources():
             status="published",
             fields={"spec": {"season": "适合夏季使用"}},
         )
+    ]
+
+
+def _mini_golden_questions():
+    """One golden-shaped question for focused e2e latency/cost tests."""
+    return [
+        {
+            "tenant_id": "tenant-demo",
+            "product_id": "product-001",
+            "query": "这件防晒衣能挡住紫外线吗",
+            "gold": "能。UPF50+。",
+        }
     ]
 
 
@@ -145,6 +158,71 @@ def test_run_end_to_end_returns_report():
     )
     assert "mean_faithfulness" in report
     assert report["n"] >= 1
+
+
+def test_e2e_report_includes_latency_and_tokens():
+    """方向8: e2e report carries latency, per-question timings, and token usage."""
+    report = run_end_to_end(
+        FakeRetriever(),
+        sources=_sources(),
+        generator=None,
+        transport=FakeTransport(),
+        base_url="https://example.test/v1",
+        model="gpt-test",
+        api_key="test-key",
+        questions=_mini_golden_questions(),
+    )
+    assert "latency" in report
+    assert report["latency"]["wall_s"] >= 0
+    assert report["latency"]["mean_ask_ms"] is None or report["latency"]["mean_ask_ms"] >= 0
+    assert "tokens" in report
+    # judge transport ran once per question and reported usage
+    assert report["tokens"]["judge_prompt"] == 10 * len(report["per_question"])
+    assert report["tokens"]["judge_completion"] == 5 * len(report["per_question"])
+    ok_rows = [r for r in report["per_question"] if "error" not in r]
+    assert all("judge_latency_ms" in r for r in ok_rows)
+    assert all(r["judge_latency_ms"] >= 0 for r in ok_rows)
+
+
+def test_e2e_cost_null_without_prices(monkeypatch):
+    """方向8: cost stays unpriced when env prices are absent."""
+    monkeypatch.delenv("PRESALE_LLM_INPUT_PRICE_PER_M", raising=False)
+    monkeypatch.delenv("PRESALE_LLM_OUTPUT_PRICE_PER_M", raising=False)
+    report = run_end_to_end(
+        FakeRetriever(),
+        sources=_sources(),
+        generator=None,
+        transport=FakeTransport(),
+        base_url="https://example.test/v1",
+        model="gpt-test",
+        api_key="test-key",
+        questions=_mini_golden_questions(),
+    )
+    assert report["cost"]["priced"] is False
+    assert report["cost"]["estimated_usd"] is None
+
+
+def test_e2e_cost_estimated_with_prices(monkeypatch):
+    """方向8: USD cost = prompt/1M*in + completion/1M*out when prices set."""
+    monkeypatch.setenv("PRESALE_LLM_INPUT_PRICE_PER_M", "2.5")
+    monkeypatch.setenv("PRESALE_LLM_OUTPUT_PRICE_PER_M", "10")
+    questions = _mini_golden_questions()
+    report = run_end_to_end(
+        FakeRetriever(),
+        sources=_sources(),
+        generator=None,
+        transport=FakeTransport(),
+        base_url="https://example.test/v1",
+        model="gpt-test",
+        api_key="test-key",
+        questions=questions,
+    )
+    n = len(questions)
+    # judge-only: n * (10 prompt + 5 completion) — generator is PresaleAnswerGenerator (no LLM)
+    expected = (n * 10) / 1_000_000 * 2.5 + (n * 5) / 1_000_000 * 10
+    assert report["cost"]["priced"] is True
+    assert report["cost"]["estimated_usd"] == round(expected, 6)
+    assert summarize("end-to-end", report).find("cost_usd=") >= 0
 
 
 def test_idempotency_replay_uses_persisted_answer(tmp_path):
