@@ -121,12 +121,37 @@ class BM25Index:
         self._payloads = list(payloads)
         self._bm25 = BM25Okapi([_tokenize(t) for t in self._texts])
 
-    def search(self, query: str, k: int) -> list[dict[str, Any]]:
+    def search(
+        self,
+        query: str,
+        k: int,
+        *,
+        tenant_id: str | None = None,
+        product_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Top-``k`` nonzero BM25 hits, optionally restricted to one tenant/product.
+
+        Scope is applied *before* taking ``k``. A global top-``k`` then filter
+        would drop the product when other products outrank it; after dense
+        returns empty, that left ExternalRetrieval with no evidence at all.
+        """
         if self._bm25 is None or not self._texts:
             return []
         scores = self._bm25.get_scores(_tokenize(query))
         ranked = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
-        return [self._payloads[i] for i in ranked[:k] if scores[i] != 0]
+        out: list[dict[str, Any]] = []
+        for i in ranked:
+            if scores[i] == 0:
+                continue
+            payload = self._payloads[i]
+            if tenant_id is not None and payload.get("tenant_id") != tenant_id:
+                continue
+            if product_id is not None and payload.get("product_id") != product_id:
+                continue
+            out.append(payload)
+            if len(out) >= k:
+                break
+        return out
 
 
 class MilvusDense:
@@ -273,7 +298,13 @@ def hybrid_transport(
             }
             for hit in dense.search(vector, tenant_id=tenant_id, product_id=product_id, k=d_k)
         ]
-        bm25_hits = [{**_payload(item), "id": item["id"]} for item in bm25.search(query, b_k)]
+        bm25_hits = [
+            {
+                **_payload(item),
+                "id": item["id"],
+            }
+            for item in bm25.search(query, b_k, tenant_id=tenant_id, product_id=product_id)
+        ]
         fused = _rrf_weighted(dense_hits, bm25_hits, k=rrf_k, weights=[1.0, bm25_weight])
         if reranker is not None:
             fused = reranker(query, fused)
