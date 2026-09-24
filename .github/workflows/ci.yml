@@ -76,18 +76,34 @@ jobs:
 
       # Retrieval quality regression gate: index dev_catalog into Milvus with the
       # deterministic embedding, evaluate the golden set, and compare per-query
-      # ranks against the committed snapshot. Any regression fails the check
-      # (--fail-on-regression), so a change that degrades retrieval cannot merge.
+      # ranks against the committed snapshot via compare-batch (CSV summary).
+      # Any regression fails the check; on failure the run JSON + summary CSVs
+      # are uploaded as artifacts for diagnosis.
       - name: Retrieval eval regression gate
         run: |
+          mkdir -p eval-artifacts
           PRESALE_MILVUS_URI=http://127.0.0.1:19530 \
           PRESALE_EMBEDDING=deterministic \
           PRESALE_CATALOG=src/presale/data/dev_catalog.json \
-          uv run presale-eval --mode retrieval --output /tmp/retrieval_current.json
+          uv run presale-eval --mode retrieval \
+            --output eval-artifacts/retrieval_current.json \
+            --csv eval-artifacts/retrieval_run.csv
           PRESALE_MILVUS_URI=http://127.0.0.1:19530 \
           PRESALE_EMBEDDING=deterministic \
           PRESALE_CATALOG=src/presale/data/dev_catalog.json \
-          uv run presale-eval --compare tests/fixtures/retrieval_golden_snapshot.json /tmp/retrieval_current.json --fail-on-regression
+          uv run presale-eval --compare-batch \
+            "tests/fixtures/retrieval_golden_snapshot.json::eval-artifacts/retrieval_current.json" \
+            --fail-on-regression \
+            --csv eval-artifacts/regression_summary.csv
+
+      - name: Upload golden regression artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-regression-${{ github.run_id }}
+          path: eval-artifacts/
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Tear down stack
         if: always()
