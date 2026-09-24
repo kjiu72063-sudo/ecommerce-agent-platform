@@ -672,30 +672,51 @@ def _run_mode(
     return {"mode": mode, "golden": golden_meta(mode), **report}
 
 
-def _as_per_question(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    """Normalize a report to {query: row} for comparison.
+def _row_key(row: dict[str, Any]) -> str:
+    """Stable compare key: ``tenant/product::query`` when ids are present."""
+    query = str(row.get("query") or "")
+    if "::" in query:
+        return query
+    tenant_id = row.get("tenant_id")
+    product_id = row.get("product_id")
+    if tenant_id and product_id:
+        return f"{tenant_id}/{product_id}::{query}"
+    return query
 
-    Accepts either the full report shape (``{"per_question": [...]}``) or the
-    legacy eval_regression flat snapshot shape (``{"key": {"expected": [...],
-    "rank": ...}}``), where each key is the ``tenant/product::query`` string.
+
+def _as_per_question(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Normalize a report to {key: row} for comparison.
+
+    Accepts ``per_question`` or ``per_query`` list shapes (retrieval uses
+    ``per_query``; other modes use ``per_question``) and the legacy
+    flat snapshot shape (``{"tenant/product::query": {"rank": ...}}``).
+    List rows are keyed as ``tenant/product::query`` so they match snapshots.
     """
     rows = data.get("per_question")
+    if rows is None:
+        rows = data.get("per_query")
     if rows is not None:
-        return {q["query"]: q for q in rows}
-    # Flat snapshot: key is tenant/product::query.
+        return {_row_key(q): q for q in rows}
+    # Flat snapshot: key is tenant/product::query. Skip known aggregate dicts.
+    skip = {"golden", "hit_at_k", "latency", "tokens", "cost", "terminals"}
     return {
         key: {"query": key, "rank": row.get("rank") if isinstance(row, dict) else None}
         for key, row in data.items()
-        if isinstance(row, dict)
+        if isinstance(row, dict) and key not in skip
     }
 
 
-def compare_reports(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
+def compare_reports(
+    a: dict[str, Any], b: dict[str, Any], *, rank_tolerance: int = 0
+) -> dict[str, Any]:
     """Diff two evaluation reports per-query and return regressed/improved lists.
 
-    Accepts either the full report shape (``per_question`` list) or the legacy
-    election flat snapshot shape (``{"key": {"expected", "rank"}}``).
-    Rows may carry ``rank`` (retrieval) or ``error``/metric fields.
+    Accepts either the full report shape (``per_question``/``per_query`` list) or
+    the legacy flat snapshot shape (``{"tenant/product::query": {"rank": ...}}``).
+
+    ``rank_tolerance``: a new rank is only regressed when it is worse than
+    ``old + tolerance`` (CI uses 2 to absorb Milvus ANN tie jitter). Recall loss
+    (rank → None) always regresses regardless of tolerance.
     """
     aq = _as_per_question(a)
     bq = _as_per_question(b)
@@ -714,9 +735,17 @@ def compare_reports(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
             elif row_a["rank"] is None and row_b["rank"] is not None:
                 # recall restored: not found before, now ranked
                 improved.append({"query": key, "old": None, "new": row_b["rank"]})
-            elif row_b["rank"] is not None and row_b["rank"] > row_a["rank"]:
+            elif (
+                row_b["rank"] is not None
+                and row_a["rank"] is not None
+                and row_b["rank"] > row_a["rank"] + rank_tolerance
+            ):
                 regressed.append({"query": key, "old": row_a["rank"], "new": row_b["rank"]})
-            elif row_b["rank"] is not None and row_b["rank"] < row_a["rank"]:
+            elif (
+                row_b["rank"] is not None
+                and row_a["rank"] is not None
+                and row_b["rank"] + rank_tolerance < row_a["rank"]
+            ):
                 improved.append({"query": key, "old": row_a["rank"], "new": row_b["rank"]})
         elif "error" in row_a and "error" not in row_b:
             improved.append({"query": key, "old": "error", "new": "ok"})
@@ -944,6 +973,7 @@ def compare_batch(
     specs: list[str],
     *,
     fail_on_regression: bool = False,
+    rank_tolerance: int = 0,
 ) -> tuple[list[dict[str, Any]], int]:
     """Run golden regression over multiple ``baseline::current`` path pairs.
 
@@ -961,7 +991,7 @@ def compare_batch(
             current = json.loads(Path(cur_s).read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
             raise SystemExit(f"cannot read compare pair {spec}: {exc}") from exc
-        result = compare_reports(baseline, current)
+        result = compare_reports(baseline, current, rank_tolerance=rank_tolerance)
         summary = result["summary"]
         total_regressed += int(summary["regressed"])
         rows.append(
@@ -1031,11 +1061,22 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="exit non-zero when --compare/--compare-batch finds regressions (CI gate)",
     )
+    parser.add_argument(
+        "--rank-tolerance",
+        type=int,
+        default=0,
+        metavar="N",
+        help="treat rank worse by <=N as non-regression (CI uses 2 for ANN jitter)",
+    )
     args = parser.parse_args(argv)
 
     # --compare-batch is offline: multiple golden regression pairs (BASELINE::CURRENT).
     if args.compare_batch:
-        rows, code = compare_batch(args.compare_batch, fail_on_regression=args.fail_on_regression)
+        rows, code = compare_batch(
+            args.compare_batch,
+            fail_on_regression=args.fail_on_regression,
+            rank_tolerance=args.rank_tolerance,
+        )
         for row in rows:
             print(json.dumps(row, ensure_ascii=False))
         if args.csv:
@@ -1053,7 +1094,7 @@ def main(argv: list[str] | None = None) -> int:
             b = json.loads(Path(b_path).read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
             raise SystemExit(f"cannot read compare file: {exc}") from exc
-        result = compare_reports(a, b)
+        result = compare_reports(a, b, rank_tolerance=args.rank_tolerance)
         print(json.dumps(result, ensure_ascii=False, indent=2))
         if args.fail_on_regression and result["summary"]["regressed"]:
             raise SystemExit(1)

@@ -3,13 +3,13 @@
     "expected": [
       "spec_upf"
     ],
-    "rank": 1
+    "rank": 2
   },
   "tenant-demo/product-001::这件衣服经常水洗还能一直防晒吗": {
     "expected": [
       "wash_stability"
     ],
-    "rank": 1
+    "rank": 2
   },
   "tenant-demo/product-001::被雨打湿了再穿还有防护吗": {
     "expected": [
@@ -21,13 +21,13 @@
     "expected": [
       "extreme_cold"
     ],
-    "rank": 1
+    "rank": 2
   },
   "tenant-demo/product-002::这东西能扔进机器里搅洗吗": {
     "expected": [
       "care"
     ],
-    "rank": 1
+    "rank": null
   },
   "tenant-demo/product-002::下点小雪花它能挡一挡吗": {
     "expected": [
@@ -64,13 +64,13 @@
     "expected": [
       "gaming_latency"
     ],
-    "rank": 1
+    "rank": null
   },
   "tenant-demo/product-005::戴着跳进水里一圈会进水吗": {
     "expected": [
       "spec_waterproof"
     ],
-    "rank": 1
+    "rank": 3
   },
   "tenant-demo/product-005::想随时知道自己的心跳快慢": {
     "expected": [
@@ -82,13 +82,13 @@
     "expected": [
       "transit"
     ],
-    "rank": 1
+    "rank": 3
   },
   "tenant-acme/product-101::用慢速骑是不是能多撑一段路": {
     "expected": [
       "range"
     ],
-    "rank": 1
+    "rank": null
   },
   "tenant-acme/product-101::充一次电大约要几个小时": {
     "expected": [
@@ -112,7 +112,7 @@
     "expected": [
       "spec_care"
     ],
-    "rank": 1
+    "rank": null
   },
   "tenant-other/product-201::离家好多天会不会把猫饿着": {
     "expected": [
@@ -190,7 +190,7 @@
     "expected": [
       "spec_battery"
     ],
-    "rank": 1
+    "rank": 2
   },
   "tenant-demo/product-008::一坐就是八个小时，腰会不会酸": {
     "expected": [
@@ -244,7 +244,7 @@
     "expected": [
       "spec_capacity"
     ],
-    "rank": 1
+    "rank": null
   },
   "tenant-demo/product-009::放包里倒过来会不会漏水": {
     "expected": [
@@ -274,7 +274,7 @@
     "expected": [
       "care"
     ],
-    "rank": 1
+    "rank": null
   },
   "tenant-demo/product-011::帽檐够不够宽，能挡住脸不被晒吗": {
     "expected": [
@@ -298,7 +298,7 @@
     "expected": [
       "spec_capacity"
     ],
-    "rank": 1
+    "rank": null
   },
   "tenant-acme/product-105::彩色和深色的衣服会掉色吗": {
     "expected": [
@@ -328,7 +328,7 @@
     "expected": [
       "spec_battery"
     ],
-    "rank": 1
+    "rank": 2
   },
   "tenant-acme/product-107::睡久了中间会不会塌陷": {
     "expected": [
@@ -388,7 +388,7 @@
     "expected": [
       "spec_screen"
     ],
-    "rank": 1
+    "rank": 2
   },
   "tenant-demo/product-006::水箱加满一次能做几杯": {
     "expected": [
@@ -412,7 +412,7 @@
     "expected": [
       "spec_season"
     ],
-    "rank": 1
+    "rank": null
   },
   "tenant-demo/product-001::这衣服穿身上会不会很闷？料子薄不薄？有弹性不？": {
     "expected": [
@@ -430,7 +430,7 @@
     "expected": [
       "spec_season"
     ],
-    "rank": 1
+    "rank": null
   },
   "tenant-demo/product-003::这鞋子耐穿不？夏天穿会不会捂得慌啊？": {
     "expected": [
@@ -460,13 +460,13 @@
     "expected": [
       "spec_heart"
     ],
-    "rank": 1
+    "rank": 3
   },
   "tenant-demo/product-005::下水的时候也懒得摘，应该没啥问题吧？": {
     "expected": [
       "spec_waterproof"
     ],
-    "rank": 1
+    "rank": null
   },
   "tenant-acme/product-101::这车电满了能跑多少路啊？充一次电得花多长时间？": {
     "expected": [
@@ -490,7 +490,7 @@
     "expected": [
       "spec_cadr"
     ],
-    "rank": 1
+    "rank": 3
   },
   "tenant-other/product-201::这个储粮桶一次能装多少斤猫粮哇？我家那只吃货怕不是几天就干完了？": {
     "expected": [
@@ -502,7 +502,7 @@
     "expected": [
       "spec_schedule"
     ],
-    "rank": 1
+    "rank": null
   },
   "tenant-demo/product-006::这玩意儿能自己磨豆子吗？磨出来粗细能随便调不？": {
     "expected": [
@@ -526,19 +526,19 @@
     "expected": [
       "spec_map"
     ],
-    "rank": 1
+    "rank": 3
   },
   "tenant-demo/product-008::这个腰托能不能调啊？我坐着老是腰酸。": {
     "expected": [
       "spec_lumbar"
     ],
-    "rank": 1
+    "rank": 2
   },
   "tenant-demo/product-008::这椅子靠背能往后倒不？想累了眯一会儿。": {
     "expected": [
       "spec_recline"
     ],
-    "rank": 1
+    "rank": 2
   },
   "tenant-acme/product-103::亲，这个帐篷下雨天没事吧？不会外面下大雨里面下小雨吧？": {
     "expected": [
@@ -550,7 +550,7 @@
     "expected": [
       "spec_capacity"
     ],
-    "rank": 1
+    "rank": 2
   },
   "tenant-acme/product-104::这玩意儿画质到底行不行啊？会不会糊得没法看？": {
     "expected": [
@@ -568,7 +568,7 @@
     "expected": [
       "spec_resistance"
     ],
-    "rank": 1
+    "rank": null
   },
   "tenant-other/product-202::这个座子能不能自己调高度和前后啊？我个子矮怕够不着。": {
     "expected": [
@@ -592,7 +592,7 @@
     "expected": [
       "spec_warm"
     ],
-    "rank": 1
+    "rank": 3
   },
   "tenant-demo/product-010::这衣服料子是啥的？穿起来舒服吗？": {
     "expected": [
@@ -622,13 +622,13 @@
     "expected": [
       "spec_capacity"
     ],
-    "rank": 1
+    "rank": null
   },
   "tenant-acme/product-106::这榨汁机打出来的口感咋样？会不会有渣子卡喉咙啊？": {
     "expected": [
       "spec_blade"
     ],
-    "rank": 1
+    "rank": 2
   },
   "tenant-acme/product-106::榨完还得倒出来换杯子吗？能不能省事儿点？": {
     "expected": [
@@ -640,19 +640,19 @@
     "expected": [
       "spec_firmness"
     ],
-    "rank": 1
+    "rank": 2
   },
   "tenant-acme/product-107::这个护腰对我这种腰不行的人管用吗？怕戴了跟没戴一样……": {
     "expected": [
       "spec_zone"
     ],
-    "rank": 1
+    "rank": 2
   },
   "tenant-other/product-203::这猫砂是不是猫拉完自己就成一坨坨的，不用我再拿铲子费劲刨？": {
     "expected": [
       "spec_auto"
     ],
-    "rank": 1
+    "rank": 3
   },
   "tenant-other/product-203::两只猫用的话，这个够不够装啊？会不会一下就不行了？": {
     "expected": [

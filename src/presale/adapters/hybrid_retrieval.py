@@ -231,7 +231,9 @@ def _rrf_weighted(
             key = item["id"]
             seen[key] = item
             scores[key] = scores.get(key, 0.0) + weight / (k + rank + 1)
-    ranked = sorted(scores, key=lambda key: scores[key], reverse=True)
+    # Stable tie-break by id: equal RRF scores (and ANN order jitter) otherwise
+    # flip ranks across CI runs and make the golden snapshot flap.
+    ranked = sorted(scores, key=lambda key: (-scores[key], key))
     return [seen[key] for key in ranked]
 
 
