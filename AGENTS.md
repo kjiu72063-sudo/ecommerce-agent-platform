@@ -16,4 +16,4 @@
 - presale 业务流：`src/presale/runner.py`（注意其幂等状态机改动的评审规则）。
 - 可复用 agent 运行时：`src/agent_runtime/`（Harness/Loop/Agent）。
 - 持久化适配器：`src/presale/adapters/sqlite.py` + `postgres.py`（同一端口集，双适配器）。
-- 业务 Agent 实例：`src/review_agent/`（ReviewAnalyzerAgent 模板）。
+- 业务 Agent 实例：`src/review_agent/`（ReviewAnalyzerAgent 模板）、`src/live_clipper/`、`src/content_creator/`（方向5，外部服务为 mock）。
