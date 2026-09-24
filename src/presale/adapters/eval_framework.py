@@ -4,18 +4,23 @@ Orchestrates the existing single-ring evaluators (retrieval_eval /
 generation_eval) behind one CLI:
 
     presale-eval --mode retrieval|generation|end-to-end|review|multi-agent \
-        |live-clipper|content-creator|all [--compare A B] [--output f.json|.md]
+        |live-clipper|content-creator|all [--compare A B] [--output f.json|.md] \
+        [--inputs g1.json g2.json ...] [--csv summary.csv] \
+        [--compare-batch base:curr ...]
 
 Reuses the existing evaluators and assembly helpers; this module only selects,
 runs, compares and reports. Review, multi-agent, live-clipper and content-creator
 modes are fully offline (deterministic agents — no Milvus / LLM / real ASR /
-image API required).
+image API required). ``--inputs`` batches one mode over multiple golden JSON
+files and writes a one-row-per-file summary CSV; ``--compare-batch`` runs
+golden regression over multiple baseline:current pairs.
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
+import csv
 import json
 import os
 import sys
@@ -98,6 +103,7 @@ def run_generation(
     model: str,
     api_key: str,
     sever_evidence: bool = False,
+    questions: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     """Run generation faithfulness evaluation and return the report."""
     from .generation_eval import evaluate_generation
@@ -109,6 +115,7 @@ def run_generation(
         model=model,
         api_key=api_key,
         sever_evidence=sever_evidence,
+        questions=questions,
     )
 
 
@@ -577,28 +584,55 @@ def _build_generator():
     return OpenAICompatibleGenerator(model=model, base_url=base_url, api_key=api_key)
 
 
-def _run_mode(mode: str, args: argparse.Namespace) -> dict[str, Any]:
-    """Run one mode and return its report (plus mode tag)."""
+def _run_mode(
+    mode: str,
+    args: argparse.Namespace,
+    *,
+    golden_items: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Run one mode and return its report (plus mode tag).
+
+    ``golden_items`` overrides the built-in golden set when provided via
+    ``--inputs`` (batch mode).
+    """
     # Offline deterministic modes: no Milvus / LLM required.
     if mode == "review":
-        return {"mode": mode, "golden": golden_meta(mode), **run_review()}
+        return {
+            "mode": mode,
+            "golden": golden_meta(mode),
+            **run_review(reviews=golden_items),
+        }
     if mode == "multi-agent":
         return {
             "mode": mode,
             "golden": golden_meta(mode),
-            **run_multi_agent(sources=_load_catalog()),
+            **run_multi_agent(sources=_load_catalog(), questions=golden_items),
         }
     if mode == "live-clipper":
-        return {"mode": mode, "golden": golden_meta(mode), **run_live_clipper()}
+        return {
+            "mode": mode,
+            "golden": golden_meta(mode),
+            **run_live_clipper(goldens=golden_items),
+        }
     if mode == "content-creator":
-        return {"mode": mode, "golden": golden_meta(mode), **run_content_creator()}
+        return {
+            "mode": mode,
+            "golden": golden_meta(mode),
+            **run_content_creator(goldens=golden_items),
+        }
 
     retriever = build_retriever()
     if retriever is None:
         raise SystemExit("PRESALE_MILVUS_URI (or PRESALE_QDRANT_URL) required for evaluation")
 
     if mode == "retrieval":
-        return {"mode": mode, "golden": golden_meta(mode), **run_retrieval(retriever)}
+        return {
+            "mode": mode,
+            "golden": golden_meta(mode),
+            **run_retrieval(
+                retriever, to_questions=(lambda: golden_items) if golden_items else None
+            ),
+        }
 
     base_url, model, api_key = _llm_config()
     if not (base_url and model and api_key):
@@ -612,7 +646,12 @@ def _run_mode(mode: str, args: argparse.Namespace) -> dict[str, Any]:
 
     if mode == "generation":
         report = run_generation(
-            retriever, transport=transport, base_url=base_url, model=model, api_key=api_key
+            retriever,
+            transport=transport,
+            base_url=base_url,
+            model=model,
+            api_key=api_key,
+            questions=golden_items,
         )
         return {"mode": mode, "golden": golden_meta(mode), **report}
 
@@ -628,6 +667,7 @@ def _run_mode(mode: str, args: argparse.Namespace) -> dict[str, Any]:
         base_url=base_url,
         model=model,
         api_key=api_key,
+        questions=golden_items,
     )
     return {"mode": mode, "golden": golden_meta(mode), **report}
 
@@ -803,6 +843,141 @@ def render_markdown(report: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def load_golden_file(path: str | Path) -> list[dict[str, Any]]:
+    """Load a JSON golden file (must be a list of objects)."""
+    target = Path(path)
+    try:
+        data = json.loads(target.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"cannot read golden file {path}: {exc}") from exc
+    if not isinstance(data, list) or not all(isinstance(item, dict) for item in data):
+        raise SystemExit(f"golden file {path} must be a JSON array of objects")
+    return data
+
+
+def _csv_cell(value: Any) -> Any:
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, (dict, list)):
+        return json.dumps(value, ensure_ascii=False)
+    return value
+
+
+def report_csv_row(report: dict[str, Any], *, source: str = "default") -> dict[str, Any]:
+    """Flatten a single-mode report into one summary CSV row (stable columns)."""
+    row: dict[str, Any] = {
+        "mode": report.get("mode", ""),
+        "source": source,
+        "n": report.get("n", ""),
+        "errors": report.get("errors", ""),
+    }
+    scalar_keys = (
+        "mrr",
+        "mean_faithfulness",
+        "mean_answer_correctness",
+        "mean_gold_correctness",
+        "total_unsupported_claims",
+        "sentiment_accuracy",
+        "mean_keyword_recall",
+        "need_human_rate",
+        "short_circuit_rate",
+        "mean_sub_agents",
+        "final_need_human_rate",
+        "clips_expectation_rate",
+        "total_clips",
+        "copy_pass_rate",
+        "images_pass_rate",
+        "total_images",
+    )
+    for key in scalar_keys:
+        if key in report:
+            row[key] = _csv_cell(report[key])
+    hit = report.get("hit_at_k")
+    if isinstance(hit, dict):
+        row["hit_at_1"] = _csv_cell(hit.get("hit@1"))
+        row["hit_at_3"] = _csv_cell(hit.get("hit@3"))
+        if "mrr" in hit and "mrr" not in row:
+            row["mrr"] = _csv_cell(hit["mrr"])
+    latency = report.get("latency")
+    if isinstance(latency, dict):
+        for key in ("wall_s", "mean_ask_ms", "mean_judge_ms"):
+            if key in latency:
+                row[f"latency_{key}"] = _csv_cell(latency[key])
+    tokens = report.get("tokens")
+    if isinstance(tokens, dict):
+        for key in ("prompt", "completion"):
+            if key in tokens:
+                row[f"tokens_{key}"] = _csv_cell(tokens[key])
+    cost = report.get("cost")
+    if isinstance(cost, dict):
+        row["cost_usd"] = _csv_cell(cost.get("estimated_usd"))
+    golden = report.get("golden")
+    if isinstance(golden, dict):
+        for key in ("generation_golden_version", "review_golden_version", "catalog_sha256"):
+            if key in golden:
+                row[f"golden_{key}"] = _csv_cell(golden[key])
+    return row
+
+
+def write_summary_csv(rows: list[dict[str, Any]], path: str) -> None:
+    """Write a list of summary rows as CSV; union of keys, first-seen order."""
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if not rows:
+        target.write_text("", encoding="utf-8")
+        return
+    fieldnames: list[str] = []
+    for row in rows:
+        for key in row:
+            if key not in fieldnames:
+                fieldnames.append(key)
+    with target.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, extrasaction="ignore")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow(row)
+
+
+def compare_batch(
+    specs: list[str],
+    *,
+    fail_on_regression: bool = False,
+) -> tuple[list[dict[str, Any]], int]:
+    """Run golden regression over multiple ``baseline::current`` path pairs.
+
+    Returns (csv_rows, exit_code). Each row is one pair's compare summary.
+    ``::`` is the separator (safe on Windows drive-letter paths).
+    """
+    rows: list[dict[str, Any]] = []
+    total_regressed = 0
+    for spec in specs:
+        if "::" not in spec:
+            raise SystemExit(f"compare-batch spec must be BASELINE::CURRENT, got: {spec}")
+        base_s, cur_s = spec.split("::", 1)
+        try:
+            baseline = json.loads(Path(base_s).read_text(encoding="utf-8"))
+            current = json.loads(Path(cur_s).read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise SystemExit(f"cannot read compare pair {spec}: {exc}") from exc
+        result = compare_reports(baseline, current)
+        summary = result["summary"]
+        total_regressed += int(summary["regressed"])
+        rows.append(
+            {
+                "baseline": base_s,
+                "current": cur_s,
+                "regressed": summary["regressed"],
+                "improved": summary["improved"],
+                "added": len(result["added"]),
+                "removed": len(result["removed"]),
+            }
+        )
+    exit_code = 1 if (fail_on_regression and total_regressed) else 0
+    return rows, exit_code
+
+
 def write_report(report: dict[str, Any], path: str) -> None:
     """Persist an evaluation report as JSON, or Markdown when the path ends in .md."""
     target = Path(path)
@@ -830,16 +1005,45 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--compare", nargs=2, metavar=("A", "B"), help="compare two result JSONs")
     parser.add_argument(
+        "--compare-batch",
+        nargs="+",
+        metavar="BASELINE::CURRENT",
+        help="golden regression over multiple baseline::current JSON pairs",
+    )
+    parser.add_argument(
+        "--inputs",
+        nargs="+",
+        metavar="FILE",
+        help="JSON golden files; run --mode once per file (batch)",
+    )
+    parser.add_argument(
         "--output",
         metavar="FILE",
         help="write the report to FILE (.md → Markdown, otherwise JSON)",
     )
     parser.add_argument(
+        "--csv",
+        metavar="FILE",
+        help="write a summary CSV (one row per input file, or one row for a single run)",
+    )
+    parser.add_argument(
         "--fail-on-regression",
         action="store_true",
-        help="exit non-zero when --compare finds regressions (CI gate)",
+        help="exit non-zero when --compare/--compare-batch finds regressions (CI gate)",
     )
     args = parser.parse_args(argv)
+
+    # --compare-batch is offline: multiple golden regression pairs (BASELINE::CURRENT).
+    if args.compare_batch:
+        rows, code = compare_batch(args.compare_batch, fail_on_regression=args.fail_on_regression)
+        for row in rows:
+            print(json.dumps(row, ensure_ascii=False))
+        if args.csv:
+            write_summary_csv(rows, args.csv)
+            print(f"wrote csv: {args.csv}")
+        if code:
+            raise SystemExit(code)
+        return 0
 
     # --compare is offline: read two result files and diff them.
     if args.compare:
@@ -855,6 +1059,28 @@ def main(argv: list[str] | None = None) -> int:
             raise SystemExit(1)
         return 0
 
+    csv_rows: list[dict[str, Any]] = []
+
+    if args.inputs:
+        if args.mode == "all":
+            raise SystemExit("--inputs requires a single --mode (not 'all')")
+        reports = []
+        for input_path in args.inputs:
+            golden_items = load_golden_file(input_path)
+            report = _run_mode(args.mode, args, golden_items=golden_items)
+            report["source"] = str(input_path)
+            reports.append(report)
+            csv_rows.append(report_csv_row(report, source=str(input_path)))
+            print(summarize(args.mode, report))
+        combined = {"mode": args.mode, "runs": reports}
+        if args.output:
+            write_report(combined, args.output)
+            print(f"wrote report: {args.output}")
+        if args.csv:
+            write_summary_csv(csv_rows, args.csv)
+            print(f"wrote csv: {args.csv}")
+        return 0
+
     if args.mode == "all":
         reports = [_run_mode("retrieval", args)]
         base_url, model, api_key = _llm_config()
@@ -863,12 +1089,20 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print("SKIPPED generation/end-to-end: PRESALE_LLM_* not configured", file=sys.stderr)
         combined = {"modes": reports}
+        if args.csv:
+            csv_rows = [report_csv_row(r) for r in reports]
     else:
         combined = _run_mode(args.mode, args)
+        if args.csv:
+            csv_rows = [report_csv_row(combined)]
 
     if args.output:
         write_report(combined, args.output)
         print(f"wrote report: {args.output}")
+
+    if args.csv:
+        write_summary_csv(csv_rows, args.csv)
+        print(f"wrote csv: {args.csv}")
 
     if args.mode == "all":
         for report in reports:
@@ -888,10 +1122,13 @@ def main(argv: list[str] | None = None) -> int:
 __all__ = [
     "MODES",
     "build_retriever",
+    "compare_batch",
     "compare_reports",
     "golden_meta",
+    "load_golden_file",
     "main",
     "render_markdown",
+    "report_csv_row",
     "review_golden",
     "run_content_creator",
     "run_end_to_end",
@@ -902,4 +1139,5 @@ __all__ = [
     "run_review",
     "summarize",
     "write_report",
+    "write_summary_csv",
 ]

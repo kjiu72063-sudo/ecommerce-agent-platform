@@ -519,3 +519,174 @@ def test_write_report_json_default(tmp_path):
     write_report({"mode": "review", "n": 1}, str(target))
     payload = json.loads(target.read_text(encoding="utf-8"))
     assert payload["mode"] == "review"
+
+
+# --- 批量评估 + 汇总 CSV + compare-batch ---
+
+
+def test_load_golden_file_array(tmp_path):
+    """批量: load_golden_file reads a JSON array of objects."""
+    from presale.adapters.eval_framework import load_golden_file
+
+    path = tmp_path / "golden.json"
+    path.write_text(
+        json.dumps([{"text": "很好", "expected_sentiment": "positive"}]),
+        encoding="utf-8",
+    )
+    items = load_golden_file(path)
+    assert items == [{"text": "很好", "expected_sentiment": "positive"}]
+
+
+def test_load_golden_file_rejects_non_array(tmp_path):
+    """批量: non-array golden file is rejected."""
+    from presale.adapters.eval_framework import load_golden_file
+
+    path = tmp_path / "bad.json"
+    path.write_text(json.dumps({"text": "not-a-list"}), encoding="utf-8")
+    with pytest.raises(SystemExit):
+        load_golden_file(path)
+
+
+def test_report_csv_row_and_write_summary_csv(tmp_path):
+    """批量: report_csv_row flattens metrics; write_summary_csv unions columns."""
+    from presale.adapters.eval_framework import report_csv_row, write_summary_csv
+
+    report = {
+        "mode": "review",
+        "n": 6,
+        "errors": 0,
+        "sentiment_accuracy": 1.0,
+        "need_human_rate": 1.0,
+        "golden": {"review_golden_version": "1.0.0"},
+    }
+    row = report_csv_row(report, source="a.json")
+    assert row["mode"] == "review"
+    assert row["source"] == "a.json"
+    assert row["sentiment_accuracy"] == 1.0
+    assert row["golden_review_golden_version"] == "1.0.0"
+
+    out = tmp_path / "summary.csv"
+    write_summary_csv([row, {"mode": "live-clipper", "source": "b.json", "n": 3}], str(out))
+    lines = out.read_text(encoding="utf-8").strip().splitlines()
+    assert lines[0].startswith("mode,")
+    assert "source" in lines[0]
+    assert len(lines) == 3  # header + 2 rows
+
+
+def test_compare_batch_multiple_pairs(tmp_path):
+    """批量 golden 回归: 多对 baseline:current，任一对回退则 fail-on-regression=1."""
+    from presale.adapters.eval_framework import compare_batch
+
+    def _write(name, rank):
+        p = tmp_path / name
+        p.write_text(
+            json.dumps(
+                {
+                    "mode": "retrieval",
+                    "n": 1,
+                    "per_question": [{"query": "q1", "rank": rank}],
+                }
+            ),
+            encoding="utf-8",
+        )
+        return str(p)
+
+    a1, b1 = _write("a1.json", 1), _write("b1.json", 1)  # no change
+    a2, b2 = _write("a2.json", 1), _write("b2.json", 3)  # regressed
+
+    rows, code0 = compare_batch([f"{a1}::{b1}"], fail_on_regression=True)
+    assert code0 == 0
+    assert rows[0]["regressed"] == 0
+
+    rows, code1 = compare_batch([f"{a1}::{b1}", f"{a2}::{b2}"], fail_on_regression=True)
+    assert code1 == 1
+    assert len(rows) == 2
+    assert rows[1]["regressed"] == 1
+
+    with pytest.raises(SystemExit):
+        compare_batch(["missing-separator"])
+
+
+def test_cli_inputs_batch_writes_csv(tmp_path):
+    """批量: --mode review --inputs 多文件 → 每文件一行 CSV."""
+    g1 = tmp_path / "g1.json"
+    g1.write_text(
+        json.dumps(
+            [
+                {
+                    "text": "非常好用，推荐！",
+                    "expected_sentiment": "positive",
+                    "expected_keywords": ["好", "推荐"],
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    g2 = tmp_path / "g2.json"
+    g2.write_text(
+        json.dumps(
+            [
+                {
+                    "text": "太差了准备退货。",
+                    "expected_sentiment": "negative",
+                    "expected_keywords": ["差", "退货"],
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    csv_path = tmp_path / "out.csv"
+    rc = eval_main(
+        [
+            "--mode",
+            "review",
+            "--inputs",
+            str(g1),
+            str(g2),
+            "--csv",
+            str(csv_path),
+        ]
+    )
+    assert rc == 0
+    lines = csv_path.read_text(encoding="utf-8").strip().splitlines()
+    assert len(lines) == 3  # header + 2 input files
+    assert str(g1) in lines[1]
+    assert str(g2) in lines[2]
+    assert "sentiment_accuracy" in lines[0]
+
+
+def test_cli_compare_batch_fail_on_regression(tmp_path):
+    """批量 golden 回归 CLI: 有回退 + --fail-on-regression → exit 1."""
+
+    def _rank(name, rank):
+        p = tmp_path / name
+        p.write_text(
+            json.dumps(
+                {
+                    "mode": "retrieval",
+                    "n": 1,
+                    "per_question": [{"query": "q", "rank": rank}],
+                }
+            ),
+            encoding="utf-8",
+        )
+        return str(p)
+
+    base = _rank("base.json", 1)
+    good = _rank("good.json", 1)
+    bad = _rank("bad.json", 5)
+    csv_path = tmp_path / "cmp.csv"
+    with pytest.raises(SystemExit) as exc:
+        eval_main(
+            [
+                "--compare-batch",
+                f"{base}::{good}",
+                f"{base}::{bad}",
+                "--fail-on-regression",
+                "--csv",
+                str(csv_path),
+            ]
+        )
+    assert exc.value.code == 1
+    assert csv_path.exists()
+    assert "regressed" in csv_path.read_text(encoding="utf-8")
