@@ -904,7 +904,12 @@ def main(argv: list[str] | None = None) -> None:
     if args.save:
         path = Path(args.snapshot or "tests/fixtures/generation_snapshot.json")
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(current, ensure_ascii=False, indent=2), encoding="utf-8")
+        # Stamp golden/catalog identity so a later catalog change can detect
+        # that the baseline must be regenerated (see deploy/README golden notes).
+        from .eval_framework import golden_meta
+
+        payload = {"_meta": golden_meta("generation"), **current}
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"wrote snapshot: {path}")
         return
 
