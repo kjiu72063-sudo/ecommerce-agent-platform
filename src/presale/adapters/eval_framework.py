@@ -3,12 +3,13 @@
 Orchestrates the existing single-ring evaluators (retrieval_eval /
 generation_eval) behind one CLI:
 
-    presale-eval --mode retrieval|generation|end-to-end|review|multi-agent|all \
-        [--compare A B] [--output f.json]
+    presale-eval --mode retrieval|generation|end-to-end|review|multi-agent \
+        |live-clipper|content-creator|all [--compare A B] [--output f.json|.md]
 
 Reuses the existing evaluators and assembly helpers; this module only selects,
-runs, compares and reports. Review and multi-agent modes are fully offline
-(deterministic agents — no Milvus / LLM required).
+runs, compares and reports. Review, multi-agent, live-clipper and content-creator
+modes are fully offline (deterministic agents — no Milvus / LLM / real ASR /
+image API required).
 """
 
 from __future__ import annotations
@@ -26,7 +27,16 @@ from agent_platform_contracts.models import ActorRef, ActorType
 
 from .retrieval_eval import evaluate_retriever
 
-MODES = ("retrieval", "generation", "end-to-end", "review", "multi-agent", "all")
+MODES = (
+    "retrieval",
+    "generation",
+    "end-to-end",
+    "review",
+    "multi-agent",
+    "live-clipper",
+    "content-creator",
+    "all",
+)
 
 # Bump when a golden set's items or expected labels change (catalog-driven updates).
 GENERATION_GOLDEN_VERSION = "1.0.0"
@@ -336,6 +346,147 @@ def run_multi_agent(
     }
 
 
+def run_live_clipper(
+    *,
+    goldens: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Evaluate LiveClipperAgent on a deterministic replay golden (mock ASR/ffmpeg)."""
+    from agent_runtime.harness import Harness
+    from live_clipper.agent import LiveClipperAgent
+    from live_clipper.golden import live_clipper_golden
+
+    agent = LiveClipperAgent()
+    rows: list[dict[str, Any]] = []
+    items = goldens if goldens is not None else live_clipper_golden()
+    for index, item in enumerate(items):
+        query = item["query"]
+        expected_min = int(item.get("expected_min_clips", 0))
+        try:
+            outcome = asyncio.run(Harness().execute(query, agent))
+            clip_count = 0
+            for step in outcome.steps:
+                for call in step.tool_calls:
+                    if call.get("tool") == "video_cut":
+                        clip_count = int(call.get("clip_count") or 0)
+            rows.append(
+                {
+                    "index": index,
+                    "query": query,
+                    "audio_ref": item.get("audio_ref"),
+                    "clip_count": clip_count,
+                    "expected_min_clips": expected_min,
+                    "clips_ok": clip_count >= expected_min,
+                    "need_human": bool(outcome.answer_draft and outcome.answer_draft.need_human),
+                    "terminal": outcome.terminal.value,
+                }
+            )
+        except Exception as exc:  # noqa: BLE001 - surface the failing case, keep going
+            rows.append(
+                {
+                    "index": index,
+                    "query": query,
+                    "audio_ref": item.get("audio_ref"),
+                    "error": str(exc),
+                }
+            )
+    ok = [r for r in rows if "error" not in r]
+    n = len(rows)
+    n_ok = len(ok)
+    clips_ok = sum(1 for r in ok if r["clips_ok"])
+    need_human = sum(1 for r in ok if r["need_human"])
+    total_clips = sum(r["clip_count"] for r in ok)
+    return {
+        "n": n,
+        "errors": n - n_ok,
+        "clips_expectation_rate": round(clips_ok / n_ok, 4) if n_ok else 0.0,
+        "need_human_rate": round(need_human / n_ok, 4) if n_ok else 0.0,
+        "total_clips": total_clips,
+        "per_question": rows,
+    }
+
+
+def run_content_creator(
+    *,
+    goldens: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Evaluate ContentCreatorAgent on brief goldens (mock copy/image ports)."""
+    from agent_runtime.harness import Harness
+    from content_creator.agent import ContentCreatorAgent
+    from content_creator.golden import content_creator_golden
+
+    from ..contracts import ProductQuestion
+
+    agent = ContentCreatorAgent()
+    rows: list[dict[str, Any]] = []
+    items = goldens if goldens is not None else content_creator_golden()
+    for index, item in enumerate(items):
+        query = item["query"]
+        expected_platform = item.get("expected_platform")
+        expected_images = int(item.get("expected_images", 0))
+        try:
+            question = ProductQuestion(
+                question_id=f"q-cc-{index:05d}",
+                tenant_id="tenant-demo",
+                submitted_by=ActorRef(actor_type=ActorType.USER, actor_id="usr_cc_eval"),
+                product_id=item.get("product_id") or "product-001",
+                question_text=query,
+                requested_at=datetime(2026, 9, 24, tzinfo=timezone.utc),
+                idempotency_key=f"cc-eval-{index:05d}",
+            )
+            outcome = asyncio.run(Harness().execute(question, agent))
+            platform: str | None = None
+            image_count = 0
+            copy_ok = False
+            for step in outcome.steps:
+                for call in step.tool_calls:
+                    if call.get("tool") == "generate_copy":
+                        platform = call.get("platform")
+                        copy_ok = call.get("status") == "matched"
+                    elif call.get("tool") == "generate_image":
+                        image_count = int(call.get("image_count") or 0)
+            platform_ok = expected_platform is None or platform == expected_platform
+            images_ok = image_count == expected_images
+            rows.append(
+                {
+                    "index": index,
+                    "query": query,
+                    "product_id": item.get("product_id"),
+                    "platform": platform,
+                    "expected_platform": expected_platform,
+                    "image_count": image_count,
+                    "expected_images": expected_images,
+                    "copy_ok": copy_ok and platform_ok,
+                    "images_ok": images_ok,
+                    "need_human": bool(outcome.answer_draft and outcome.answer_draft.need_human),
+                    "terminal": outcome.terminal.value,
+                }
+            )
+        except Exception as exc:  # noqa: BLE001 - surface the failing case, keep going
+            rows.append(
+                {
+                    "index": index,
+                    "query": query,
+                    "product_id": item.get("product_id"),
+                    "error": str(exc),
+                }
+            )
+    ok = [r for r in rows if "error" not in r]
+    n = len(rows)
+    n_ok = len(ok)
+    copy_pass = sum(1 for r in ok if r["copy_ok"])
+    images_pass = sum(1 for r in ok if r["images_ok"])
+    need_human = sum(1 for r in ok if r["need_human"])
+    return {
+        "n": n,
+        "errors": n - n_ok,
+        "copy_pass_rate": round(copy_pass / n_ok, 4) if n_ok else 0.0,
+        "images_pass_rate": round(images_pass / n_ok, 4) if n_ok else 0.0,
+        "need_human_rate": round(need_human / n_ok, 4) if n_ok else 0.0,
+        "total_images": sum(r["image_count"] for r in ok),
+        "per_question": rows,
+    }
+
+
 def summarize(mode: str, report: dict[str, Any]) -> str:
     """Render a compact text summary of an evaluation report."""
     if mode == "review":
@@ -354,6 +505,23 @@ def summarize(mode: str, report: dict[str, Any]) -> str:
             f"short_circuit_rate={report.get('short_circuit_rate')} "
             f"mean_sub_agents={report.get('mean_sub_agents')} "
             f"final_need_human_rate={report.get('final_need_human_rate')} "
+            f"errors={report.get('errors')}"
+        )
+    if mode == "live-clipper":
+        return (
+            f"live-clipper: n={report.get('n')} "
+            f"clips_expectation_rate={report.get('clips_expectation_rate')} "
+            f"total_clips={report.get('total_clips')} "
+            f"need_human_rate={report.get('need_human_rate')} "
+            f"errors={report.get('errors')}"
+        )
+    if mode == "content-creator":
+        return (
+            f"content-creator: n={report.get('n')} "
+            f"copy_pass_rate={report.get('copy_pass_rate')} "
+            f"images_pass_rate={report.get('images_pass_rate')} "
+            f"total_images={report.get('total_images')} "
+            f"need_human_rate={report.get('need_human_rate')} "
             f"errors={report.get('errors')}"
         )
     if mode in ("generation", "end-to-end"):
@@ -420,6 +588,10 @@ def _run_mode(mode: str, args: argparse.Namespace) -> dict[str, Any]:
             "golden": golden_meta(mode),
             **run_multi_agent(sources=_load_catalog()),
         }
+    if mode == "live-clipper":
+        return {"mode": mode, "golden": golden_meta(mode), **run_live_clipper()}
+    if mode == "content-creator":
+        return {"mode": mode, "golden": golden_meta(mode), **run_content_creator()}
 
     retriever = build_retriever()
     if retriever is None:
@@ -646,7 +818,8 @@ def main(argv: list[str] | None = None) -> int:
         prog="presale-eval",
         description=(
             "Run presale QA evaluation "
-            "(retrieval / generation / end-to-end / review / multi-agent / all)."
+            "(retrieval / generation / end-to-end / review / multi-agent / "
+            "live-clipper / content-creator / all)."
         ),
     )
     parser.add_argument(
@@ -720,8 +893,10 @@ __all__ = [
     "main",
     "render_markdown",
     "review_golden",
+    "run_content_creator",
     "run_end_to_end",
     "run_generation",
+    "run_live_clipper",
     "run_multi_agent",
     "run_retrieval",
     "run_review",
