@@ -13,10 +13,13 @@ from pathlib import Path
 import pytest
 
 from presale.adapters.eval_framework import (
+    MODES,
     build_retriever,
     run_end_to_end,
     run_generation,
+    run_multi_agent,
     run_retrieval,
+    run_review,
     summarize,
 )
 from presale.adapters.eval_framework import (
@@ -373,3 +376,75 @@ def test_compare_accepts_flat_snapshot_format():
     assert result["summary"]["regressed"] == 1
     assert result["regressed"][0]["old"] == 1
     assert result["regressed"][0]["new"] == 3
+
+
+# --- 方向8余量: review / multi-agent modes ---
+
+
+def test_modes_include_review_and_multi_agent():
+    """方向8: CLI exposes review and multi-agent modes."""
+    assert "review" in MODES
+    assert "multi-agent" in MODES
+
+
+def test_run_review_sentiment_accuracy():
+    """方向8: review golden scores perfect sentiment accuracy offline."""
+    report = run_review()
+    assert report["n"] >= 6
+    assert report["errors"] == 0
+    assert report["sentiment_accuracy"] == 1.0
+    assert report["need_human_rate"] == 1.0
+    assert report["mean_keyword_recall"] is not None
+    assert report["mean_keyword_recall"] >= 0.6
+    text = summarize("review", report)
+    assert "sentiment_accuracy=1.0" in text
+
+
+def test_run_multi_agent_presale_to_review():
+    """方向8: multi-agent pipeline runs offline and short-circuits on review need_human."""
+    sources = _sources()
+    # product-001 has evidence in _sources → presale finalizes → review runs
+    # → review always need_human → overall need_human, both agents executed.
+    report = run_multi_agent(
+        sources=sources,
+        questions=[
+            {
+                "tenant_id": "tenant-demo",
+                "product_id": "product-001",
+                "query": "这款商品适合夏季使用吗？",
+                "gold": "适合夏季。",
+            }
+        ],
+    )
+    assert report["n"] == 1
+    assert report["errors"] == 0
+    assert report["terminals"]["need_human"] == 1
+    assert report["mean_sub_agents"] == 2.0
+    assert report["short_circuit_rate"] == 0.0
+    assert report["final_need_human_rate"] == 1.0
+    row = report["per_question"][0]
+    assert row["sub_agent_count"] == 2
+    assert row["sub_terminals"] == ["finalize", "need_human"]
+    assert "short_circuit_rate=" in summarize("multi-agent", report)
+
+
+def test_run_multi_agent_short_circuits_without_evidence():
+    """方向8: presale need_human (no evidence) stops before review runs."""
+    report = run_multi_agent(
+        sources=[],  # no evidence anywhere
+        questions=[
+            {
+                "tenant_id": "tenant-demo",
+                "product_id": "product-001",
+                "query": "有证据吗？",
+                "gold": "无。",
+            }
+        ],
+    )
+    assert report["n"] == 1
+    assert report["errors"] == 0
+    assert report["short_circuit_rate"] == 1.0
+    assert report["mean_sub_agents"] == 1.0
+    row = report["per_question"][0]
+    assert row["sub_agent_count"] == 1
+    assert row["sub_terminals"] == ["need_human"]
