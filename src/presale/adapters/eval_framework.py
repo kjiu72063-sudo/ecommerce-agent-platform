@@ -70,6 +70,7 @@ def run_end_to_end(
     base_url: str,
     model: str,
     api_key: str,
+    questions: list[dict[str, str]] | None = None,
     sever_evidence: bool = False,
 ) -> dict[str, Any]:
     """Run the golden through the real PresaleQaRunner and return the report."""
@@ -83,6 +84,7 @@ def run_end_to_end(
         base_url=base_url,
         model=model,
         api_key=api_key,
+        questions=questions,
         sever_evidence=sever_evidence,
     )
 
@@ -90,17 +92,31 @@ def run_end_to_end(
 def summarize(mode: str, report: dict[str, Any]) -> str:
     """Render a compact text summary of an evaluation report."""
     if mode in ("generation", "end-to-end"):
-        return (
+        text = (
             f"{mode}: n={report.get('n')} "
             f"faithfulness={report.get('mean_faithfulness')} "
             f"correctness={report.get('mean_answer_correctness')} "
             f"gold_correctness={report.get('mean_gold_correctness')} "
             f"unsupported={report.get('total_unsupported_claims')}"
         )
+        latency = report.get("latency") or {}
+        tokens = report.get("tokens") or {}
+        cost = report.get("cost") or {}
+        if latency or tokens:
+            text += (
+                f" | wall_s={latency.get('wall_s')}"
+                f" mean_ask_ms={latency.get('mean_ask_ms')}"
+                f" mean_judge_ms={latency.get('mean_judge_ms')}"
+                f" tokens={tokens.get('prompt')}+{tokens.get('completion')}"
+            )
+            if cost.get("estimated_usd") is not None:
+                text += f" cost_usd={cost.get('estimated_usd')}"
+        return text
     hit = report.get("hit_at_k", {})
     return (
         f"retrieval: hit@1={hit.get('hit@1')} hit@3={hit.get('hit@3')} "
-        f"mrr={report.get('mrr')} precision@5={report.get('precision@5')}"
+        f"mrr={hit.get('mrr') if 'mrr' in hit else report.get('mrr')} "
+        f"precision@5={report.get('precision@5')}"
     )
 
 
