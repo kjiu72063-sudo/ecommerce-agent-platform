@@ -3,24 +3,30 @@
 Orchestrates the existing single-ring evaluators (retrieval_eval /
 generation_eval) behind one CLI:
 
-    presale-eval --mode retrieval|generation|end-to-end|all [--compare A B] [--output f.json]
+    presale-eval --mode retrieval|generation|end-to-end|review|multi-agent|all \
+        [--compare A B] [--output f.json]
 
 Reuses the existing evaluators and assembly helpers; this module only selects,
-runs, compares and reports. No new evaluation metrics are introduced.
+runs, compares and reports. Review and multi-agent modes are fully offline
+(deterministic agents — no Milvus / LLM required).
 """
 
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import os
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from agent_platform_contracts.models import ActorRef, ActorType
+
 from .retrieval_eval import evaluate_retriever
 
-MODES = ("retrieval", "generation", "end-to-end", "all")
+MODES = ("retrieval", "generation", "end-to-end", "review", "multi-agent", "all")
 
 
 def build_retriever():
@@ -89,8 +95,232 @@ def run_end_to_end(
     )
 
 
+def review_golden() -> list[dict[str, Any]]:
+    """Deterministic golden set for ReviewAnalyzerAgent sentiment + keywords."""
+    return [
+        {
+            "text": "这个产品非常好用，质量很棒，推荐购买！",
+            "expected_sentiment": "positive",
+            "expected_keywords": ["好", "棒", "推荐"],
+        },
+        {
+            "text": "太差了，准备退货，非常失望。",
+            "expected_sentiment": "negative",
+            "expected_keywords": ["差", "退货", "失望"],
+        },
+        {
+            "text": "已收到货，还没开始用，一般般。",
+            "expected_sentiment": "neutral",
+            "expected_keywords": ["收到", "一般"],
+        },
+        {
+            "text": "性价比超值，物流快捷，值得回购。",
+            "expected_sentiment": "positive",
+            "expected_keywords": ["超值", "快捷", "值得"],
+        },
+        {
+            "text": "产品有缺陷，客服不处理，准备投诉差评。",
+            "expected_sentiment": "negative",
+            "expected_keywords": ["缺陷", "投诉", "差评"],
+        },
+        {
+            "text": "正常收到，暂无使用感受。",
+            "expected_sentiment": "neutral",
+            "expected_keywords": ["正常", "暂无"],
+        },
+    ]
+
+
+def run_review(
+    *,
+    reviews: list[dict[str, Any]] | None = None,
+    sources: list[Any] | None = None,
+) -> dict[str, Any]:
+    """Evaluate ReviewAnalyzerAgent on a deterministic review golden set.
+
+    Offline: each review text is a bare string fed through Harness. Reports
+    sentiment accuracy, keyword recall, and the always-need-human contract.
+    """
+    from agent_runtime.harness import Harness
+    from review_agent.agent import ReviewAnalyzerAgent
+
+    agent = ReviewAnalyzerAgent(sources=sources or [])
+    rows: list[dict[str, Any]] = []
+    items = reviews if reviews is not None else review_golden()
+    for index, item in enumerate(items):
+        text = item["text"]
+        expected = item["expected_sentiment"]
+        expected_keywords = list(item.get("expected_keywords") or [])
+        try:
+            outcome = asyncio.run(Harness().execute(text, agent))
+            sentiment: str | None = None
+            keywords: list[str] = []
+            if outcome.steps:
+                for call in outcome.steps[-1].tool_calls:
+                    if call.get("tool") == "analyze_review":
+                        sentiment = call.get("sentiment")
+                        keywords = list(call.get("keywords") or [])
+            keyword_hits = len(set(expected_keywords) & set(keywords))
+            keyword_recall = (
+                round(keyword_hits / len(expected_keywords), 4) if expected_keywords else None
+            )
+            rows.append(
+                {
+                    "index": index,
+                    "text": text,
+                    "expected_sentiment": expected,
+                    "predicted_sentiment": sentiment,
+                    "sentiment_correct": sentiment == expected,
+                    "keywords": keywords,
+                    "keyword_recall": keyword_recall,
+                    "need_human": bool(outcome.answer_draft and outcome.answer_draft.need_human),
+                    "terminal": outcome.terminal.value,
+                }
+            )
+        except Exception as exc:  # noqa: BLE001 - surface the failing review, keep going
+            rows.append(
+                {
+                    "index": index,
+                    "text": text,
+                    "expected_sentiment": expected,
+                    "error": str(exc),
+                }
+            )
+    ok = [r for r in rows if "error" not in r]
+    n = len(rows)
+    n_ok = len(ok)
+    correct = sum(1 for r in ok if r["sentiment_correct"])
+    need_human = sum(1 for r in ok if r["need_human"])
+    recalls = [r["keyword_recall"] for r in ok if r["keyword_recall"] is not None]
+    return {
+        "n": n,
+        "errors": n - n_ok,
+        "sentiment_accuracy": round(correct / n_ok, 4) if n_ok else 0.0,
+        "mean_keyword_recall": round(sum(recalls) / len(recalls), 4) if recalls else None,
+        "need_human_rate": round(need_human / n_ok, 4) if n_ok else 0.0,
+        "per_question": rows,
+    }
+
+
+def run_multi_agent(
+    *,
+    sources: list[Any],
+    questions: list[dict[str, str]] | None = None,
+    generator: Any = None,
+) -> dict[str, Any]:
+    """Evaluate Presale → Review orchestration via AgentCoordinator.
+
+    Offline by default (deterministic runner + ReviewAnalyzerAgent). Metrics:
+    terminal distribution, short-circuit rate (review never ran), mean agents
+    executed, and the final need-human rate. ``generator`` may be injected to
+    use a real LLM for the presale leg.
+    """
+    from agent_runtime.coordinator import AgentCoordinator, format_coordinator_outcome
+    from agent_runtime.harness import TerminalDecision
+    from review_agent.agent import ReviewAnalyzerAgent
+
+    from ..agent import PresaleAgent
+    from ..cli import load_catalog
+    from ..contracts import ProductQuestion
+    from ..runner import PresaleQaRunner
+    from .generation_eval import qa_golden
+
+    items = questions if questions is not None else qa_golden()
+    if not sources:
+        sources = load_catalog(
+            os.environ.get("PRESALE_CATALOG", "src/presale/data/dev_catalog.json")
+        )
+    rows: list[dict[str, Any]] = []
+    terminals: dict[str, int] = {t.value: 0 for t in TerminalDecision}
+    short_circuits = 0
+    sub_agent_totals = 0
+    final_need_human = 0
+    for index, item in enumerate(items):
+        query = item["query"]
+        try:
+            question = ProductQuestion(
+                question_id=f"q-ma-{index:05d}",
+                tenant_id=item["tenant_id"],
+                submitted_by=ActorRef(actor_type=ActorType.USER, actor_id="usr_ma_eval"),
+                product_id=item["product_id"],
+                question_text=query,
+                requested_at=datetime(2026, 9, 24, tzinfo=timezone.utc),
+                idempotency_key=f"ma-eval-{index:05d}",
+            )
+            runner = PresaleQaRunner(sources=sources, generator=generator)
+            coordinator = AgentCoordinator(
+                [
+                    PresaleAgent(runner),
+                    ReviewAnalyzerAgent(sources=sources),
+                ]
+            )
+            outcome = asyncio.run(coordinator.execute(question))
+            rendered = format_coordinator_outcome(outcome)
+            sub_count = len(outcome.sub_outcomes)
+            short = sub_count < 2
+            if short:
+                short_circuits += 1
+            sub_agent_totals += sub_count
+            terminals[outcome.overall_terminal.value] += 1
+            need_human = outcome.overall_terminal is TerminalDecision.NEED_HUMAN
+            if need_human:
+                final_need_human += 1
+            rows.append(
+                {
+                    "tenant_id": item["tenant_id"],
+                    "product_id": item["product_id"],
+                    "query": query,
+                    "overall_terminal": outcome.overall_terminal.value,
+                    "sub_agent_count": sub_count,
+                    "short_circuited": short,
+                    "final_need_human": need_human,
+                    "final_answer_id": rendered.get("overall_answer_id"),
+                    "sub_terminals": [s.get("terminal") for s in rendered.get("sub_outcomes", [])],
+                }
+            )
+        except Exception as exc:  # noqa: BLE001 - surface the failing question, keep going
+            rows.append(
+                {
+                    "tenant_id": item.get("tenant_id"),
+                    "product_id": item.get("product_id"),
+                    "query": query,
+                    "error": str(exc),
+                }
+            )
+    ok = [r for r in rows if "error" not in r]
+    n = len(rows)
+    n_ok = len(ok)
+    return {
+        "n": n,
+        "errors": n - n_ok,
+        "terminals": terminals,
+        "short_circuit_rate": round(short_circuits / n_ok, 4) if n_ok else 0.0,
+        "mean_sub_agents": round(sub_agent_totals / n_ok, 4) if n_ok else 0.0,
+        "final_need_human_rate": round(final_need_human / n_ok, 4) if n_ok else 0.0,
+        "per_question": rows,
+    }
+
+
 def summarize(mode: str, report: dict[str, Any]) -> str:
     """Render a compact text summary of an evaluation report."""
+    if mode == "review":
+        return (
+            f"review: n={report.get('n')} "
+            f"sentiment_accuracy={report.get('sentiment_accuracy')} "
+            f"keyword_recall={report.get('mean_keyword_recall')} "
+            f"need_human_rate={report.get('need_human_rate')} "
+            f"errors={report.get('errors')}"
+        )
+    if mode == "multi-agent":
+        terminals = report.get("terminals") or {}
+        return (
+            f"multi-agent: n={report.get('n')} "
+            f"terminals={terminals} "
+            f"short_circuit_rate={report.get('short_circuit_rate')} "
+            f"mean_sub_agents={report.get('mean_sub_agents')} "
+            f"final_need_human_rate={report.get('final_need_human_rate')} "
+            f"errors={report.get('errors')}"
+        )
     if mode in ("generation", "end-to-end"):
         text = (
             f"{mode}: n={report.get('n')} "
@@ -146,6 +376,12 @@ def _build_generator():
 
 def _run_mode(mode: str, args: argparse.Namespace) -> dict[str, Any]:
     """Run one mode and return its report (plus mode tag)."""
+    # Offline deterministic modes: no Milvus / LLM required.
+    if mode == "review":
+        return {"mode": mode, **run_review()}
+    if mode == "multi-agent":
+        return {"mode": mode, **run_multi_agent(sources=_load_catalog())}
+
     retriever = build_retriever()
     if retriever is None:
         raise SystemExit("PRESALE_MILVUS_URI (or PRESALE_QDRANT_URL) required for evaluation")
@@ -255,7 +491,10 @@ def write_report(report: dict[str, Any], path: str) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="presale-eval",
-        description="Run presale QA evaluation (retrieval / generation / end-to-end / all).",
+        description=(
+            "Run presale QA evaluation "
+            "(retrieval / generation / end-to-end / review / multi-agent / all)."
+        ),
     )
     parser.add_argument(
         "--mode",
@@ -321,9 +560,12 @@ __all__ = [
     "build_retriever",
     "compare_reports",
     "main",
+    "review_golden",
     "run_end_to_end",
     "run_generation",
+    "run_multi_agent",
     "run_retrieval",
+    "run_review",
     "summarize",
     "write_report",
 ]
