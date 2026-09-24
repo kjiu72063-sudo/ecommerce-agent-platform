@@ -28,6 +28,41 @@ from .retrieval_eval import evaluate_retriever
 
 MODES = ("retrieval", "generation", "end-to-end", "review", "multi-agent", "all")
 
+# Bump when a golden set's items or expected labels change (catalog-driven updates).
+GENERATION_GOLDEN_VERSION = "1.0.0"
+REVIEW_GOLDEN_VERSION = "1.0.0"
+
+
+def _file_sha256_prefix(path: Path, length: int = 16) -> str | None:
+    if not path.is_file():
+        return None
+    import hashlib
+
+    return hashlib.sha256(path.read_bytes()).hexdigest()[:length]
+
+
+def golden_meta(mode: str | None = None) -> dict[str, Any]:
+    """Version + catalog fingerprint stamped into evaluation reports and snapshots.
+
+    When the catalog or golden items change, bump the matching version constant
+    and regenerate affected snapshots so regressions compare like-for-like.
+    """
+    from .generation_eval import qa_golden
+
+    catalog = Path(os.environ.get("PRESALE_CATALOG", "src/presale/data/dev_catalog.json"))
+    meta: dict[str, Any] = {
+        "generation_golden_version": GENERATION_GOLDEN_VERSION,
+        "generation_golden_size": len(qa_golden()),
+        "review_golden_version": REVIEW_GOLDEN_VERSION,
+        "review_golden_size": len(review_golden()),
+        "catalog_path": str(catalog),
+        "catalog_sha256": _file_sha256_prefix(catalog),
+        "saved_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }
+    if mode is not None:
+        meta["mode"] = mode
+    return meta
+
 
 def build_retriever():
     """Build a hybrid retriever from env, or None when unconfigured."""
@@ -378,16 +413,20 @@ def _run_mode(mode: str, args: argparse.Namespace) -> dict[str, Any]:
     """Run one mode and return its report (plus mode tag)."""
     # Offline deterministic modes: no Milvus / LLM required.
     if mode == "review":
-        return {"mode": mode, **run_review()}
+        return {"mode": mode, "golden": golden_meta(mode), **run_review()}
     if mode == "multi-agent":
-        return {"mode": mode, **run_multi_agent(sources=_load_catalog())}
+        return {
+            "mode": mode,
+            "golden": golden_meta(mode),
+            **run_multi_agent(sources=_load_catalog()),
+        }
 
     retriever = build_retriever()
     if retriever is None:
         raise SystemExit("PRESALE_MILVUS_URI (or PRESALE_QDRANT_URL) required for evaluation")
 
     if mode == "retrieval":
-        return {"mode": mode, **run_retrieval(retriever)}
+        return {"mode": mode, "golden": golden_meta(mode), **run_retrieval(retriever)}
 
     base_url, model, api_key = _llm_config()
     if not (base_url and model and api_key):
@@ -403,7 +442,7 @@ def _run_mode(mode: str, args: argparse.Namespace) -> dict[str, Any]:
         report = run_generation(
             retriever, transport=transport, base_url=base_url, model=model, api_key=api_key
         )
-        return {"mode": mode, **report}
+        return {"mode": mode, "golden": golden_meta(mode), **report}
 
     # end-to-end
     generator = _build_generator()
@@ -418,7 +457,7 @@ def _run_mode(mode: str, args: argparse.Namespace) -> dict[str, Any]:
         model=model,
         api_key=api_key,
     )
-    return {"mode": mode, **report}
+    return {"mode": mode, "golden": golden_meta(mode), **report}
 
 
 def _as_per_question(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -481,11 +520,125 @@ def compare_reports(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _md_value(value: Any) -> str:
+    if value is None:
+        return "—"
+    if isinstance(value, bool):
+        return "yes" if value else "no"
+    if isinstance(value, float):
+        return f"{value:g}"
+    if isinstance(value, (dict, list)):
+        return "`" + json.dumps(value, ensure_ascii=False) + "`"
+    return str(value).replace("|", "\\|")
+
+
+def _md_metric_rows(report: dict[str, Any]) -> list[tuple[str, Any]]:
+    """Flatten well-known scalar metrics for the summary table (stable order)."""
+    preferred = (
+        "n",
+        "errors",
+        "mrr",
+        "mean_faithfulness",
+        "mean_answer_correctness",
+        "mean_gold_correctness",
+        "total_unsupported_claims",
+        "sentiment_accuracy",
+        "mean_keyword_recall",
+        "need_human_rate",
+        "short_circuit_rate",
+        "mean_sub_agents",
+        "final_need_human_rate",
+        "terminals",
+    )
+    rows: list[tuple[str, Any]] = []
+    for key in preferred:
+        if key in report:
+            rows.append((key, report[key]))
+    hit = report.get("hit_at_k")
+    if isinstance(hit, dict):
+        for key in ("hit@1", "hit@3", "mrr"):
+            if key in hit and key != "mrr":
+                rows.append((key, hit[key]))
+    latency = report.get("latency")
+    if isinstance(latency, dict):
+        for key in ("wall_s", "mean_ask_ms", "mean_judge_ms"):
+            if key in latency:
+                rows.append((f"latency.{key}", latency[key]))
+    tokens = report.get("tokens")
+    if isinstance(tokens, dict):
+        for key in ("prompt", "completion"):
+            if key in tokens:
+                rows.append((f"tokens.{key}", tokens[key]))
+    cost = report.get("cost")
+    if isinstance(cost, dict) and cost.get("estimated_usd") is not None:
+        rows.append(("cost.estimated_usd", cost["estimated_usd"]))
+    golden = report.get("golden")
+    if isinstance(golden, dict):
+        for key in (
+            "generation_golden_version",
+            "generation_golden_size",
+            "review_golden_version",
+            "catalog_sha256",
+        ):
+            if key in golden:
+                rows.append((f"golden.{key}", golden[key]))
+    return rows
+
+
+def _append_mode_markdown(lines: list[str], report: dict[str, Any]) -> None:
+    mode = report.get("mode", "report")
+    lines.append(f"## {mode}")
+    lines.append("")
+    lines.append("| metric | value |")
+    lines.append("|---|---|")
+    for key, value in _md_metric_rows(report):
+        lines.append(f"| {key} | {_md_value(value)} |")
+    lines.append("")
+    per_question = report.get("per_question")
+    if isinstance(per_question, list) and per_question:
+        lines.append(f"### Per-question ({len(per_question)} rows, first 20)")
+        lines.append("")
+        sample = per_question[:20]
+        headers: list[str] = []
+        for row in sample:
+            for key in row:
+                if key not in headers:
+                    headers.append(key)
+        # Cap columns for readability.
+        headers = headers[:8]
+        lines.append("| " + " | ".join(headers) + " |")
+        lines.append("|" + "---|" * len(headers))
+        for row in sample:
+            lines.append("| " + " | ".join(_md_value(row.get(h)) for h in headers) + " |")
+        lines.append("")
+
+
+def render_markdown(report: dict[str, Any]) -> str:
+    """Render an evaluation report as a Markdown document.
+
+    Handles a single-mode report (``{"mode": ...}``) or ``{"modes": [...]}``
+    from ``--mode all``.
+    """
+    lines = ["# Presale evaluation report", ""]
+    if isinstance(report.get("modes"), list):
+        for item in report["modes"]:
+            _append_mode_markdown(lines, item)
+    else:
+        _append_mode_markdown(lines, report)
+    while lines and lines[-1] == "":
+        lines.pop()
+    lines.append("")
+    return "\n".join(lines)
+
+
 def write_report(report: dict[str, Any], path: str) -> None:
-    """Persist an evaluation report as JSON, creating parent directories."""
+    """Persist an evaluation report as JSON, or Markdown when the path ends in .md."""
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    if target.suffix.lower() in {".md", ".markdown"}:
+        target.write_text(render_markdown(report), encoding="utf-8")
+    else:
+        target.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -503,7 +656,11 @@ def main(argv: list[str] | None = None) -> int:
         help="which evaluation ring to run (default: all)",
     )
     parser.add_argument("--compare", nargs=2, metavar=("A", "B"), help="compare two result JSONs")
-    parser.add_argument("--output", metavar="FILE", help="write the report JSON to FILE")
+    parser.add_argument(
+        "--output",
+        metavar="FILE",
+        help="write the report to FILE (.md → Markdown, otherwise JSON)",
+    )
     parser.add_argument(
         "--fail-on-regression",
         action="store_true",
@@ -559,7 +716,9 @@ __all__ = [
     "MODES",
     "build_retriever",
     "compare_reports",
+    "golden_meta",
     "main",
+    "render_markdown",
     "review_golden",
     "run_end_to_end",
     "run_generation",

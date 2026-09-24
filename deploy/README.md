@@ -116,6 +116,13 @@ presale-migrate-pg --sqlite ./presale.sqlite3 --dsn "$PRESALE_PG_DSN"
 
 本地等价入口：`make eval-real-acceptance`（需先起 Milvus 并设好 `PRESALE_LLM_*`）。幂等重放单跑用 `make eval-idempotency-replay`。
 
+## 方向8 golden 版本化与 Markdown 报告
+
+- 评估报告与 `--save` 生成的 generation snapshot 会写入 `_meta` / `golden`：版本常量（`GENERATION_GOLDEN_VERSION` / `REVIEW_GOLDEN_VERSION`，在 `eval_framework.py`）、条目数、catalog 路径与 **sha256 前缀**、`saved_at`。
+- **catalog 或 golden 条目变更时**：bump 对应版本常量 → 用真实模型 `--save` 重新生成 `generation_snapshot.json`（及检索 snapshot）→ 合入后才能让 `--compare` / `--fail-on-regression` 语义仍然成立。只改 catalog 而不改 golden 条目时，至少记录新 `catalog_sha256` 以便审计。
+- 快照比较只遍历当前题目的 key，`_meta` 不参与回退判定，旧无 meta 的快照仍可比较。
+- `presale-eval --output report.md` 按扩展名输出 **Markdown**（指标表 + 前 20 行 per-question）；`.json` 或其它后缀仍是 JSON。
+
 ## 注意
 - Milvus **单独** `docker run` 裸镜像无法工作——它需要 etcd 提供元数据，且此仓库用 **本地文件存储**（`COMMON_STORAGETYPE=local`）而非 MinIO。请用 `docker compose up` 一起拉起。
 - 为什么没有 MinIO：本机 1Panel 镜像站未缓存 `minio/minio` 镜像（`docker pull` 报 403），故 Milvus 单机用 local 存储以绕开对象存储依赖。**生产/正式若需 MinIO 对象存储**，加回 minio 服务并把 `COMMON_STORAGETYPE` 改回 `remote`、补 `MINIO_ADDRESS`。

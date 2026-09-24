@@ -15,12 +15,15 @@ import pytest
 from presale.adapters.eval_framework import (
     MODES,
     build_retriever,
+    golden_meta,
+    render_markdown,
     run_end_to_end,
     run_generation,
     run_multi_agent,
     run_retrieval,
     run_review,
     summarize,
+    write_report,
 )
 from presale.adapters.eval_framework import (
     main as eval_main,
@@ -448,3 +451,71 @@ def test_run_multi_agent_short_circuits_without_evidence():
     row = report["per_question"][0]
     assert row["sub_agent_count"] == 1
     assert row["sub_terminals"] == ["need_human"]
+
+
+# --- 方向8剩余: Markdown 报告 + golden 版本化 ---
+
+
+def test_golden_meta_reports_versions_and_catalog_fingerprint():
+    """方向8: golden_meta stamps version constants and a catalog sha256 prefix."""
+    meta = golden_meta("review")
+    assert meta["mode"] == "review"
+    assert meta["generation_golden_version"]
+    assert meta["generation_golden_size"] >= 18
+    assert meta["review_golden_version"]
+    assert meta["review_golden_size"] >= 6
+    assert meta["catalog_sha256"] is None or len(meta["catalog_sha256"]) == 16
+    assert meta["saved_at"]
+
+
+def test_render_markdown_single_mode_report():
+    """方向8: render_markdown emits a title, mode section, and metric table."""
+    report = {
+        "mode": "review",
+        "golden": golden_meta("review"),
+        "n": 6,
+        "errors": 0,
+        "sentiment_accuracy": 1.0,
+        "need_human_rate": 1.0,
+        "per_question": [
+            {"index": 0, "sentiment_correct": True, "text": "非常好用"},
+        ],
+    }
+    md = render_markdown(report)
+    assert md.startswith("# Presale evaluation report")
+    assert "## review" in md
+    assert "| sentiment_accuracy | 1 |" in md
+    assert "### Per-question" in md
+    assert "golden.review_golden_version" in md
+
+
+def test_render_markdown_combined_modes():
+    """方向8: --mode all style {modes: [...]} renders one section per mode."""
+    md = render_markdown(
+        {
+            "modes": [
+                {"mode": "retrieval", "n": 2, "mrr": 1.0},
+                {"mode": "review", "n": 6, "sentiment_accuracy": 1.0},
+            ]
+        }
+    )
+    assert "## retrieval" in md
+    assert "## review" in md
+    assert "| mrr | 1 |" in md
+
+
+def test_write_report_markdown_by_extension(tmp_path):
+    """方向8: --output path ending in .md writes Markdown, not JSON."""
+    target = tmp_path / "report.md"
+    write_report({"mode": "review", "n": 1, "sentiment_accuracy": 1.0}, str(target))
+    text = target.read_text(encoding="utf-8")
+    assert text.startswith("# Presale evaluation report")
+    assert "## review" in text
+
+
+def test_write_report_json_default(tmp_path):
+    """方向8: non-.md path still writes JSON."""
+    target = tmp_path / "report.json"
+    write_report({"mode": "review", "n": 1}, str(target))
+    payload = json.loads(target.read_text(encoding="utf-8"))
+    assert payload["mode"] == "review"
