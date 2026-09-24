@@ -31,6 +31,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/), versioning foll
 
 ### Fixed
 - **compare_reports retrieval key mismatch**: retrieval reports use `per_query` (bare query text) while snapshots use `tenant/product::query` keys — compare never saw rank regressions (`regressed` stayed 0). `_as_per_question` now accepts `per_query` and normalizes list rows to composite keys. Retrieval snapshot regenerated from CI deterministic-embedding results (aligned gates). 1 test. Baseline 397.
+- **Golden rank gate flaps under ANN jitter**: `compare_reports` gained `rank_tolerance` / `--rank-tolerance` (CI uses 2) so a rank worse by ≤N is not regressed; recall loss (`rank → None`) still always fails. RRF fusion breaks equal scores by id so Milvus arrival order cannot flip ranks across runs. 4 tests. Baseline 401.
 - 39 pyright type errors in `src/registry/` and `src/runtime/` (all `param: T = None` → `param: T | None = None`).
 - Port boundary violations: `generation_eval.py` lazy import, `sweep_retrieval.py` parameterized factory, `generate_realistic_golden.py` lazy import.
 - Structural issues R-1 through R-5 (README baseline, pyright scope, module boundaries, Loop CONTINUE semantics, `__all__` position).

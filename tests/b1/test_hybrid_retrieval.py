@@ -6,6 +6,7 @@ from presale.adapters.external_retrieval import ExternalRetrieval, RetrievalStat
 from presale.adapters.hybrid_retrieval import (
     BM25Index,
     MilvusDense,
+    _rrf_weighted,
     hybrid_transport,
     index_hybrid,
 )
@@ -108,3 +109,19 @@ def test_hybrid_transport_applies_reranker():
 
     assert result.status is RetrievalStatus.MATCHED
     assert result.evidence_items and result.evidence_items[0].source_id == "src-b"
+
+
+def test_rrf_weighted_equal_scores_break_ties_by_id():
+    """Equal RRF scores must order by id so ANN arrival order cannot flap ranks."""
+
+    def hit(source_id: str) -> dict:
+        return {"id": f"{source_id}::locator", "source_id": source_id}
+
+    dense = [hit("src-z"), hit("src-a")]
+    bm25 = [hit("src-a"), hit("src-z")]
+    fused = _rrf_weighted(dense, bm25)
+    ids = [h["source_id"] for h in fused]
+    assert ids == ["src-a", "src-z"]
+    # Swapping input order must not change the fused order.
+    fused_swapped = _rrf_weighted(list(reversed(dense)), list(reversed(bm25)))
+    assert [h["source_id"] for h in fused_swapped] == ["src-a", "src-z"]

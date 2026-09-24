@@ -412,6 +412,59 @@ def test_compare_accepts_retrieval_per_query_vs_flat_snapshot():
     assert result["added"] == []
 
 
+def test_compare_rank_tolerance_within_band_is_not_regression():
+    """rank 仅劣化 ≤ tolerance 时不计 regressed；超出仍计。"""
+    from presale.adapters.eval_framework import compare_reports
+
+    flat = {"tenant-demo/product-001::q": {"rank": 1}}
+    current = {
+        "per_query": [
+            {
+                "query": "q",
+                "tenant_id": "tenant-demo",
+                "product_id": "product-001",
+                "rank": 3,
+            }
+        ]
+    }
+    strict = compare_reports(flat, current)
+    assert strict["summary"]["regressed"] == 1
+    loose = compare_reports(flat, current, rank_tolerance=2)
+    assert loose["summary"]["regressed"] == 0
+    assert loose["improved"] == []
+    assert loose["added"] == []
+    assert loose["removed"] == []
+
+
+def test_compare_rank_tolerance_recall_lost_still_regresses():
+    """rank → None（丢召回）不受 rank_tolerance 豁免。"""
+    from presale.adapters.eval_framework import compare_reports
+
+    flat = {"tenant-demo/product-001::q": {"rank": 1}}
+    current = {
+        "per_query": [
+            {
+                "query": "q",
+                "tenant_id": "tenant-demo",
+                "product_id": "product-001",
+                "rank": None,
+            }
+        ]
+    }
+    result = compare_reports(flat, current, rank_tolerance=5)
+    assert result["summary"]["regressed"] == 1
+    assert result["regressed"][0]["new"] is None
+
+
+def test_compare_cli_rank_tolerance_flag_exit_0():
+    """--rank-tolerance 经 CLI 传入时，带内劣化不触发 fail-on-regression。"""
+    with tempfile.TemporaryDirectory() as tmp:
+        a = _write_tmp_report(tmp, _report_with_rank(1), "a.json")
+        b = _write_tmp_report(tmp, _report_with_rank(3), "b.json")
+        rc = eval_main(["--compare", a, b, "--fail-on-regression", "--rank-tolerance", "2"])
+        assert rc == 0
+
+
 # --- 方向8余量: review / multi-agent modes ---
 
 
