@@ -465,6 +465,96 @@ def test_compare_cli_rank_tolerance_flag_exit_0():
         assert rc == 0
 
 
+def test_compare_aggregate_floor_pass_and_fail():
+    """汇总 floor：current 指标低于阈值 → floor_violations；高于则通过。"""
+    from presale.adapters.eval_framework import compare_reports
+
+    flat = {"tenant-demo/product-001::q": {"rank": 1}}
+    good = {
+        "mode": "retrieval",
+        "n": 10,
+        "mrr": 0.80,
+        "hit_at_k": {"hit@1": 0.70},
+        "per_query": [
+            {"query": "q", "tenant_id": "tenant-demo", "product_id": "product-001", "rank": 1}
+        ],
+    }
+    bad = dict(good, mrr=0.50, hit_at_k={"hit@1": 0.30})
+
+    ok = compare_reports(
+        flat, good, aggregate_floor={"mrr": 0.65, "hit@1": 0.45}
+    )
+    assert ok["floor_violations"] == []
+    assert ok["summary"]["floor_violations"] == 0
+    assert ok["summary"]["regressed"] == 0
+
+    fail = compare_reports(
+        flat, bad, aggregate_floor={"mrr": 0.65, "hit@1": 0.45}
+    )
+    assert len(fail["floor_violations"]) == 2
+    metrics = {v["metric"] for v in fail["floor_violations"]}
+    assert metrics == {"mrr", "hit@1"}
+    # floor 缺失指标（report 无该字段）不误报
+    missing = compare_reports(flat, {"per_query": good["per_query"]}, aggregate_floor={"mrr": 0.65})
+    assert missing["floor_violations"] == []
+
+
+def test_compare_batch_floor_violation_exits_1(tmp_path):
+    """compare-batch + floor：仅指标跌破阈值（逐题无回退）也 fail。"""
+    base = tmp_path / "base.json"
+    base.write_text(
+        json.dumps(
+            {
+                "mode": "retrieval",
+                "n": 10,
+                "mrr": 0.90,
+                "hit_at_k": {"hit@1": 0.90},
+                "per_query": [{"query": "q", "rank": 1}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    cur = tmp_path / "cur.json"
+    cur.write_text(
+        json.dumps(
+            {
+                "mode": "retrieval",
+                "n": 10,
+                "mrr": 0.40,
+                "hit_at_k": {"hit@1": 0.20},
+                "per_query": [{"query": "q", "rank": 1}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(SystemExit) as exc:
+        eval_main(
+            [
+                "--compare-batch",
+                f"{base}::{cur}",
+                "--fail-on-regression",
+                "--floor-mrr",
+                "0.65",
+                "--floor-hit1",
+                "0.45",
+            ]
+        )
+    assert exc.value.code == 1
+    # 指标在 floor 之上 → exit 0
+    ok = eval_main(
+        [
+            "--compare-batch",
+            f"{base}::{cur}",
+            "--fail-on-regression",
+            "--floor-mrr",
+            "0.30",
+            "--floor-hit1",
+            "0.10",
+        ]
+    )
+    assert ok == 0
+
+
 # --- 方向8余量: review / multi-agent modes ---
 
 
