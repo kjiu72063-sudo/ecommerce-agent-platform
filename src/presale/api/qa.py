@@ -9,13 +9,16 @@ Run with ``presale-qa-api`` (uvicorn) or ``python -m presale.api.qa``.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 from agent_platform_contracts.models import ActorRef, ActorType
@@ -29,6 +32,9 @@ from ..runner import PresaleQaRunner
 from ..runtime import external_retriever_from_env, openai_generator_from_env
 
 logger = logging.getLogger("presale.qa")
+
+_STATIC_DIR = Path(__file__).resolve().parent / "static"
+_DEMO_EXAMPLES = Path(__file__).resolve().parent.parent / "data" / "demo_examples.json"
 
 app = FastAPI(
     title="Presale QA 服务",
@@ -153,6 +159,21 @@ async def ready() -> dict[str, str]:
     return {"status": "ready", "persistence": "postgres"}
 
 
+@app.get("/", include_in_schema=False)
+def index() -> FileResponse:
+    """Demo single-page UI (static HTML, same origin as the API)."""
+    return FileResponse(_STATIC_DIR / "index.html")
+
+
+@app.get("/api/v1/presale/qa/examples", include_in_schema=False)
+def examples() -> dict[str, Any]:
+    """Curated demo questions per product (drives the UI's product picker)."""
+    try:
+        return json.loads(_DEMO_EXAMPLES.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=500, detail="demo examples unavailable") from exc
+
+
 @app.get("/api/v1/presale/qa/metrics")
 def metrics() -> dict[str, object]:
     return dict(_metrics)
@@ -182,7 +203,15 @@ async def qa(req: QaRequest) -> dict:
     _metrics["terminal"][terminal] = int(_metrics["terminal"][terminal]) + 1
     _metrics["last_run_seconds"] = time.monotonic() - start
     logger.info("qa ok run_ref=%s terminal=%s", outcome.run_ref, terminal)
-    return format_outcome(outcome)
+    payload = format_outcome(outcome)
+    draft = outcome.answer_draft
+    payload["evidence"] = [
+        {"locator": ref.locator, "source_id": ref.source_id}
+        for ref in (draft.evidence_refs if draft else [])
+    ]
+    payload["confidence_signal"] = draft.confidence_signal if draft else None
+    payload["reason_codes"] = list(draft.reason_codes) if draft else []
+    return payload
 
 
 def main() -> None:

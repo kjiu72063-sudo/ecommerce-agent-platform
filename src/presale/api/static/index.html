@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>售前问答演示 · Presale QA</title>
+<style>
+  :root {
+    --ink: #1a2233;
+    --muted: #6b7487;
+    --line: #e3e7ef;
+    --bg: #f6f7fb;
+    --card: #ffffff;
+    --accent: #2563eb;
+    --accent-ink: #ffffff;
+    --green: #16a34a;
+    --green-bg: #ecfdf3;
+    --amber: #d97706;
+    --amber-bg: #fffbeb;
+    --chip-bg: #eef2ff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.6;
+  }
+  header {
+    background: var(--card);
+    border-bottom: 1px solid var(--line);
+    padding: 18px 24px;
+  }
+  header h1 { margin: 0; font-size: 18px; font-weight: 600; }
+  header h1 span { color: var(--muted); font-weight: 400; font-size: 13px; margin-left: 10px; }
+  main { max-width: 860px; margin: 24px auto; padding: 0 16px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  select, textarea {
+    width: 100%;
+    font: inherit;
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    background: #fff;
+  }
+  select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: transparent; }
+  textarea { resize: vertical; min-height: 72px; margin-top: 14px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .chip {
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    background: var(--chip-bg);
+    color: #3730a3;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    padding: 6px 14px;
+    cursor: pointer;
+  }
+  .chip:hover { border-color: var(--accent); }
+  .actions { margin-top: 14px; display: flex; align-items: center; gap: 14px; }
+  button.ask {
+    font: inherit;
+    font-size: 15px;
+    font-weight: 600;
+    background: var(--accent);
+    color: var(--accent-ink);
+    border: none;
+    border-radius: 8px;
+    padding: 10px 28px;
+    cursor: pointer;
+  }
+  button.ask:disabled { opacity: .55; cursor: wait; }
+  .hint { font-size: 12px; color: var(--muted); }
+  .badges { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .badge {
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 6px;
+    padding: 3px 10px;
+    background: var(--chip-bg);
+    color: #3730a3;
+  }
+  .badge.ok { background: var(--green-bg); color: var(--green); }
+  .badge.warn { background: var(--amber-bg); color: var(--amber); }
+  .answer { font-size: 15px; white-space: pre-wrap; }
+  .section-title { font-size: 12px; color: var(--muted); margin: 16px 0 6px; text-transform: none; }
+  .evi { display: flex; flex-wrap: wrap; gap: 8px; }
+  .evi span {
+    font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+    font-size: 12px;
+    background: var(--green-bg);
+    color: #15803d;
+    border-radius: 6px;
+    padding: 3px 10px;
+  }
+  .meta {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--line);
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+  }
+  .error { border-color: #fecaca; background: #fef2f2; color: #b91c1c; font-size: 14px; }
+  .loading { color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>售前问答演示<span>Presale QA · 商品知识检索 + LLM 生成</span></h1>
+</header>
+<main>
+  <section class="card">
+    <label for="product">选择商品</label>
+    <select id="product"></select>
+    <div class="chips" id="chips"></div>
+    <label for="question" style="margin-top:14px">你的问题</label>
+    <textarea id="question" placeholder="例如：大热天在太阳底下曝晒一整天会不会晒黑"></textarea>
+    <div class="actions">
+      <button class="ask" id="ask">提问</button>
+      <span class="hint" id="hint">答案由真实 LLM 生成（未配置时走确定性模板）</span>
+    </div>
+  </section>
+
+  <section class="card" id="result" hidden>
+    <div class="badges" id="badges"></div>
+    <div class="answer" id="answer"></div>
+    <div id="evidence-block" hidden>
+      <div class="section-title">引用的商品知识字段</div>
+      <div class="evi" id="evidence"></div>
+    </div>
+    <div class="meta" id="meta"></div>
+  </section>
+
+  <section class="card error" id="error" hidden></section>
+</main>
+<script>
+(function () {
+  "use strict";
+  var examples = null;
+  var $ = function (id) { return document.getElementById(id); };
+
+  function renderChips(questions) {
+    var box = $("chips");
+    box.innerHTML = "";
+    questions.forEach(function (q) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "chip";
+      b.textContent = q;
+      b.addEventListener("click", function () {
+        $("question").value = q;
+      });
+      box.appendChild(b);
+    });
+  }
+
+  function onProductChange() {
+    var p = examples.products.find(function (x) {
+      return x.product_id === $("product").value;
+    });
+    if (p) {
+      renderChips(p.questions);
+      $("question").placeholder = p.questions[0] || "";
+    }
+  }
+
+  function badge(cls, text) {
+    var s = document.createElement("span");
+    s.className = "badge " + cls;
+    s.textContent = text;
+    return s;
+  }
+
+  function renderResult(body, seconds) {
+    var badges = $("badges");
+    badges.innerHTML = "";
+    var terminal = body.terminal || "unknown";
+    if (terminal === "finalize" && !body.need_human) {
+      badges.appendChild(badge("ok", "已生成答案"));
+    } else {
+      badges.appendChild(badge("warn", "建议人工复核（" + terminal + "）"));
+    }
+    var call = (body.steps || [])
+      .map(function (s) { return (s.tool_calls || [])[0]; })
+      .filter(Boolean)[0];
+    if (call) {
+      if (call.status === "matched") {
+        badges.appendChild(badge("ok", "检索命中 " + call.evidence_count + " 条证据"));
+      } else if (call.status === "out_of_scope") {
+        badges.appendChild(badge("warn", "超出商品范围"));
+      } else {
+        badges.appendChild(badge("warn", "未命中商品知识"));
+      }
+    }
+    if (body.confidence_signal === "supported") {
+      badges.appendChild(badge("ok", "证据充分"));
+    } else if (body.confidence_signal) {
+      badges.appendChild(badge("warn", "置信度：" + body.confidence_signal));
+    }
+
+    $("answer").textContent = body.answer_text || "（无答案文本）";
+
+    var evi = body.evidence || [];
+    $("evidence-block").hidden = evi.length === 0;
+    var box = $("evidence");
+    box.innerHTML = "";
+    evi.forEach(function (e) {
+      var s = document.createElement("span");
+      s.textContent = e.locator;
+      s.title = e.source_id;
+      box.appendChild(s);
+    });
+
+    var meta = $("meta");
+    meta.innerHTML = "";
+    [
+      "耗时 " + seconds + "s",
+      body.run_ref ? "run " + String(body.run_ref.id || body.run_ref) : "",
+      body.reason_codes && body.reason_codes.length ? "reasons: " + body.reason_codes.join(", ") : ""
+    ].filter(Boolean).forEach(function (text) {
+      var s = document.createElement("span");
+      s.textContent = text;
+      meta.appendChild(s);
+    });
+
+    $("result").hidden = false;
+    $("error").hidden = true;
+  }
+
+  function renderError(message) {
+    $("result").hidden = true;
+    $("error").textContent = message;
+    $("error").hidden = false;
+  }
+
+  async function ask() {
+    var question = $("question").value.trim();
+    if (!question) {
+      renderError("请先输入问题（或点上面的示例问题）。");
+      return;
+    }
+    if (!examples) {
+      renderError("示例配置未加载，刷新重试。");
+      return;
+    }
+    var btn = $("ask");
+    btn.disabled = true;
+    btn.textContent = "思考中…";
+    var t0 = performance.now();
+    try {
+      var resp = await fetch("/api/v1/presale/qa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: question,
+          product_id: $("product").value,
+          tenant_id: examples.tenant_id,
+          idempotency_key: "demo-" + Date.now() + "-" + Math.random().toString(36).slice(2, 10)
+        })
+      });
+      var seconds = ((performance.now() - t0) / 1000).toFixed(1);
+      if (!resp.ok) {
+        var detail = "";
+        try { detail = (await resp.json()).detail || ""; } catch (e) {}
+        renderError("请求失败（HTTP " + resp.status + "）" + (detail ? "：" + detail : ""));
+        return;
+      }
+      renderResult(await resp.json(), seconds);
+    } catch (e) {
+      renderError("网络错误：" + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "提问";
+    }
+  }
+
+  async function init() {
+    try {
+      var resp = await fetch("/api/v1/presale/qa/examples");
+      if (!resp.ok) throw new Error("HTTP " + resp.status);
+      examples = await resp.json();
+      var sel = $("product");
+      examples.products.forEach(function (p) {
+        var opt = document.createElement("option");
+        opt.value = p.product_id;
+        opt.textContent = p.name + "（" + p.product_id + "）";
+        sel.appendChild(opt);
+      });
+      sel.addEventListener("change", onProductChange);
+      onProductChange();
+    } catch (e) {
+      renderError("加载示例失败：" + e.message);
+    }
+    $("ask").addEventListener("click", ask);
+    $("question").addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) ask();
+    });
+  }
+  init();
+})();
+</script>
+</body>
+</html>
