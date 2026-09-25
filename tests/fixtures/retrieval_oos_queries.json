@@ -1,0 +1,134 @@
+[
+  {
+    "tenant_id": "tenant-demo",
+    "product_id": "product-001",
+    "query": "这大夏天的穿出去，身上会不会跟蒸笼似的啊？",
+    "locator": "spec_season"
+  },
+  {
+    "tenant_id": "tenant-demo",
+    "product_id": "product-002",
+    "query": "这羽绒服里面塞得啥啊？这么厚实，冬天零下够不够扛？",
+    "locator": "spec_fill"
+  },
+  {
+    "tenant_id": "tenant-demo",
+    "product_id": "product-003",
+    "query": "这鞋夏天穿咋样啊？看着是皮的，会不会闷得慌？",
+    "locator": "spec_material"
+  },
+  {
+    "tenant_id": "tenant-demo",
+    "product_id": "product-004",
+    "query": "这玩意儿耐造不？出门玩一天够用不？总不会没电就没声了吧？",
+    "locator": "spec_battery"
+  },
+  {
+    "tenant_id": "tenant-demo",
+    "product_id": "product-005",
+    "query": "这手表晚上睡觉的时候也一直测心跳和血氧吗？会不会半夜就不测了呀？",
+    "locator": "spec_heart"
+  },
+  {
+    "tenant_id": "tenant-acme",
+    "product_id": "product-101",
+    "query": "这车续航咋样啊？要是没电了充满得等多久？",
+    "locator": "spec_battery"
+  },
+  {
+    "tenant_id": "tenant-acme",
+    "product_id": "product-102",
+    "query": "这滤网是不是能挡那些小颗粒和脏东西啊？还能杀菌吗？",
+    "locator": "spec_filter"
+  },
+  {
+    "tenant_id": "tenant-other",
+    "product_id": "product-201",
+    "query": "这粮仓能装多少啊，够我家那只吃一阵子不？",
+    "locator": "spec_capacity"
+  },
+  {
+    "tenant_id": "tenant-demo",
+    "product_id": "product-006",
+    "query": "这玩意儿能直接把豆子丢进去不？还是得先磨好？",
+    "locator": "spec_grind"
+  },
+  {
+    "tenant_id": "tenant-demo",
+    "product_id": "product-007",
+    "query": "家里有地毯，角落缝里老藏毛发和灰，这机器能吸得干净不？",
+    "locator": "spec_suction"
+  },
+  {
+    "tenant_id": "tenant-demo",
+    "product_id": "product-008",
+    "query": "这个腰托能上下前后掰不？坐久了腰真受不了啊。",
+    "locator": "spec_lumbar"
+  },
+  {
+    "tenant_id": "tenant-acme",
+    "product_id": "product-103",
+    "query": "这帐篷下雨天靠谱吗？会不会外面下大雨里面也跟着淅淅沥沥的？",
+    "locator": "spec_waterproof"
+  },
+  {
+    "tenant_id": "tenant-acme",
+    "product_id": "product-104",
+    "query": "老铁，这个屏幕实际看着清不清楚啊？会不会是那种假高清糊弄人的？",
+    "locator": "spec_resolution"
+  },
+  {
+    "tenant_id": "tenant-other",
+    "product_id": "product-202",
+    "query": "这玩意儿阻力调起来顺不顺滑？我平时一点基础都没有，怕买回来一开始就拉不动啊。",
+    "locator": "spec_resistance"
+  },
+  {
+    "tenant_id": "tenant-demo",
+    "product_id": "product-009",
+    "query": "这壶一次能灌多少啊？我一下午泡健身房，会不会喝到一半就没水了？",
+    "locator": "spec_capacity"
+  },
+  {
+    "tenant_id": "tenant-demo",
+    "product_id": "product-010",
+    "query": "老板，这个我直接贴肉穿能扛得住吗？怕冷啊。",
+    "locator": "spec_warm"
+  },
+  {
+    "tenant_id": "tenant-demo",
+    "product_id": "product-011",
+    "query": "这帽子帽檐够大不？夏天太阳毒得很，能挡得住直晒不？",
+    "locator": "spec_upf"
+  },
+  {
+    "tenant_id": "tenant-acme",
+    "product_id": "product-105",
+    "query": "这洗衣液香味浓不浓啊？会不会洗完就没味儿了？",
+    "locator": "spec_scent"
+  },
+  {
+    "tenant_id": "tenant-acme",
+    "product_id": "product-106",
+    "query": "榨出来的汁儿会不会喇嗓子呀？用的啥刀片？",
+    "locator": "spec_blade"
+  },
+  {
+    "tenant_id": "tenant-acme",
+    "product_id": "product-107",
+    "query": "这个床垫睡久了会不会塌下去啊？腰不好的人能撑得住不？",
+    "locator": "spec_firmness"
+  },
+  {
+    "tenant_id": "tenant-other",
+    "product_id": "product-203",
+    "query": "这猫砂用起来省不省事啊？平时铲的时候是不是还要自己抠那些硬坨坨？",
+    "locator": "spec_auto"
+  },
+  {
+    "tenant_id": "tenant-other",
+    "product_id": "product-204",
+    "query": "这个箱子直接随身带着走不会被拦吧？",
+    "locator": "spec_size"
+  }
+]
