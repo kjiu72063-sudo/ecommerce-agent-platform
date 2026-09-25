@@ -285,6 +285,9 @@ def test_index_serves_review_tab():
     # P2: streaming endpoint + session follow-up
     assert "/api/v1/presale/qa/stream" in body
     assert "session_id" in body
+    # Tab switch relies on [hidden]; .layout's display:grid would otherwise
+    # keep the QA panel visible on the review tab.
+    assert "[hidden]" in body
 
 
 def test_stream_endpoint_sends_sse_events(tmp_path, monkeypatch):
