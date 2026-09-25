@@ -67,7 +67,33 @@ try {
   const bodyText = await page.locator(".evi-item").first().locator(".evi-body").innerText();
   check("证据原文非空", bodyText.trim().length > 0, bodyText.slice(0, 40));
 
-  // 4. Feedback
+  // 3b. Run timeline (platform visibility)
+  check("运行时间线可见", await page.locator("#timeline-block").isVisible());
+  const tlCount = await page.locator(".tl-item").count();
+  check("时间线 4 阶段", tlCount === 4, `count=${tlCount}`);
+  const tlText = await page.locator("#timeline").innerText();
+  check("阶段含检索/生成", tlText.includes("知识检索") && tlText.includes("答案生成"), tlText.replace(/\s+/g, " ").slice(0, 80));
+  const platformText = await page.locator("#platform-row").innerText();
+  check("平台徽标 B0 契约", platformText.includes("B0 契约"), platformText.replace(/\s+/g, " "));
+  await page.screenshot({ path: path.join(OUT, "01b-timeline.png"), fullPage: true });
+
+  // 4b. Multi-agent relay (AgentCoordinator)
+  await page.locator("#relay-btn").click();
+  await page.waitForSelector("#relay:not([hidden]) .relay-agent:nth-child(1)", { timeout: 60000 });
+  await page.waitForFunction(
+    () => document.querySelectorAll("#relay-agents .relay-agent").length >= 2,
+    null,
+    { timeout: 60000 }
+  );
+  const relayBadges = await page.locator("#relay-badges").innerText();
+  check("接力整体终态 need_human", relayBadges.includes("need_human"), relayBadges.replace(/\s+/g, " "));
+  const relayCards = await page.locator(".relay-agent .ra-name").allInnerTexts();
+  check("接力两段 Agent", relayCards.length === 2, relayCards.join(" → "));
+  check("接力含售前 Agent", relayCards[0].includes("售前问答"), relayCards[0]);
+  check("接力含评论 Agent", relayCards[1].includes("评论分析"), relayCards[1]);
+  await page.screenshot({ path: path.join(OUT, "01c-relay.png"), fullPage: true });
+
+  // 5. Feedback
   await page.locator(".fb-btn").first().click(); // 👍
   await page.waitForTimeout(400);
   const fbActive = await page.locator(".fb-btn").first().evaluate((el) => el.classList.contains("active"));
