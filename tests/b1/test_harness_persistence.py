@@ -7,6 +7,7 @@ import pytest
 from agent_runtime.harness import Harness, TerminalDecision
 from presale.adapters.sqlite import (
     SQLiteAnswerDraftRepository,
+    SQLiteEvidenceRepository,
     SQLiteIdempotencyRepository,
     SQLitePresaleStore,
     SQLiteRunTraceRepository,
@@ -49,6 +50,9 @@ def sqlite_runner(store):
         idempotency_repo=SQLiteIdempotencyRepository(store),
         answer_repo=SQLiteAnswerDraftRepository(store),
         trace_repo=SQLiteRunTraceRepository(store),
+        # Durable evidence so a fresh runner replays the same retrieve call
+        # (including content) as the original run.
+        evidence_repo=SQLiteEvidenceRepository(store),
     )
 
 

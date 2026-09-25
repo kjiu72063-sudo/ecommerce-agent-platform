@@ -13,9 +13,10 @@ import json
 import logging
 import os
 import time
+from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
@@ -35,6 +36,7 @@ logger = logging.getLogger("presale.qa")
 
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
 _DEMO_EXAMPLES = Path(__file__).resolve().parent.parent / "data" / "demo_examples.json"
+_HISTORY_LIMIT = 50
 
 app = FastAPI(
     title="Presale QA 服务",
@@ -49,6 +51,9 @@ _metrics: dict[str, Any] = {
     "errors": 0,
     "last_run_seconds": None,
 }
+# Demo-scoped in-memory state (cleared with reset_qa_runner; not persisted).
+_history: deque[dict[str, Any]] = deque(maxlen=_HISTORY_LIMIT)
+_feedback: dict[str, dict[str, Any]] = {}
 
 
 class QaRequest(BaseModel):
@@ -123,6 +128,8 @@ def reset_qa_runner() -> None:
     _metrics["terminal"] = {decision.value: 0 for decision in TerminalDecision}
     _metrics["errors"] = 0
     _metrics["last_run_seconds"] = None
+    _history.clear()
+    _feedback.clear()
 
 
 def get_runner() -> PresaleQaRunner:
@@ -174,6 +181,53 @@ def examples() -> dict[str, Any]:
         raise HTTPException(status_code=500, detail="demo examples unavailable") from exc
 
 
+@app.get("/api/v1/presale/qa/config", include_in_schema=False)
+def config() -> dict[str, Any]:
+    """Effective demo mode (real LLM vs template; retrieval backend)."""
+    llm_ready = all(
+        os.environ.get(key)
+        for key in ("PRESALE_LLM_BASE_URL", "PRESALE_LLM_MODEL", "PRESALE_LLM_API_KEY")
+    )
+    if os.environ.get("PRESALE_MILVUS_URI"):
+        retrieval = "hybrid"
+    elif os.environ.get("PRESALE_QDRANT_URL"):
+        retrieval = "qdrant"
+    elif os.environ.get("PRESALE_RETRIEVAL_BASE_URL"):
+        retrieval = "external"
+    else:
+        retrieval = "deterministic"
+    return {
+        "llm": "real" if llm_ready else "template",
+        "model": os.environ.get("PRESALE_LLM_MODEL") if llm_ready else None,
+        "retrieval": retrieval,
+    }
+
+
+@app.get("/api/v1/presale/qa/history", include_in_schema=False)
+def history(limit: int = 20) -> dict[str, Any]:
+    """Recent QA runs (newest first, in-memory demo state)."""
+    bounded = max(1, min(limit, _HISTORY_LIMIT))
+    return {"items": list(_history)[:bounded]}
+
+
+class FeedbackRequest(BaseModel):
+    run_ref: str = Field(min_length=1, max_length=256)
+    rating: Literal["up", "down"]
+    comment: str | None = Field(default=None, max_length=1024)
+
+
+@app.post("/api/v1/presale/qa/feedback", include_in_schema=False)
+def feedback(req: FeedbackRequest) -> dict[str, Any]:
+    """Record a thumbs up/down for a run (in-memory demo state)."""
+    _feedback[req.run_ref] = {
+        "run_ref": req.run_ref,
+        "rating": req.rating,
+        "comment": req.comment,
+        "recorded_at": datetime.now(timezone.utc).isoformat(),
+    }
+    return {"status": "recorded", "rating": req.rating}
+
+
 @app.get("/api/v1/presale/qa/metrics")
 def metrics() -> dict[str, object]:
     return dict(_metrics)
@@ -201,16 +255,46 @@ async def qa(req: QaRequest) -> dict:
         raise HTTPException(status_code=502, detail=f"QA run failed: {type(exc).__name__}")
     terminal = outcome.terminal.value
     _metrics["terminal"][terminal] = int(_metrics["terminal"][terminal]) + 1
-    _metrics["last_run_seconds"] = time.monotonic() - start
+    elapsed = time.monotonic() - start
+    _metrics["last_run_seconds"] = elapsed
     logger.info("qa ok run_ref=%s terminal=%s", outcome.run_ref, terminal)
     payload = format_outcome(outcome)
     draft = outcome.answer_draft
-    payload["evidence"] = [
-        {"locator": ref.locator, "source_id": ref.source_id}
-        for ref in (draft.evidence_refs if draft else [])
-    ]
+    retrieve_call = next(
+        (
+            call
+            for step in outcome.steps
+            for call in step.tool_calls
+            if isinstance(call, dict) and call.get("tool") == "retrieve"
+        ),
+        None,
+    )
+    tool_evidence = retrieve_call.get("evidence") if retrieve_call else None
+    if tool_evidence is not None:
+        payload["evidence"] = tool_evidence
+    else:
+        payload["evidence"] = [
+            {"locator": ref.locator, "source_id": ref.source_id, "content": None}
+            for ref in (draft.evidence_refs if draft else [])
+        ]
     payload["confidence_signal"] = draft.confidence_signal if draft else None
     payload["reason_codes"] = list(draft.reason_codes) if draft else []
+    run_ref = payload.get("run_ref")
+    run_id = run_ref if isinstance(run_ref, str) else str(run_ref)
+    _history.appendleft(
+        {
+            "id": run_id,
+            "saved_at": datetime.now(timezone.utc).isoformat(),
+            "question": req.question,
+            "product_id": req.product_id,
+            "terminal": terminal,
+            "need_human": payload.get("need_human"),
+            "evidence_count": len(payload["evidence"]),
+            "seconds": round(elapsed, 3),
+            "answer_preview": (payload.get("answer_text") or "")[:160],
+            "response": payload,
+        }
+    )
     return payload
 
 
