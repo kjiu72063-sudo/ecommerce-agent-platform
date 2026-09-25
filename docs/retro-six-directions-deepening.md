@@ -46,6 +46,9 @@ B 阶段完全复用 presale 端口（ports.py），6 个 Postgres 适配器与 
 `compare_reports` 初版把"rank 从有到 None"（recall 丢失）归为 improved，应归 regressed。被 F-02 的红测试抓住修正。
 **教训**：对比逻辑边界（有→无 / 无→有）必须用测试矩阵钉死，不能靠直觉。
 
+**后续（PR #127，2026-09-24）**：同一 `compare_reports` 还有一个更隐蔽的假绿——检索报告字段是 `per_query`（行内 query 为裸文本）而快照键是 `tenant/product::query`，`_as_per_question` 只读 `per_question` 导致 fall-through，**`regressed` 恒为 0，检索回退门禁从未真正生效**。由 #126 的 CI 失败产物核验暴露；修复为 `_row_key` 复合键 + 同时读 `per_query` + skip 聚合 dict。
+**教训**：门禁自身的"绿"也要有用例证明它能变红——仅测"无回退时 exit 0"不够，必须有"有回退时 exit 1"的红测试对准真实报告字段结构。
+
 ### 3.3 本地缺 rank-bm25 导致 3 个 hybrid 测试假失败（F）
 本地 `uv sync` 未装 test extra，`test_hybrid_retrieval` 3 例失败，CI 却通过（CI 装全依赖）。最初误判为"预存失败"，实为本地环境问题。
 **教训**：CI 通过但本地失败时，先核对依赖同步（`uv sync --extra test`），不要默认"预存失败"。
