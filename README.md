@@ -81,7 +81,7 @@ BM25 为进程内（CJK 字级分词）；Milvus 稠密点按 `tenant_id`/`produ
 
 ## 评估
 
-`presale-eval` 是统一入口（retrieval / generation / end-to-end / compare）。CI 的 Milvus job 用确定性嵌入跑检索，并以 `--compare-batch` + `--fail-on-regression --rank-tolerance 3` 对照 `tests/fixtures/retrieval_golden_snapshot.json`：带内名次抖动不拦，召回丢失（rank→None）必拦，检索质量回退不能合并。
+`presale-eval` 是统一入口（retrieval / generation / end-to-end / compare）。CI 的 Milvus job 用确定性嵌入跑检索，并以 `--compare-batch` + `--fail-on-regression --rank-tolerance 3 --floor-mrr 0.65 --floor-hit1 0.45` 对照 `tests/fixtures/retrieval_golden_snapshot.json`：逐题带内抖动不拦、召回丢失（rank→None）必拦、汇总指标跌破 floor 也拦，检索质量回退不能合并。
 
 ## 目录边界
 

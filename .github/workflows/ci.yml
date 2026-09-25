@@ -95,6 +95,8 @@ jobs:
             "tests/fixtures/retrieval_golden_snapshot.json::eval-artifacts/retrieval_current.json" \
             --fail-on-regression \
             --rank-tolerance 3 \
+            --floor-mrr 0.65 \
+            --floor-hit1 0.45 \
             --csv eval-artifacts/regression_summary.csv
 
       - name: Upload golden regression artifacts

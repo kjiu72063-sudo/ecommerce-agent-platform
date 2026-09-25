@@ -706,8 +706,26 @@ def _as_per_question(data: dict[str, Any]) -> dict[str, dict[str, Any]]:
     }
 
 
+def _aggregate_value(report: dict[str, Any], metric: str) -> float | None:
+    """Read a scalar metric from a report for floor checks (None if absent)."""
+    if metric == "mrr":
+        value = report.get("mrr")
+        return float(value) if isinstance(value, (int, float)) else None
+    if metric.startswith("hit@"):
+        hit = report.get("hit_at_k")
+        if isinstance(hit, dict):
+            value = hit.get(metric)
+            return float(value) if isinstance(value, (int, float)) else None
+    value = report.get(metric)
+    return float(value) if isinstance(value, (int, float)) else None
+
+
 def compare_reports(
-    a: dict[str, Any], b: dict[str, Any], *, rank_tolerance: int = 0
+    a: dict[str, Any],
+    b: dict[str, Any],
+    *,
+    rank_tolerance: int = 0,
+    aggregate_floor: dict[str, float] | None = None,
 ) -> dict[str, Any]:
     """Diff two evaluation reports per-query and return regressed/improved lists.
 
@@ -715,14 +733,28 @@ def compare_reports(
     the legacy flat snapshot shape (``{"tenant/product::query": {"rank": ...}}``).
 
     ``rank_tolerance``: a new rank is only regressed when it is worse than
-    ``old + tolerance`` (CI uses 2 to absorb Milvus ANN tie jitter). Recall loss
+    ``old + tolerance`` (CI uses 3 to absorb Milvus ANN tie jitter). Recall loss
     (rank → None) always regresses regardless of tolerance.
+
+    ``aggregate_floor``: optional ``{"mrr": 0.65, "hit@1": 0.45, ...}`` — when the
+    *current* report's scalar is present and strictly below the floor, it is
+    recorded in ``floor_violations`` (counts toward ``fail_on_regression``).
+    Parallel to per-query compare: floors catch systemic drops even when every
+    individual rank stays within tolerance.
     """
     aq = _as_per_question(a)
     bq = _as_per_question(b)
     regressed: list[dict[str, Any]] = []
     improved: list[dict[str, Any]] = []
     added: list[str] = []
+    floor_violations: list[dict[str, Any]] = []
+    if aggregate_floor:
+        for metric, floor in aggregate_floor.items():
+            actual = _aggregate_value(b, metric)
+            if actual is not None and actual < floor:
+                floor_violations.append(
+                    {"metric": metric, "floor": floor, "actual": round(actual, 4)}
+                )
     for key, row_b in bq.items():
         row_a = aq.get(key)
         if row_a is None:
@@ -757,7 +789,12 @@ def compare_reports(
         "improved": improved,
         "added": added,
         "removed": removed,
-        "summary": {"regressed": len(regressed), "improved": len(improved)},
+        "floor_violations": floor_violations,
+        "summary": {
+            "regressed": len(regressed),
+            "improved": len(improved),
+            "floor_violations": len(floor_violations),
+        },
     }
 
 
@@ -974,14 +1011,17 @@ def compare_batch(
     *,
     fail_on_regression: bool = False,
     rank_tolerance: int = 0,
+    aggregate_floor: dict[str, float] | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
     """Run golden regression over multiple ``baseline::current`` path pairs.
 
     Returns (csv_rows, exit_code). Each row is one pair's compare summary.
     ``::`` is the separator (safe on Windows drive-letter paths).
+    ``aggregate_floor`` is passed through to each pair (see ``compare_reports``);
+    floor violations count toward a non-zero exit with ``fail_on_regression``.
     """
     rows: list[dict[str, Any]] = []
-    total_regressed = 0
+    total_failed = 0
     for spec in specs:
         if "::" not in spec:
             raise SystemExit(f"compare-batch spec must be BASELINE::CURRENT, got: {spec}")
@@ -991,9 +1031,11 @@ def compare_batch(
             current = json.loads(Path(cur_s).read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
             raise SystemExit(f"cannot read compare pair {spec}: {exc}") from exc
-        result = compare_reports(baseline, current, rank_tolerance=rank_tolerance)
+        result = compare_reports(
+            baseline, current, rank_tolerance=rank_tolerance, aggregate_floor=aggregate_floor
+        )
         summary = result["summary"]
-        total_regressed += int(summary["regressed"])
+        total_failed += int(summary["regressed"]) + int(summary["floor_violations"])
         # Lead with the same mode/source columns as report_csv_row so both
         # CI CSVs share a stable prefix for generic consumers.
         rows.append(
@@ -1004,11 +1046,12 @@ def compare_batch(
                 "current": cur_s,
                 "regressed": summary["regressed"],
                 "improved": summary["improved"],
+                "floor_violations": summary["floor_violations"],
                 "added": len(result["added"]),
                 "removed": len(result["removed"]),
             }
         )
-    exit_code = 1 if (fail_on_regression and total_regressed) else 0
+    exit_code = 1 if (fail_on_regression and total_failed) else 0
     return rows, exit_code
 
 
@@ -1070,9 +1113,29 @@ def main(argv: list[str] | None = None) -> int:
         type=int,
         default=0,
         metavar="N",
-        help="treat rank worse by <=N as non-regression (CI uses 2 for ANN jitter)",
+        help="treat rank worse by <=N as non-regression (CI uses 3 for ANN jitter)",
+    )
+    parser.add_argument(
+        "--floor-mrr",
+        type=float,
+        default=None,
+        metavar="X",
+        help="fail if current report mrr < X (aggregate floor; CI uses 0.65)",
+    )
+    parser.add_argument(
+        "--floor-hit1",
+        type=float,
+        default=None,
+        metavar="X",
+        help="fail if current report hit@1 < X (aggregate floor; CI uses 0.45)",
     )
     args = parser.parse_args(argv)
+
+    aggregate_floor: dict[str, float] = {}
+    if args.floor_mrr is not None:
+        aggregate_floor["mrr"] = args.floor_mrr
+    if args.floor_hit1 is not None:
+        aggregate_floor["hit@1"] = args.floor_hit1
 
     # --compare-batch is offline: multiple golden regression pairs (BASELINE::CURRENT).
     if args.compare_batch:
@@ -1080,6 +1143,7 @@ def main(argv: list[str] | None = None) -> int:
             args.compare_batch,
             fail_on_regression=args.fail_on_regression,
             rank_tolerance=args.rank_tolerance,
+            aggregate_floor=aggregate_floor or None,
         )
         for row in rows:
             print(json.dumps(row, ensure_ascii=False))
@@ -1098,9 +1162,13 @@ def main(argv: list[str] | None = None) -> int:
             b = json.loads(Path(b_path).read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
             raise SystemExit(f"cannot read compare file: {exc}") from exc
-        result = compare_reports(a, b, rank_tolerance=args.rank_tolerance)
+        result = compare_reports(
+            a, b, rank_tolerance=args.rank_tolerance, aggregate_floor=aggregate_floor or None
+        )
         print(json.dumps(result, ensure_ascii=False, indent=2))
-        if args.fail_on_regression and result["summary"]["regressed"]:
+        if args.fail_on_regression and (
+            result["summary"]["regressed"] or result["summary"]["floor_violations"]
+        ):
             raise SystemExit(1)
         return 0
 

@@ -149,7 +149,7 @@ HF_HUB_OFFLINE=1 python -c "... run_retrieval(to_questions=load(oos fixture)) ..
 - **catalog 或 golden 条目变更时**：bump 对应版本常量 → 用真实模型 `--save` 重新生成 `generation_snapshot.json`（及检索 snapshot）→ 合入后才能让 `--compare` / `--fail-on-regression` 语义仍然成立。只改 catalog 而不改 golden 条目时，至少记录新 `catalog_sha256` 以便审计。
 - 快照比较只遍历当前题目的 key，`_meta` 不参与回退判定，旧无 meta 的快照仍可比较。
 - `presale-eval --output report.md` 按扩展名输出 **Markdown**（指标表 + 前 20 行 per-question）；`.json` 或其它后缀仍是 JSON。
-- **CI 检索回归门禁**（`milvus-integration`）：跑 `--mode retrieval --csv` 写 `retrieval_run.csv`，再 `--compare-batch ... --fail-on-regression --rank-tolerance 3` 写 `regression_summary.csv`；`rank_tolerance=3` 吸收 ANN/RRF 跨 run 名次噪声（实测见过 Δ≤3），**召回丢失（rank→None）不受容差豁免**仍使 job 失败。失败经 `actions/upload-artifact` 上传 `eval-artifacts/`（当前 JSON + 两份 CSV，保留 14 天）供诊断。`--csv` 在 `--fail-on-regression` 退出前写出，故失败也能拿到汇总。
+- **CI 检索回归门禁**（`milvus-integration`）：跑 `--mode retrieval --csv` 写 `retrieval_run.csv`，再 `--compare-batch ... --fail-on-regression --rank-tolerance 3 --floor-mrr 0.65 --floor-hit1 0.45` 写 `regression_summary.csv`。**双重门禁**：(1) 逐题——`rank_tolerance=3` 吸收 ANN/RRF 跨 run 名次噪声，**召回丢失（rank→None）不受容差豁免**；(2) 汇总——current 的 `mrr`/`hit@1` 低于 floor 即 `floor_violations` 计失败，捕获「逐题都在容差内但整体塌方」的系统性退化。失败经 `actions/upload-artifact` 上传 `eval-artifacts/`（JSON + 两份 CSV，保留 14 天）。`--csv` 在 `--fail-on-regression` 退出前写出。
 
 ## 注意
 - Milvus **单独** `docker run` 裸镜像无法工作——它需要 etcd 提供元数据，且此仓库用 **本地文件存储**（`COMMON_STORAGETYPE=local`）而非 MinIO。请用 `docker compose up` 一起拉起。

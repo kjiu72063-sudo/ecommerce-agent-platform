@@ -63,7 +63,9 @@ def test_compare_identical_reports_no_diffs():
     result = compare_reports(a, b)
     assert result["regressed"] == []
     assert result["improved"] == []
-    assert result["summary"] == {"regressed": 0, "improved": 0}
+    assert result["summary"]["regressed"] == 0
+    assert result["summary"]["improved"] == 0
+    assert result["summary"]["floor_violations"] == 0
 
 
 def test_compare_rank_regressed():
