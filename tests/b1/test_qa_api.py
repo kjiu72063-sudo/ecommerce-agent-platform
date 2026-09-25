@@ -288,6 +288,10 @@ def test_index_serves_review_tab():
     # Tab switch relies on [hidden]; .layout's display:grid would otherwise
     # keep the QA panel visible on the review tab.
     assert "[hidden]" in body
+    # Platform visibility: run timeline + multi-agent relay
+    assert "运行时间线" in body
+    assert "多 Agent 接力" in body
+    assert "/api/v1/coordinator/run" in body
 
 
 def test_stream_endpoint_sends_sse_events(tmp_path, monkeypatch):
@@ -382,3 +386,109 @@ def test_stream_second_turn_appends_session(tmp_path, monkeypatch):
     assert len(turns) == 2
     assert "第1轮" in turns[0]["question"]
     assert "第2轮" in turns[1]["question"]
+
+
+def test_qa_response_includes_timeline(tmp_path, monkeypatch):
+    monkeypatch.setenv("PRESALE_CATALOG", write_catalog(tmp_path))
+    monkeypatch.delenv("PRESALE_LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("PRESALE_LLM_MODEL", raising=False)
+    monkeypatch.delenv("PRESALE_LLM_API_KEY", raising=False)
+    monkeypatch.delenv("PRESALE_DB", raising=False)
+
+    resp = TestClient(app).post(
+        "/api/v1/presale/qa",
+        json={
+            "question": "这款商品适合夏季使用吗？",
+            "product_id": "product-001",
+            "tenant_id": "tenant-demo",
+            "idempotency_key": "timeline-key-01",
+        },
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    stages = [s["stage"] for s in body["timeline"]]
+    assert stages == ["submitted", "knowledge_retrieved", "context_built", "answer_generated"]
+    assert all(s["occurred_at"] for s in body["timeline"])
+    assert body["disposition"] in {"pending", "escalated", "complete"}
+    assert isinstance(body["configuration_refs"], dict)
+
+
+def test_stream_done_includes_timeline(tmp_path, monkeypatch):
+    monkeypatch.setenv("PRESALE_CATALOG", write_catalog(tmp_path))
+    monkeypatch.delenv("PRESALE_LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("PRESALE_LLM_MODEL", raising=False)
+    monkeypatch.delenv("PRESALE_LLM_API_KEY", raising=False)
+
+    resp = TestClient(app).post(
+        "/api/v1/presale/qa/stream",
+        json={
+            "question": "这款商品适合夏季使用吗？",
+            "product_id": "product-001",
+            "tenant_id": "tenant-demo",
+            "idempotency_key": "timeline-key-02",
+        },
+    )
+
+    assert resp.status_code == 200
+    done_line = next(
+        line for line in resp.text.splitlines()
+        if line.startswith("data: ") and "answer_text" in line
+    )
+    done = json.loads(done_line[len("data: "):])
+    stages = [s["stage"] for s in done["timeline"]]
+    assert stages == ["submitted", "knowledge_retrieved", "context_built", "answer_generated"]
+    assert done["disposition"] == "pending"
+
+
+def test_coordinator_run_full_pipeline(tmp_path, monkeypatch):
+    monkeypatch.setenv("PRESALE_CATALOG", write_catalog(tmp_path))
+    monkeypatch.delenv("PRESALE_LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("PRESALE_LLM_MODEL", raising=False)
+    monkeypatch.delenv("PRESALE_LLM_API_KEY", raising=False)
+    monkeypatch.delenv("PRESALE_DB", raising=False)
+
+    resp = TestClient(app).post(
+        "/api/v1/coordinator/run",
+        json={
+            "question": "这款商品适合夏季使用吗？",
+            "product_id": "product-001",
+            "tenant_id": "tenant-demo",
+            "idempotency_key": "relay-key-00001",
+        },
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["agents"] == ["presale-qa", "review-analyzer"]
+    assert len(body["sub_outcomes"]) == 2
+    assert body["short_circuited"] is False
+    # Presale finalizes on evidence; Review always needs a human.
+    assert body["pipeline"][0]["terminal"] == "finalize"
+    assert body["pipeline"][1]["terminal"] == "need_human"
+    assert body["pipeline"][1]["need_human"] is True
+    assert body["overall_terminal"] == "need_human"
+
+
+def test_coordinator_short_circuits_on_presale_need_human(monkeypatch):
+    monkeypatch.delenv("PRESALE_CATALOG", raising=False)
+    monkeypatch.delenv("PRESALE_LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("PRESALE_LLM_MODEL", raising=False)
+    monkeypatch.delenv("PRESALE_LLM_API_KEY", raising=False)
+
+    resp = TestClient(app).post(
+        "/api/v1/coordinator/run",
+        json={
+            "question": "这款商品适合夏季使用吗？",
+            "product_id": "product-001",
+            "tenant_id": "tenant-demo",
+            "idempotency_key": "relay-key-00002",
+        },
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    # No catalog → Presale NEED_HUMAN → Review never runs.
+    assert len(body["sub_outcomes"]) == 1
+    assert body["short_circuited"] is True
+    assert body["overall_terminal"] == "need_human"

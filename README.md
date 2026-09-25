@@ -60,7 +60,7 @@ export PRESALE_LLM_BASE_URL=...; export PRESALE_LLM_MODEL=...; export PRESALE_LL
 presale-qa-api            # 默认 127.0.0.1:8000（可用 PRESALE_QA_HOST/PRESALE_QA_PORT 改）
 ```
 
-`PRESALE_PG_DSN` 优先于 `PRESALE_DB`。端点：`POST /api/v1/presale/qa`（body: question/product_id/tenant_id/idempotency_key）→ 返回 `format_outcome`（终态 + 答案 + 证据）+ `evidence`（含 locator/content 预览）/`confidence_signal`/`reason_codes`；`POST .../qa/stream`（SSE：evidence→token→done，`session_id` 承载多轮上下文，前端打字机）；`GET .../qa/history?limit=` 最近问答（内存，演示态）；`POST .../qa/feedback`（run_ref + up/down）；`GET .../qa/config`（当前 LLM/检索模式）；`POST /api/v1/review/analyze`（body: text[, product_id] → 情感/关键词，第二业务 Agent）；`GET /api/v1/presale/qa/health`；`GET /api/v1/presale/qa/ready`（配置了 PostgreSQL 时探测连接）。
+`PRESALE_PG_DSN` 优先于 `PRESALE_DB`。端点：`POST /api/v1/presale/qa`（body: question/product_id/tenant_id/idempotency_key）→ 返回 `format_outcome`（终态 + 答案 + 证据）+ `evidence`（含 locator/content 预览）/`confidence_signal`/`reason_codes` + `timeline`（trace 4 stages 时间线）/`disposition`/`configuration_refs`；`POST .../qa/stream`（SSE：evidence→token→done，`session_id` 承载多轮上下文，done 同样含 timeline，前端打字机）；`POST /api/v1/coordinator/run`（同 body → AgentCoordinator 多 Agent 接力：Presale QA → ReviewAnalyzer，含短路与各段终态）；`GET .../qa/history?limit=` 最近问答（内存，演示态）；`POST .../qa/feedback`（run_ref + up/down）；`GET .../qa/config`（当前 LLM/检索模式）；`POST /api/v1/review/analyze`（body: text[, product_id] → 情感/关键词，第二业务 Agent）；`GET /api/v1/presale/qa/health`；`GET /api/v1/presale/qa/ready`（配置了 PostgreSQL 时探测连接）。
 
 ## 外部检索（Qdrant，可选）
 

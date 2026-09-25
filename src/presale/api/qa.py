@@ -286,6 +286,17 @@ async def qa(req: QaRequest) -> dict:
         ]
     payload["confidence_signal"] = draft.confidence_signal if draft else None
     payload["reason_codes"] = list(draft.reason_codes) if draft else []
+    trace = getattr(outcome, "trace", None)
+    payload["timeline"] = [
+        {
+            "stage": record.stage.value,
+            "detail": record.detail,
+            "occurred_at": record.occurred_at.isoformat(),
+        }
+        for record in (trace.stages if trace else [])
+    ]
+    payload["disposition"] = trace.disposition_state.value if trace else None
+    payload["configuration_refs"] = dict(trace.configuration_refs) if trace else {}
     _record_history(req.question, req.product_id, payload, elapsed)
     return payload
 
@@ -407,6 +418,23 @@ def qa_stream(req: StreamRequest) -> StreamingResponse:
 
         run_id = _new_run_id()
         run_ref = {"kind": "AgentRun", "id": run_id}
+        timeline: list[dict[str, Any]] = [
+            {
+                "stage": "submitted",
+                "detail": question.question_id,
+                "occurred_at": question.requested_at.isoformat(),
+            },
+            {
+                "stage": "knowledge_retrieved",
+                "detail": retrieval.status.value,
+                "occurred_at": datetime.now(timezone.utc).isoformat(),
+            },
+            {
+                "stage": "context_built",
+                "detail": f"{len(evidence)} evidence items (stream pipeline)",
+                "occurred_at": datetime.now(timezone.utc).isoformat(),
+            },
+        ]
         full_text = ""
         generator = openai_generator_from_env()
         if generator is not None:
@@ -453,6 +481,13 @@ def qa_stream(req: StreamRequest) -> StreamingResponse:
                 }
             )
         need_human = draft.need_human
+        timeline.append(
+            {
+                "stage": "answer_generated",
+                "detail": draft.answer_id,
+                "occurred_at": datetime.now(timezone.utc).isoformat(),
+            }
+        )
         payload: dict[str, Any] = {
             "run_ref": run_id,
             "terminal": "need_human" if need_human else "finalize",
@@ -462,6 +497,9 @@ def qa_stream(req: StreamRequest) -> StreamingResponse:
             "evidence": evidence,
             "confidence_signal": draft.confidence_signal,
             "reason_codes": list(draft.reason_codes),
+            "timeline": timeline,
+            "disposition": "pending",
+            "configuration_refs": {},
             "steps": [
                 {
                     "index": 0,
@@ -551,6 +589,61 @@ async def review_analyze(req: ReviewRequest) -> dict[str, Any]:
         None,
     )
     payload["evidence_count"] = int(retrieve_call.get("evidence_count", 0)) if retrieve_call else 0
+    return payload
+
+
+class CoordinatorRequest(QaRequest):
+    pass
+
+
+@app.post("/api/v1/coordinator/run", include_in_schema=False)
+async def coordinator_run(req: CoordinatorRequest) -> dict[str, Any]:
+    """Multi-agent pipeline demo: Presale QA → ReviewAnalyzer via AgentCoordinator.
+
+    Sequential hand-off (previous answer becomes the next agent's input);
+    the first NEED_HUMAN short-circuits the rest — Review always ends in
+    human review per the AnswerDraft evidence contract.
+    """
+    from agent_runtime.coordinator import AgentCoordinator, format_coordinator_outcome
+    from review_agent.agent import ReviewAnalyzerAgent
+
+    question = ProductQuestion(
+        question_id=req.question_id or f"q-{req.idempotency_key}",
+        tenant_id=req.tenant_id,
+        submitted_by=ActorRef(actor_type=ActorType.USER, actor_id=req.user_id),
+        product_id=req.product_id,
+        question_text=req.question,
+        requested_at=datetime.now(timezone.utc),
+        idempotency_key=req.idempotency_key,
+    )
+    catalog = os.environ.get("PRESALE_CATALOG")
+    sources = load_catalog(catalog) if catalog else []
+    start = time.monotonic()
+    try:
+        outcome = await AgentCoordinator(
+            [PresaleAgent(get_runner()), ReviewAnalyzerAgent(sources=sources)]
+        ).execute(question)
+    except Exception as exc:
+        _metrics["errors"] = int(_metrics["errors"]) + 1
+        logger.exception("coordinator run failed: %s", type(exc).__name__)
+        raise HTTPException(
+            status_code=502, detail=f"Coordinator run failed: {type(exc).__name__}"
+        ) from exc
+    payload = format_coordinator_outcome(outcome)
+    payload["agents"] = ["presale-qa", "review-analyzer"]
+    payload["pipeline"] = [
+        {
+            "agent": name,
+            "terminal": sub.terminal.value,
+            "need_human": bool(sub.answer_draft and sub.answer_draft.need_human),
+            "answer_preview": ((sub.answer_draft.answer_text if sub.answer_draft else "") or "")[
+                :160
+            ],
+        }
+        for name, sub in zip(payload["agents"], outcome.sub_outcomes, strict=False)
+    ]
+    payload["short_circuited"] = len(outcome.sub_outcomes) < 2
+    payload["seconds"] = round(time.monotonic() - start, 3)
     return payload
 
 
