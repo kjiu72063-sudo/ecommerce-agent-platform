@@ -44,6 +44,8 @@ make demo               # 自动检测 Milvus/LLM 配置并启动
 
 浏览器打开 **http://127.0.0.1:8000/** ：选商品 → 点示例问题（或自由输入）→ 看答案、检索状态、引用的商品知识字段与耗时。`make demo` 会检测 Milvus(19530) 自动启用 hybrid 检索、检测 `PRESALE_LLM_*` 决定真实生成或确定性模板（未配也能完整走通）。演示数据在 `src/presale/data/demo_examples.json`（11 个商品 × 2 个口语化问题）。
 
+**UI 黄金路径验收**（改 UI 后回归）：`cd scripts/ui-golden && npm install && npx playwright install chromium-headless-shell && node golden.mjs` —— 27 项断言（徽标/流式问答/证据展开/历史/追问/评论 Tab/面板互斥），截图落 `output/playwright/`，任一失败退出码 1。
+
 ## 运行 QA 服务
 
 同步售前问答服务（FastAPI）。配置经环境变量（见 `.env.example`）：
