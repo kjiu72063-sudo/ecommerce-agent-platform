@@ -113,13 +113,25 @@ qa-api:
 
 # 一键本地演示：默认 dev catalog，打开 http://127.0.0.1:8000/
 # 配好 PRESALE_LLM_* 即真实 LLM 生成；未配则确定性模板（仍可完整走通）
+# Milvus(19530) 在跑则自动启用 hybrid 检索（口语化问题命中率的关键）
 demo:
 	@if [ -n "$$PRESALE_LLM_BASE_URL" ]; then \
 	  echo "[demo] LLM: $${PRESALE_LLM_MODEL:-未设模型名}（真实生成）"; \
 	else \
 	  echo "[demo] 未检测到 PRESALE_LLM_BASE_URL——答案将走确定性模板"; \
 	fi
-	PRESALE_CATALOG=$${PRESALE_CATALOG:-src/presale/data/dev_catalog.json} uv run presale-qa-api
+	@MILVUS=$$(uv run python -c "import socket;s=socket.socket();s.settimeout(1);print('1' if s.connect_ex(('127.0.0.1',19530))==0 else '0');s.close()"); \
+	if [ "$$MILVUS" = "1" ]; then \
+	  echo "[demo] Milvus 19530 可用——hybrid 检索已启用"; \
+	  PRESALE_CATALOG=$${PRESALE_CATALOG:-src/presale/data/dev_catalog.json} \
+	  PRESALE_MILVUS_URI=$${PRESALE_MILVUS_URI:-http://127.0.0.1:19530} \
+	  PRESALE_EMBEDDING=$${PRESALE_EMBEDDING:-deterministic} \
+	  uv run presale-qa-api; \
+	else \
+	  echo "[demo] Milvus 未运行——仅确定性检索，口语化问题命中率低"; \
+	  echo "[demo] 建议先: docker compose up -d && make index-milvus"; \
+	  PRESALE_CATALOG=$${PRESALE_CATALOG:-src/presale/data/dev_catalog.json} uv run presale-qa-api; \
+	fi
 
 # 快速自检（全量门禁）
 teach:

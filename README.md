@@ -38,10 +38,11 @@ uv run pre-commit run --all-files   # 本地钩子，非 CI 强制
 ## 快速演示（本地 Web UI）
 
 ```bash
-make demo        # 默认加载 dev catalog；配好 PRESALE_LLM_* 即真实 LLM 生成
+docker compose up -d    # 起 Milvus（口语化问题命中的关键；一次性 make index-milvus 建索引）
+make demo               # 自动检测 Milvus/LLM 配置并启动
 ```
 
-浏览器打开 **http://127.0.0.1:8000/** ：选商品 → 点示例问题（或自由输入）→ 看答案、检索状态、引用的商品知识字段与耗时。未配置 LLM 时走确定性模板，链路同样走通。演示数据在 `src/presale/data/demo_examples.json`（11 个商品 × 2 个口语化问题）。
+浏览器打开 **http://127.0.0.1:8000/** ：选商品 → 点示例问题（或自由输入）→ 看答案、检索状态、引用的商品知识字段与耗时。`make demo` 会检测 Milvus(19530) 自动启用 hybrid 检索、检测 `PRESALE_LLM_*` 决定真实生成或确定性模板（未配也能完整走通）。演示数据在 `src/presale/data/demo_examples.json`（11 个商品 × 2 个口语化问题）。
 
 ## 运行 QA 服务
 
