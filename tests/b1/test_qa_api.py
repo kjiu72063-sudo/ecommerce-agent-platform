@@ -282,3 +282,100 @@ def test_index_serves_review_tab():
     assert "评论分析" in body
     assert "/api/v1/review/analyze" in body
     assert "review_samples" in body
+    # P2: streaming endpoint + session follow-up
+    assert "/api/v1/presale/qa/stream" in body
+    assert "session_id" in body
+
+
+def test_stream_endpoint_sends_sse_events(tmp_path, monkeypatch):
+    monkeypatch.setenv("PRESALE_CATALOG", write_catalog(tmp_path))
+    monkeypatch.delenv("PRESALE_LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("PRESALE_LLM_MODEL", raising=False)
+    monkeypatch.delenv("PRESALE_LLM_API_KEY", raising=False)
+    monkeypatch.delenv("PRESALE_DB", raising=False)
+
+    resp = TestClient(app).post(
+        "/api/v1/presale/qa/stream",
+        json={
+            "question": "这款商品适合夏季使用吗？",
+            "product_id": "product-001",
+            "tenant_id": "tenant-demo",
+            "idempotency_key": "stream-key-0001",
+        },
+    )
+
+    assert resp.status_code == 200
+    assert "text/event-stream" in resp.headers["content-type"]
+    body = resp.text
+    assert "event: evidence" in body
+    assert "event: token" in body
+    assert "event: done" in body
+    done_line = next(
+        line for line in body.splitlines() if line.startswith("data: ") and "answer_text" in line
+    )
+    done = json.loads(done_line[len("data: "):])
+    assert done["answer_text"]
+    assert done["terminal"] in {"finalize", "need_human"}
+    assert isinstance(done["evidence"], list)
+    assert done["session_id"]
+
+
+def test_stream_records_history_and_session(tmp_path, monkeypatch):
+    from presale.api import qa as qa_module
+
+    monkeypatch.setenv("PRESALE_CATALOG", write_catalog(tmp_path))
+    monkeypatch.delenv("PRESALE_LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("PRESALE_LLM_MODEL", raising=False)
+    monkeypatch.delenv("PRESALE_LLM_API_KEY", raising=False)
+    monkeypatch.delenv("PRESALE_DB", raising=False)
+    client = TestClient(app)
+
+    resp = client.post(
+        "/api/v1/presale/qa/stream",
+        json={
+            "question": "这款商品适合夏季使用吗？",
+            "product_id": "product-001",
+            "tenant_id": "tenant-demo",
+            "idempotency_key": "stream-key-0002",
+            "session_id": "sess-test-01",
+        },
+    )
+    assert resp.status_code == 200
+
+    items = client.get("/api/v1/presale/qa/history").json()["items"]
+    assert len(items) == 1
+    assert items[0]["id"].startswith("run_")
+    turns = qa_module._sessions["sess-test-01"]["turns"]
+    assert len(turns) == 1
+    assert turns[0]["question"] == "这款商品适合夏季使用吗？"
+    assert turns[0]["answer"]
+
+
+def test_stream_second_turn_appends_session(tmp_path, monkeypatch):
+    from presale.api import qa as qa_module
+
+    monkeypatch.setenv("PRESALE_CATALOG", write_catalog(tmp_path))
+    monkeypatch.delenv("PRESALE_LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("PRESALE_LLM_MODEL", raising=False)
+    monkeypatch.delenv("PRESALE_LLM_API_KEY", raising=False)
+    client = TestClient(app)
+    base = {
+        "product_id": "product-001",
+        "tenant_id": "tenant-demo",
+        "session_id": "sess-test-02",
+    }
+    for index in (1, 2):
+        resp = client.post(
+            "/api/v1/presale/qa/stream",
+            json={
+                **base,
+                "question": f"这款商品适合夏季使用吗？第{index}轮",
+                "idempotency_key": f"stream-key-turn{index}",
+            },
+        )
+        assert resp.status_code == 200
+
+    turns = qa_module._sessions["sess-test-02"]["turns"]
+    assert len(turns) == 2
+    assert "第1轮" in turns[0]["question"]
+    assert "第2轮" in turns[1]["question"]

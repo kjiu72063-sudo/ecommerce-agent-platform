@@ -19,16 +19,18 @@ from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from agent_platform_contracts.models import ActorRef, ActorType
+from agent_platform_contracts.models import ActorRef, ActorType, ObjectRef, ResourceKind
 from agent_runtime.harness import Harness, TerminalDecision, format_outcome
 
+from ..adapters.openai_generator import build_stream_prompt, stream_completion
 from ..agent import PresaleAgent
+from ..answer import PresaleAnswerGenerator
 from ..cli import load_catalog
-from ..contracts import ProductQuestion
-from ..knowledge import KnowledgeSource
+from ..contracts import AnswerDraft, EvidenceRef, ProductQuestion
+from ..knowledge import KnowledgeSource, RetrievalStatus
 from ..runner import PresaleQaRunner
 from ..runtime import external_retriever_from_env, openai_generator_from_env
 
@@ -54,6 +56,10 @@ _metrics: dict[str, Any] = {
 # Demo-scoped in-memory state (cleared with reset_qa_runner; not persisted).
 _history: deque[dict[str, Any]] = deque(maxlen=_HISTORY_LIMIT)
 _feedback: dict[str, dict[str, Any]] = {}
+# session_id -> {"turns": [{"question", "answer"}, ...]} for multi-turn prompts.
+_sessions: dict[str, dict[str, Any]] = {}
+_SESSION_LIMIT = 100
+_SESSION_TURNS = 3
 
 
 class QaRequest(BaseModel):
@@ -130,6 +136,7 @@ def reset_qa_runner() -> None:
     _metrics["last_run_seconds"] = None
     _history.clear()
     _feedback.clear()
+    _sessions.clear()
 
 
 def get_runner() -> PresaleQaRunner:
@@ -279,23 +286,215 @@ async def qa(req: QaRequest) -> dict:
         ]
     payload["confidence_signal"] = draft.confidence_signal if draft else None
     payload["reason_codes"] = list(draft.reason_codes) if draft else []
+    _record_history(req.question, req.product_id, payload, elapsed)
+    return payload
+
+
+def _record_history(
+    question: str, product_id: str, payload: dict[str, Any], elapsed: float
+) -> None:
     run_ref = payload.get("run_ref")
     run_id = run_ref if isinstance(run_ref, str) else str(run_ref)
     _history.appendleft(
         {
             "id": run_id,
             "saved_at": datetime.now(timezone.utc).isoformat(),
-            "question": req.question,
-            "product_id": req.product_id,
-            "terminal": terminal,
+            "question": question,
+            "product_id": product_id,
+            "terminal": payload.get("terminal"),
             "need_human": payload.get("need_human"),
-            "evidence_count": len(payload["evidence"]),
+            "evidence_count": len(payload.get("evidence") or []),
             "seconds": round(elapsed, 3),
             "answer_preview": (payload.get("answer_text") or "")[:160],
             "response": payload,
         }
     )
-    return payload
+
+
+class StreamRequest(QaRequest):
+    session_id: str | None = Field(default=None, max_length=64)
+
+
+def _sse(event: str, data: dict[str, Any]) -> str:
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+def _new_run_id() -> str:
+    """UUIDv7-shaped run id matching the ObjectRef contract pattern."""
+    import uuid
+
+    value = uuid.uuid4().int
+    value = (value & ~(0xF << 76)) | (0x7 << 76)
+    value = (value & ~(0x3 << 62)) | (0x2 << 62)
+    return f"run_{uuid.UUID(int=value)}"
+
+
+def _stream_draft(question: ProductQuestion, retrieval, run_id: str, text: str) -> AnswerDraft:
+    """Assemble an AnswerDraft from streamed LLM text (mirrors generator rules)."""
+    evidence_refs = [
+        EvidenceRef(
+            source_id=item.source_id,
+            source_version=item.source_version,
+            locator=item.locator,
+            content_digest=item.content_digest,
+        )
+        for item in retrieval.evidence_items
+    ]
+    if retrieval.status is RetrievalStatus.NO_EVIDENCE:
+        need_human, confidence, reason = True, "unavailable", ["NO_EVIDENCE"]
+    elif retrieval.status is RetrievalStatus.CONFLICT:
+        need_human, confidence, reason = True, "conflicting", ["CONFLICTING_EVIDENCE"]
+    else:
+        need_human, confidence, reason = False, "supported", []
+    return AnswerDraft(
+        answer_id=f"answer-{run_id}",
+        question_id=question.question_id,
+        run_ref=ObjectRef(kind=ResourceKind.AGENT_RUN, id=run_id),
+        answer_text=text,
+        evidence_refs=evidence_refs,
+        confidence_signal=confidence,
+        need_human=need_human,
+        reason_codes=reason,
+        configuration_refs={},
+        generated_at=datetime.now(timezone.utc),
+    )
+
+
+@app.post("/api/v1/presale/qa/stream", include_in_schema=False)
+def qa_stream(req: StreamRequest) -> StreamingResponse:
+    """SSE answer stream: evidence event → token deltas → done payload.
+
+    Uses the shared runner retriever; streams real LLM deltas when
+    ``PRESALE_LLM_*`` is configured, otherwise falls back to the
+    deterministic generator split into sentence-sized tokens. Carries the
+    last ``session_id`` turns into the prompt for follow-up questions.
+    """
+    question = ProductQuestion(
+        question_id=req.question_id or f"q-{req.idempotency_key}",
+        tenant_id=req.tenant_id,
+        submitted_by=ActorRef(actor_type=ActorType.USER, actor_id=req.user_id),
+        product_id=req.product_id,
+        question_text=req.question,
+        requested_at=datetime.now(timezone.utc),
+        idempotency_key=req.idempotency_key,
+    )
+    session_id = req.session_id or f"sess-{time.monotonic_ns()}"
+    history_turns = list(_sessions.get(session_id, {}).get("turns", []))[-_SESSION_TURNS:]
+    start = time.monotonic()
+    _metrics["requests"] = int(_metrics["requests"]) + 1
+
+    def generate():
+        runner = get_runner()
+        try:
+            retrieval = runner.retriever.retrieve(question)
+        except Exception as exc:
+            _metrics["errors"] = int(_metrics["errors"]) + 1
+            logger.exception("stream retrieval failed: %s", type(exc).__name__)
+            yield _sse("error", {"detail": f"retrieval failed: {type(exc).__name__}"})
+            return
+        evidence = [
+            {
+                "locator": item.locator,
+                "source_id": item.source_id,
+                "content": item.content[:120],
+            }
+            for item in retrieval.evidence_items
+        ]
+        yield _sse(
+            "evidence",
+            {"retrieval_status": retrieval.status.value, "evidence": evidence},
+        )
+
+        run_id = _new_run_id()
+        run_ref = {"kind": "AgentRun", "id": run_id}
+        full_text = ""
+        generator = openai_generator_from_env()
+        if generator is not None:
+            import os as _os
+
+            prompt = build_stream_prompt(question, retrieval, {}, history=history_turns)
+            parts: list[str] = []
+            try:
+                for delta in stream_completion(
+                    api_key=_os.environ.get("PRESALE_LLM_API_KEY", ""),
+                    base_url=_os.environ.get("PRESALE_LLM_BASE_URL", ""),
+                    model=_os.environ.get("PRESALE_LLM_MODEL", ""),
+                    messages=[{"role": "user", "content": prompt}],
+                    timeout_s=90.0,
+                ):
+                    parts.append(delta)
+                    yield _sse("token", {"text": delta})
+                full_text = "".join(parts).strip()
+            except Exception as exc:
+                logger.warning("stream LLM failed, degrading: %s", type(exc).__name__)
+                full_text = ""
+        if not full_text:
+            draft = PresaleAnswerGenerator().generate(
+                question, retrieval, run_ref=run_ref, configuration_refs={}
+            )
+            full_text = draft.answer_text
+            # Sentence-sized chunks keep the typewriter effect in fallback.
+            buf = ""
+            for ch in full_text:
+                buf += ch
+                if ch in "。！？\n":
+                    yield _sse("token", {"text": buf})
+                    buf = ""
+            if buf:
+                yield _sse("token", {"text": buf})
+
+        draft = _stream_draft(question, retrieval, run_id, full_text)
+        escalate, reason = PresaleQaRunner._escalation(retrieval, 1)
+        if escalate and not draft.need_human:
+            draft = draft.model_copy(
+                update={
+                    "need_human": True,
+                    "reason_codes": [*draft.reason_codes, reason],
+                }
+            )
+        need_human = draft.need_human
+        payload: dict[str, Any] = {
+            "run_ref": run_id,
+            "terminal": "need_human" if need_human else "finalize",
+            "answer_text": full_text,
+            "answer_id": draft.answer_id,
+            "need_human": need_human,
+            "evidence": evidence,
+            "confidence_signal": draft.confidence_signal,
+            "reason_codes": list(draft.reason_codes),
+            "steps": [
+                {
+                    "index": 0,
+                    "need_human": need_human,
+                    "tool_calls": [
+                        {
+                            "tool": "retrieve",
+                            "tenant_id": question.tenant_id,
+                            "product_id": question.product_id,
+                            "status": retrieval.status.value,
+                            "evidence_count": len(evidence),
+                            "reason_codes": list(retrieval.reason_codes),
+                            "evidence": evidence,
+                        }
+                    ],
+                }
+            ],
+            "session_id": session_id,
+        }
+        elapsed = time.monotonic() - start
+        _metrics["last_run_seconds"] = elapsed
+        terminal = payload["terminal"]
+        _metrics["terminal"][terminal] = int(_metrics["terminal"].get(terminal, 0)) + 1
+        _record_history(req.question, req.product_id, payload, elapsed)
+        turns = [*history_turns, {"question": req.question, "answer": full_text}][-_SESSION_TURNS:]
+        if session_id in _sessions:
+            del _sessions[session_id]
+        _sessions[session_id] = {"turns": turns}
+        while len(_sessions) > _SESSION_LIMIT:
+            del _sessions[next(iter(_sessions))]
+        yield _sse("done", payload)
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
 
 
 class ReviewRequest(BaseModel):

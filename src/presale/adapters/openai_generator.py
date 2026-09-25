@@ -86,6 +86,65 @@ def default_prompt_builder(
     )
 
 
+def build_stream_prompt(
+    question: ProductQuestion,
+    retrieval: RetrievalResult,
+    configuration_refs: dict[str, str],
+    history: list[dict[str, str]] | None = None,
+) -> str:
+    """Prompt for the streaming endpoint: optional multi-turn context prefix.
+
+    ``history`` entries are ``{"question": ..., "answer": ...}`` from earlier
+    turns of the same session; they only help resolve follow-up references
+    (\"那防水呢\") and never replace the evidence block.
+    """
+    base = default_prompt_builder(question, retrieval, configuration_refs)
+    if not history:
+        return base
+    lines = []
+    for turn in history[-3:]:
+        lines.append(f"Q: {turn.get('question', '')}")
+        lines.append(f"A: {turn.get('answer', '')}")
+    prefix = (
+        "对话历史（仅供理解追问中的指代，回答仍须只依据下方证据）：\n" + "\n".join(lines) + "\n\n"
+    )
+    return prefix + base
+
+
+def stream_completion(
+    *,
+    api_key: str,
+    base_url: str,
+    model: str,
+    messages: list[dict[str, str]],
+    timeout_s: float = 60.0,
+):
+    """Yield text deltas from an OpenAI-compatible streaming chat completion."""
+    import json as _json
+
+    import httpx
+
+    url = base_url.rstrip("/") + "/chat/completions"
+    headers = {"Authorization": f"Bearer {api_key}"}
+    payload = {"model": model, "messages": messages, "stream": True}
+    with httpx.Client(timeout=timeout_s) as client:
+        with client.stream("POST", url, json=payload, headers=headers) as response:
+            response.raise_for_status()
+            for line in response.iter_lines():
+                if not line.startswith("data: "):
+                    continue
+                data = line[6:].strip()
+                if data == "[DONE]":
+                    break
+                try:
+                    chunk = _json.loads(data)
+                    delta = chunk["choices"][0].get("delta", {}).get("content")
+                except (KeyError, IndexError, TypeError, ValueError):
+                    continue
+                if delta:
+                    yield delta
+
+
 class OpenAICompatibleGenerator(GeneratorPort):
     """Call an OpenAI-compatible chat completion to produce an AnswerDraft."""
 
@@ -185,7 +244,9 @@ class OpenAICompatibleGenerator(GeneratorPort):
 
 __all__ = [
     "OpenAICompatibleGenerator",
+    "build_stream_prompt",
     "default_prompt_builder",
     "default_transport",
     "retry_after_seconds",
+    "stream_completion",
 ]
