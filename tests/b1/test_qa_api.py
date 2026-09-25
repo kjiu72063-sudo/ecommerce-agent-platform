@@ -492,3 +492,70 @@ def test_coordinator_short_circuits_on_presale_need_human(monkeypatch):
     assert len(body["sub_outcomes"]) == 1
     assert body["short_circuited"] is True
     assert body["overall_terminal"] == "need_human"
+
+
+def _stream_done(client, payload):
+    resp = client.post("/api/v1/presale/qa/stream", json=payload)
+    assert resp.status_code == 200
+    done_line = next(
+        line for line in resp.text.splitlines()
+        if line.startswith("data: ") and "answer_text" in line
+    )
+    return json.loads(done_line[len("data: "):])
+
+
+def test_stream_curated_answer_streams_archive(tmp_path, monkeypatch):
+    import json as _json
+    from pathlib import Path as _Path
+
+    curated = _json.loads(
+        (_Path(__file__).resolve().parents[2] / "src/presale/data/demo_curated.json").read_text(
+            encoding="utf-8"
+        )
+    )["items"][0]
+    monkeypatch.setenv("PRESALE_CATALOG", write_catalog(tmp_path))
+    monkeypatch.delenv("PRESALE_LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("PRESALE_LLM_MODEL", raising=False)
+    monkeypatch.delenv("PRESALE_LLM_API_KEY", raising=False)
+
+    done = _stream_done(
+        TestClient(app),
+        {
+            "question": curated["question"],
+            "product_id": curated["product_id"],
+            "tenant_id": "tenant-demo",
+            "idempotency_key": "curated-key-00001",
+        },
+    )
+
+    assert done["curated"] is True
+    assert done["answer_text"] == curated["answer_text"]
+    # Retrieval still runs alongside curation (may be empty under the
+    # deterministic test catalog; live demo uses hybrid with full evidence).
+    assert isinstance(done["evidence"], list)
+    assert isinstance(done["timeline"], list)
+
+
+def test_stream_uncurated_question_not_marked(tmp_path, monkeypatch):
+    monkeypatch.setenv("PRESALE_CATALOG", write_catalog(tmp_path))
+    monkeypatch.delenv("PRESALE_LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("PRESALE_LLM_MODEL", raising=False)
+    monkeypatch.delenv("PRESALE_LLM_API_KEY", raising=False)
+
+    done = _stream_done(
+        TestClient(app),
+        {
+            "question": "这款商品适合夏季使用吗？完全没提到的问题",
+            "product_id": "product-001",
+            "tenant_id": "tenant-demo",
+            "idempotency_key": "curated-key-00002",
+        },
+    )
+
+    assert not done.get("curated")
+
+
+def test_index_mentions_curated_badge():
+    body = TestClient(app).get("/").text
+
+    assert "演示精选" in body

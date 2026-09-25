@@ -53,6 +53,7 @@ try {
   const badges1 = await page.locator("#badges").innerText();
   check("结果徽标：已生成答案", badges1.includes("已生成答案"), badges1.replace(/\s+/g, " "));
   check("结果徽标：检索命中", badges1.includes("检索命中"));
+  check("演示精选徽标", badges1.includes("演示精选"), badges1.replace(/\s+/g, " "));
   const answer1 = await page.locator("#answer").innerText();
   check("答案非空", answer1.trim().length > 10, answer1.slice(0, 40) + "…");
   check("证据列表可见", await page.locator("#evidence-block").isVisible());
