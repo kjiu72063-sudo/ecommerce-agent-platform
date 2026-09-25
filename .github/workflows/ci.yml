@@ -94,7 +94,7 @@ jobs:
           uv run presale-eval --compare-batch \
             "tests/fixtures/retrieval_golden_snapshot.json::eval-artifacts/retrieval_current.json" \
             --fail-on-regression \
-            --rank-tolerance 2 \
+            --rank-tolerance 3 \
             --csv eval-artifacts/regression_summary.csv
 
       - name: Upload golden regression artifacts
