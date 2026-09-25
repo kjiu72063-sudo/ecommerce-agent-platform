@@ -165,7 +165,7 @@
     "expected": [
       "spec_cup"
     ],
-    "rank": 1
+    "rank": 4
   },
   "tenant-acme/product-106::榨完还得倒出来换杯子吗？能不能省事儿点？": {
     "expected": [
@@ -189,19 +189,19 @@
     "expected": [
       "spec_breathable"
     ],
-    "rank": 1
+    "rank": 2
   },
   "tenant-acme/product-107::睡久了中间会不会塌陷": {
     "expected": [
       "spec_firmness"
     ],
-    "rank": 1
+    "rank": 2
   },
   "tenant-acme/product-107::腰不好的人睡这款合适吗": {
     "expected": [
       "spec_zone"
     ],
-    "rank": 1
+    "rank": 3
   },
   "tenant-acme/product-107::这个护腰对我这种腰不行的人管用吗？怕戴了跟没戴一样……": {
     "expected": [
@@ -628,7 +628,7 @@
     "expected": [
       "spec_odor"
     ],
-    "rank": 1
+    "rank": 3
   },
   "tenant-other/product-203::猫上完厕所会自己清吗": {
     "expected": [

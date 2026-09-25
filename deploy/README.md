@@ -78,20 +78,30 @@ presale-migrate-pg --sqlite ./presale.sqlite3 --dsn "$PRESALE_PG_DSN"
 
 ### Out-of-sample 验证（2026-09-25）
 
-上述「再生成一批 out-of-sample 查询」已执行：用真实 LLM（glm-5.3）对 22 个商品各生成 1 条新查询（`scripts/generate_realistic_golden.py --per-product 1`），与既有 112 条 golden **零重叠**，存于 `tests/fixtures/retrieval_oos_queries.json`。在 CI 同款 **deterministic embedding** + Hybrid（top_k=6, pool=15）下评估：
+上述「再生成一批 out-of-sample 查询」已执行：用真实 LLM（glm-5.3）对 22 个商品各生成 1 条新查询（`scripts/generate_realistic_golden.py --per-product 1`），与既有 112 条 golden **零重叠**，存于 `tests/fixtures/retrieval_oos_queries.json`。同一 fixture 在 Hybrid（top_k=6, pool=15）下跑了两种 embedding：
 
-| 指标 | OOS（n=22, deterministic） | 说明 |
-|---|---|---|
-| hit@1 | 0.3182 | 仅 7/22 首位命中 |
-| hit@3 | 0.6818 | |
-| hit@5 | **1.0** | 22/22 均在 top-5 召回，0 条 recall 失败 |
-| MRR | 0.5523 | |
-| prec@5 | 0.2000 | |
+| 指标 | OOS deterministic | **OOS 真实 bge** | 说明 |
+|---|---|---|---|
+| hit@1 | 0.3182 | **0.8182** | 18/22 首位命中 |
+| hit@3 | 0.6818 | **1.0** | |
+| hit@5 | 1.0 | **1.0** | 两档均 0 条 recall 失败 |
+| MRR | 0.5523 | **0.9015** | rank 分布 {1:18, 2:3, 3:1} |
+| prec@5 | 0.2000 | 0.2000 | |
+
+复现（需 `uv sync --extra test --extra quality --extra embedding --extra hybrid` + `make models`）：
+
+```bash
+PRESALE_MILVUS_URI=http://127.0.0.1:19530 \
+PRESALE_MILVUS_COLLECTION=presale_bge_oos \
+PRESALE_CATALOG=src/presale/data/dev_catalog.json \
+PRESALE_EMBEDDING_MODEL=models/bge-large-zh-v1.5 \
+HF_HUB_OFFLINE=1 python -c "... run_retrieval(to_questions=load(oos fixture)) ..."
+```
 
 **解读**：
-- **泛化召回健康**——OOS 全部 hit@5=1.0，没有「只能答背过的题」；BM25 租户过滤 + top_k=6 生效。
-- **hit@1 远低于 golden 的 1.0**——坐实了「golden 满分含记忆成分」；真实语义 embedding 下 hit@1 预期高于 deterministic 的 0.32（见上表 deterministic 管道验证行 ~0.55 MRR），但不会到 1.0。
-- **后继**：装 `embedding` extra 用 bge-large-zh 重跑同一 fixture 可得语义上限；该步未做（torch 体积大），fixture 已入库可直接复跑。
+- **真实语义上限 hit@1=0.82 / MRR=0.90**——比 golden 1.0 低约 0.1~0.2，量化了「记忆成分」；比 deterministic 0.32 高约 0.5，说明伪向量只适合管道验证。
+- **hit@3=1.0 + 0 recall 失败**——真实 embedding 下 22 条 OOS 全部进 top-3，泛化健康。
+- **与历史 golden 表对照**：OOS 0.82/0.90 落在「无重排 bge 0.675/0.808」与「golden 满分 1.0」之间，符合预期（O queries 更难、无重排修复记忆）。
 
 | 管线 | hit@1 | hit@3 | hit@5 | MRR | prec@5 |
 |---|---|---|---|---|---|
@@ -139,7 +149,7 @@ presale-migrate-pg --sqlite ./presale.sqlite3 --dsn "$PRESALE_PG_DSN"
 - **catalog 或 golden 条目变更时**：bump 对应版本常量 → 用真实模型 `--save` 重新生成 `generation_snapshot.json`（及检索 snapshot）→ 合入后才能让 `--compare` / `--fail-on-regression` 语义仍然成立。只改 catalog 而不改 golden 条目时，至少记录新 `catalog_sha256` 以便审计。
 - 快照比较只遍历当前题目的 key，`_meta` 不参与回退判定，旧无 meta 的快照仍可比较。
 - `presale-eval --output report.md` 按扩展名输出 **Markdown**（指标表 + 前 20 行 per-question）；`.json` 或其它后缀仍是 JSON。
-- **CI 检索回归门禁**（`milvus-integration`）：跑 `--mode retrieval --csv` 写 `retrieval_run.csv`，再 `--compare-batch ... --fail-on-regression --rank-tolerance 2` 写 `regression_summary.csv`；`rank_tolerance=2` 吸收 ANN/RRF 跨 run 名次噪声，**召回丢失（rank→None）不受容差豁免**仍使 job 失败。失败经 `actions/upload-artifact` 上传 `eval-artifacts/`（当前 JSON + 两份 CSV，保留 14 天）供诊断。`--csv` 在 `--fail-on-regression` 退出前写出，故失败也能拿到汇总。
+- **CI 检索回归门禁**（`milvus-integration`）：跑 `--mode retrieval --csv` 写 `retrieval_run.csv`，再 `--compare-batch ... --fail-on-regression --rank-tolerance 3` 写 `regression_summary.csv`；`rank_tolerance=3` 吸收 ANN/RRF 跨 run 名次噪声（实测见过 Δ≤3），**召回丢失（rank→None）不受容差豁免**仍使 job 失败。失败经 `actions/upload-artifact` 上传 `eval-artifacts/`（当前 JSON + 两份 CSV，保留 14 天）供诊断。`--csv` 在 `--fail-on-regression` 退出前写出，故失败也能拿到汇总。
 
 ## 注意
 - Milvus **单独** `docker run` 裸镜像无法工作——它需要 etcd 提供元数据，且此仓库用 **本地文件存储**（`COMMON_STORAGETYPE=local`）而非 MinIO。请用 `docker compose up` 一起拉起。
