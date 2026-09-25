@@ -236,3 +236,49 @@ def test_feedback_endpoint_records_rating():
         json={"run_ref": "run_fb_1", "rating": "meh"},
     )
     assert bad.status_code == 422
+
+
+def test_review_analyze_positive_text():
+    resp = TestClient(app).post(
+        "/api/v1/review/analyze",
+        json={"text": "鞋子收到了，非常满意！防滑效果很好，穿着舒适，值得推荐给朋友。"},
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["sentiment"] == "positive"
+    assert {"满意", "推荐"} <= set(body["keywords"])
+    assert body["need_human"] is True
+    assert "positive" in body["answer_text"]
+
+
+def test_review_analyze_negative_with_product(tmp_path, monkeypatch):
+    monkeypatch.setenv("PRESALE_CATALOG", write_catalog(tmp_path))
+    resp = TestClient(app).post(
+        "/api/v1/review/analyze",
+        json={
+            "text": "太失望了，质量很差，穿了两天就开胶，准备退货退款。",
+            "product_id": "product-001",
+        },
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["sentiment"] == "negative"
+    assert {"失望", "退货"} <= set(body["keywords"])
+    # product knowledge linked via the review agent's retrieve tool
+    assert body["evidence_count"] >= 1
+
+
+def test_review_analyze_rejects_empty_text():
+    resp = TestClient(app).post("/api/v1/review/analyze", json={"text": ""})
+
+    assert resp.status_code == 422
+
+
+def test_index_serves_review_tab():
+    body = TestClient(app).get("/").text
+
+    assert "评论分析" in body
+    assert "/api/v1/review/analyze" in body
+    assert "review_samples" in body

@@ -298,6 +298,63 @@ async def qa(req: QaRequest) -> dict:
     return payload
 
 
+class ReviewRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=4096)
+    product_id: str | None = Field(default=None, max_length=256)
+
+
+@app.post("/api/v1/review/analyze", include_in_schema=False)
+async def review_analyze(req: ReviewRequest) -> dict[str, Any]:
+    """Second business agent: deterministic review sentiment + keywords."""
+    from review_agent.agent import ReviewAnalyzerAgent
+
+    catalog = os.environ.get("PRESALE_CATALOG")
+    sources = load_catalog(catalog) if catalog else []
+    agent = ReviewAnalyzerAgent(sources=sources)
+    try:
+        if req.product_id:
+            question = ProductQuestion(
+                question_id=f"q-review-{time.monotonic_ns()}",
+                tenant_id="tenant-demo",
+                submitted_by=ActorRef(actor_type=ActorType.USER, actor_id="usr_review"),
+                product_id=req.product_id,
+                question_text=req.text,
+                requested_at=datetime.now(timezone.utc),
+                idempotency_key=f"review-{time.monotonic_ns()}",
+            )
+            outcome = await Harness().execute(question, agent)
+        else:
+            outcome = await Harness().execute(req.text, agent)
+    except Exception as exc:
+        logger.exception("review analyze failed: %s", type(exc).__name__)
+        raise HTTPException(
+            status_code=502, detail=f"Review run failed: {type(exc).__name__}"
+        ) from exc
+    payload = format_outcome(outcome)
+    analyze_call = next(
+        (
+            call
+            for step in outcome.steps
+            for call in step.tool_calls
+            if isinstance(call, dict) and call.get("tool") == "analyze_review"
+        ),
+        None,
+    )
+    payload["sentiment"] = analyze_call.get("sentiment") if analyze_call else None
+    payload["keywords"] = list(analyze_call.get("keywords") or []) if analyze_call else []
+    retrieve_call = next(
+        (
+            call
+            for step in outcome.steps
+            for call in step.tool_calls
+            if isinstance(call, dict) and call.get("tool") == "retrieve_knowledge"
+        ),
+        None,
+    )
+    payload["evidence_count"] = int(retrieve_call.get("evidence_count", 0)) if retrieve_call else 0
+    return payload
+
+
 def main() -> None:
     import uvicorn
 
