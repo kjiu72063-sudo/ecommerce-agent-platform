@@ -35,6 +35,14 @@ uv run pre-commit run --all-files   # 本地钩子，非 CI 强制
 
 当前基线以 `开发文档/09-质量基线与门禁台账.md` 顶行为准（2026-09-22：361 passed）。CI 通过 GitHub Actions（`.github/workflows/ci.yml`）在 `main` 与每个 PR 上运行门禁（ruff check/format src + pyright + pytest + 基线同步），并有两个集成 job：Milvus Hybrid 检索回归门禁、PostgreSQL 适配器集成。仓库已公开，`main` 启用分支保护：直接/强制推送与删除被禁（含管理员）、必须走 PR、要求 CI 通过、强制线性历史。测试规范入口位于 `tests/b1`、`tests/b2`、`tests/b3`。
 
+## 快速演示（本地 Web UI）
+
+```bash
+make demo        # 默认加载 dev catalog；配好 PRESALE_LLM_* 即真实 LLM 生成
+```
+
+浏览器打开 **http://127.0.0.1:8000/** ：选商品 → 点示例问题（或自由输入）→ 看答案、检索状态、引用的商品知识字段与耗时。未配置 LLM 时走确定性模板，链路同样走通。演示数据在 `src/presale/data/demo_examples.json`（11 个商品 × 2 个口语化问题）。
+
 ## 运行 QA 服务
 
 同步售前问答服务（FastAPI）。配置经环境变量（见 `.env.example`）：

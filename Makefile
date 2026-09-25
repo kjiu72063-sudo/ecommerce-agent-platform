@@ -111,6 +111,16 @@ eval-real-acceptance:
 qa-api:
 	uv run presale-qa-api
 
+# 一键本地演示：默认 dev catalog，打开 http://127.0.0.1:8000/
+# 配好 PRESALE_LLM_* 即真实 LLM 生成；未配则确定性模板（仍可完整走通）
+demo:
+	@if [ -n "$$PRESALE_LLM_BASE_URL" ]; then \
+	  echo "[demo] LLM: $${PRESALE_LLM_MODEL:-未设模型名}（真实生成）"; \
+	else \
+	  echo "[demo] 未检测到 PRESALE_LLM_BASE_URL——答案将走确定性模板"; \
+	fi
+	PRESALE_CATALOG=$${PRESALE_CATALOG:-src/presale/data/dev_catalog.json} uv run presale-qa-api
+
 # 快速自检（全量门禁）
 teach:
 	uv run pre-commit run --all-files

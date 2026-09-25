@@ -99,3 +99,58 @@ def test_qa_records_observability_metrics(tmp_path, monkeypatch):
     assert m["terminal"]["finalize"] == 1
     assert m["errors"] == 0
     assert m["last_run_seconds"] is not None
+
+
+def test_index_serves_demo_ui():
+    resp = TestClient(app).get("/")
+
+    assert resp.status_code == 200
+    assert "text/html" in resp.headers["content-type"]
+    assert "售前问答演示" in resp.text
+
+
+def test_examples_endpoint_returns_products_and_questions():
+    resp = TestClient(app).get("/api/v1/presale/qa/examples")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["tenant_id"] == "tenant-demo"
+    assert len(body["products"]) >= 1
+    first = body["products"][0]
+    assert first["product_id"]
+    assert first["name"]
+    assert first["questions"]
+    assert all(isinstance(q, str) and q for q in first["questions"])
+
+
+def test_qa_response_exposes_evidence_fields(tmp_path, monkeypatch):
+    """演示 UI 依赖 evidence/confidence_signal/reason_codes 三字段。"""
+    monkeypatch.setenv("PRESALE_CATALOG", write_catalog(tmp_path))
+    monkeypatch.delenv("PRESALE_LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("PRESALE_LLM_MODEL", raising=False)
+    monkeypatch.delenv("PRESALE_LLM_API_KEY", raising=False)
+    monkeypatch.delenv("PRESALE_RETRIEVAL_BASE_URL", raising=False)
+    monkeypatch.delenv("PRESALE_DB", raising=False)
+
+    resp = TestClient(app).post(
+        "/api/v1/presale/qa",
+        json={
+            "question": "这款商品适合夏季使用吗？",
+            "product_id": "product-001",
+            "tenant_id": "tenant-demo",
+            "idempotency_key": "qa-key-evidence01",
+        },
+    )
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert isinstance(body["evidence"], list)
+    assert body["confidence_signal"] in {
+        "supported",
+        "uncertain",
+        "conflicting",
+        "unavailable",
+    }
+    assert isinstance(body["reason_codes"], list)
+    if body["evidence"]:
+        assert {"locator", "source_id"} <= set(body["evidence"][0])

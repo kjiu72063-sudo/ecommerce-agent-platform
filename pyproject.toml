@@ -75,6 +75,9 @@ package-dir = {"" = "src"}
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+presale = ["data/*.json", "api/static/*.html"]
+
 [tool.pyright]
 include = ["src/presale", "src/agent_runtime", "src/context", "src/registry", "src/runtime"]
 pythonVersion = "3.13"
