@@ -37,6 +37,15 @@ class PresaleAgent:
             status = "conflict"
         else:
             status = "no_evidence"
+        evidence = [
+            {
+                "locator": item.locator,
+                "source_id": item.source_id,
+                # Trim long field text: the UI shows an expandable preview.
+                "content": item.content[:120],
+            }
+            for item in getattr(result, "evidence_items", [])
+        ]
         return {
             "tool": "retrieve",
             "tenant_id": question.tenant_id,
@@ -44,6 +53,7 @@ class PresaleAgent:
             "status": status,
             "evidence_count": len(evidence_refs),
             "reason_codes": reason_codes,
+            "evidence": evidence,
         }
 
 

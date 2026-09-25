@@ -107,6 +107,11 @@ def test_index_serves_demo_ui():
     assert resp.status_code == 200
     assert "text/html" in resp.headers["content-type"]
     assert "售前问答演示" in resp.text
+    # P1 UI: history sidebar + feedback buttons + config mode badges
+    assert "问答历史" in resp.text
+    assert "有帮助" in resp.text
+    assert "/api/v1/presale/qa/config" in resp.text
+    assert "/api/v1/presale/qa/history" in resp.text
 
 
 def test_examples_endpoint_returns_products_and_questions():
@@ -154,3 +159,80 @@ def test_qa_response_exposes_evidence_fields(tmp_path, monkeypatch):
     assert isinstance(body["reason_codes"], list)
     if body["evidence"]:
         assert {"locator", "source_id"} <= set(body["evidence"][0])
+        # P1: evidence carries field content for the UI's expandable preview
+        assert body["evidence"][0]["content"] == "适合夏季使用"
+
+
+def test_config_reports_template_and_deterministic(monkeypatch):
+    monkeypatch.delenv("PRESALE_LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("PRESALE_LLM_MODEL", raising=False)
+    monkeypatch.delenv("PRESALE_LLM_API_KEY", raising=False)
+    monkeypatch.delenv("PRESALE_MILVUS_URI", raising=False)
+    monkeypatch.delenv("PRESALE_QDRANT_URL", raising=False)
+    monkeypatch.delenv("PRESALE_RETRIEVAL_BASE_URL", raising=False)
+
+    body = TestClient(app).get("/api/v1/presale/qa/config").json()
+
+    assert body == {"llm": "template", "model": None, "retrieval": "deterministic"}
+
+
+def test_config_reports_real_llm_and_hybrid(monkeypatch):
+    monkeypatch.setenv("PRESALE_LLM_BASE_URL", "http://llm.local/v1")
+    monkeypatch.setenv("PRESALE_LLM_MODEL", "demo-model")
+    monkeypatch.setenv("PRESALE_LLM_API_KEY", "demo-key")
+    monkeypatch.setenv("PRESALE_MILVUS_URI", "http://127.0.0.1:19530")
+
+    body = TestClient(app).get("/api/v1/presale/qa/config").json()
+
+    assert body["llm"] == "real"
+    assert body["model"] == "demo-model"
+    assert body["retrieval"] == "hybrid"
+
+
+def test_history_recorded_after_qa(tmp_path, monkeypatch):
+    monkeypatch.setenv("PRESALE_CATALOG", write_catalog(tmp_path))
+    monkeypatch.delenv("PRESALE_LLM_BASE_URL", raising=False)
+    monkeypatch.delenv("PRESALE_LLM_MODEL", raising=False)
+    monkeypatch.delenv("PRESALE_LLM_API_KEY", raising=False)
+    monkeypatch.delenv("PRESALE_DB", raising=False)
+    client = TestClient(app)
+
+    resp = client.post(
+        "/api/v1/presale/qa",
+        json={
+            "question": "这款商品适合夏季使用吗？",
+            "product_id": "product-001",
+            "tenant_id": "tenant-demo",
+            "idempotency_key": "qa-key-history01",
+        },
+    )
+    assert resp.status_code == 200
+
+    items = client.get("/api/v1/presale/qa/history").json()["items"]
+    assert len(items) == 1
+    entry = items[0]
+    assert entry["question"] == "这款商品适合夏季使用吗？"
+    assert entry["product_id"] == "product-001"
+    assert entry["terminal"] == resp.json()["terminal"]
+    assert entry["evidence_count"] >= 1
+    assert entry["response"]["answer_text"]
+    assert entry["id"] == resp.json()["run_ref"]
+    # limit is honored
+    assert len(client.get("/api/v1/presale/qa/history?limit=1").json()["items"]) == 1
+
+
+def test_feedback_endpoint_records_rating():
+    client = TestClient(app)
+
+    ok = client.post(
+        "/api/v1/presale/qa/feedback",
+        json={"run_ref": "run_fb_1", "rating": "up"},
+    )
+    assert ok.status_code == 200
+    assert ok.json() == {"status": "recorded", "rating": "up"}
+
+    bad = client.post(
+        "/api/v1/presale/qa/feedback",
+        json={"run_ref": "run_fb_1", "rating": "meh"},
+    )
+    assert bad.status_code == 422

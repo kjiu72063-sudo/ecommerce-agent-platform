@@ -58,7 +58,7 @@ export PRESALE_LLM_BASE_URL=...; export PRESALE_LLM_MODEL=...; export PRESALE_LL
 presale-qa-api            # 默认 127.0.0.1:8000（可用 PRESALE_QA_HOST/PRESALE_QA_PORT 改）
 ```
 
-`PRESALE_PG_DSN` 优先于 `PRESALE_DB`。端点：`POST /api/v1/presale/qa`（body: question/product_id/tenant_id/idempotency_key）→ 返回 `format_outcome`（终态 + 答案 + 证据）；`GET /api/v1/presale/qa/health`；`GET /api/v1/presale/qa/ready`（配置了 PostgreSQL 时探测连接）。
+`PRESALE_PG_DSN` 优先于 `PRESALE_DB`。端点：`POST /api/v1/presale/qa`（body: question/product_id/tenant_id/idempotency_key）→ 返回 `format_outcome`（终态 + 答案 + 证据）+ `evidence`（含 locator/content 预览）/`confidence_signal`/`reason_codes`；`GET .../qa/history?limit=` 最近问答（内存，演示态）；`POST .../qa/feedback`（run_ref + up/down）；`GET .../qa/config`（当前 LLM/检索模式）；`GET /api/v1/presale/qa/health`；`GET /api/v1/presale/qa/ready`（配置了 PostgreSQL 时探测连接）。
 
 ## 外部检索（Qdrant，可选）
 

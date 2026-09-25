@@ -51,10 +51,13 @@ def _uuid7() -> UUID:
 class PresaleQaResult:
     """A completed presale QA run and its entry points."""
 
-    def __init__(self, *, run_ref: str, answer_draft, trace):
+    def __init__(self, *, run_ref: str, answer_draft, trace, evidence_items=None):
         self.run_ref = run_ref
         self.answer_draft = answer_draft
         self.trace = trace
+        # Retrieval evidence (with content) for this run; empty when the run
+        # found nothing or a replay could not reload persisted evidence.
+        self.evidence_items = list(evidence_items or [])
 
 
 class PresaleQaRunner:
@@ -177,7 +180,20 @@ class PresaleQaRunner:
             # incomplete record as canonical with no recovery path.
             if trace.answer_draft_id is not None:
                 await self._confirm_succeeded(question)
-            return PresaleQaResult(run_ref=claim.run_ref, answer_draft=draft, trace=trace)
+            try:
+                replay_evidence = await self._evidence_repo.get_by_run(
+                    claim.run_ref, tenant_id=question.tenant_id
+                )
+            except Exception:
+                # Missing/failed evidence reload must not block a replayed
+                # answer; the UI degrades to locator-only evidence.
+                replay_evidence = []
+            return PresaleQaResult(
+                run_ref=claim.run_ref,
+                answer_draft=draft,
+                trace=trace,
+                evidence_items=replay_evidence,
+            )
 
         trace_id: str | None = None
         answer_persisted = False
@@ -252,6 +268,7 @@ class PresaleQaRunner:
                 run_ref=run_id,
                 answer_draft=draft,
                 trace=await self._tracer.get(trace_id, tenant_id=question.tenant_id),
+                evidence_items=retrieval.evidence_items,
             )
             completed = True
             await self._idempotency_repo.update_status(
