@@ -267,7 +267,7 @@ def hybrid_transport(
     embedding: Embedding,
     dense: MilvusDense,
     bm25: BM25Index,
-    top_k: int = 5,
+    top_k: int = 6,
     rrf_k: int = 60,
     pool: int | None = None,
     dense_k: int | None = None,
@@ -369,7 +369,7 @@ def hybrid_retriever_from_params(
     embedding: Embedding,
     dense: MilvusDense,
     bm25: BM25Index,
-    top_k: int = 5,
+    top_k: int = 6,
     rrf_k: int = 60,
     pool: int | None = None,
     dense_k: int | None = None,
@@ -436,9 +436,11 @@ def hybrid_retriever_from_env() -> ExternalRetrieval | None:
         raw = os.environ.get(name)
         return float(raw) if raw else default
 
-    top_k = _env_int("PRESALE_HYBRID_TOP_K", 5)
+    top_k = _env_int("PRESALE_HYBRID_TOP_K", 6)
     rrf_k = _env_int("PRESALE_HYBRID_RRF_K", 60)
-    pool = _env_int("PRESALE_HYBRID_POOL", top_k * 3)
+    # Candidate pool stays at the historical 15 (old top_k=5 × 3) so raising
+    # top_k only extends the trim — fusion inputs and ranks 1–5 do not shift.
+    pool = _env_int("PRESALE_HYBRID_POOL", 15)
     dense_k = _env_int_opt("PRESALE_HYBRID_DENSE_K")
     bm25_k = _env_int_opt("PRESALE_HYBRID_BM25_K")
     bm25_weight = _env_float("PRESALE_HYBRID_BM25_WEIGHT", 1.0)

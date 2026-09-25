@@ -157,3 +157,62 @@ async def test_openai_generator_plugs_into_runner():
     assert result.answer_draft.answer_text == "根据资料，适合夏季使用。"
     assert result.answer_draft.need_human is False
     assert result.answer_draft.evidence_refs
+
+
+def test_retry_after_seconds_from_httpx_429():
+    """C-5: Retry-After delta-seconds on 429 is parsed from the HTTP response."""
+    import httpx
+
+    from presale.adapters.openai_generator import retry_after_seconds
+
+    req = httpx.Request("POST", "https://example.invalid/v1/chat/completions")
+    resp = httpx.Response(429, headers={"Retry-After": "45"}, request=req)
+    exc = httpx.HTTPStatusError("429", request=req, response=resp)
+    assert retry_after_seconds(exc) == 45.0
+
+
+def test_retry_after_seconds_http_date_and_ignores_other_status():
+    import httpx
+
+    from presale.adapters.openai_generator import retry_after_seconds
+
+    req = httpx.Request("POST", "https://example.invalid/v1/chat/completions")
+    resp = httpx.Response(
+        503,
+        headers={"Retry-After": "Wed, 21 Oct 2099 07:28:00 GMT"},
+        request=req,
+    )
+    exc = httpx.HTTPStatusError("503", request=req, response=resp)
+    wait = retry_after_seconds(exc)
+    assert wait is not None and wait > 0
+
+    resp400 = httpx.Response(400, headers={"Retry-After": "10"}, request=req)
+    exc400 = httpx.HTTPStatusError("400", request=req, response=resp400)
+    assert retry_after_seconds(exc400) is None
+    assert retry_after_seconds(RuntimeError("no response")) is None
+
+
+def test_rate_limit_maps_to_answer_error_with_retry_after_in_message():
+    """C-5: 429 becomes LLM_RATE_LIMITED retry_after=N (survives QaRuntimeError str())."""
+    import httpx
+
+    from presale.adapters.generation_eval import _retry_delay_seconds
+
+    def limited(*, api_key, base_url, model, messages, timeout_s):
+        req = httpx.Request("POST", "https://example.invalid/v1/chat/completions")
+        resp = httpx.Response(429, headers={"Retry-After": "77"}, request=req)
+        raise httpx.HTTPStatusError("429", request=req, response=resp)
+
+    with pytest.raises(AnswerGenerationError, match="LLM_RATE_LIMITED retry_after=77") as exc_info:
+        generator(limited).generate(
+            question(), matched_retrieval(), run_ref=RUN_REF, configuration_refs={}
+        )
+    assert exc_info.value.retry_after == 77.0
+
+    # Message-form propagation: the runner only keeps str(exc).
+    wrapped = ValueError(str(exc_info.value))
+    assert _retry_delay_seconds(wrapped, fallback=30.0) == 77.0
+    # Cap at 120s.
+    assert _retry_delay_seconds(ValueError("LLM_RATE_LIMITED retry_after=999"), 30.0) == 120.0
+    # No header → fixed backoff.
+    assert _retry_delay_seconds(ValueError("LLM_CALL_FAILED"), 30.0) == 30.0

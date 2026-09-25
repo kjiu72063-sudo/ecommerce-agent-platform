@@ -230,3 +230,15 @@ def test_hybrid_transport_dense_empty_keeps_product_evidence():
         for e in result.evidence_items
     )
     assert any(e.locator == "spec.capacity" for e in result.evidence_items)
+
+
+def test_hybrid_transport_default_top_k_is_six():
+    """A-1: default top_k=6 keeps the capacity query (fused rank 6) in evidence."""
+    import inspect
+
+    from presale.adapters.hybrid_retrieval import hybrid_retriever_from_env, hybrid_transport
+
+    assert inspect.signature(hybrid_transport).parameters["top_k"].default == 6
+    # Env factory default (no PRESALE_HYBRID_TOP_K) must also be 6.
+    src = inspect.getsource(hybrid_retriever_from_env)
+    assert 'PRESALE_HYBRID_TOP_K", 6' in src

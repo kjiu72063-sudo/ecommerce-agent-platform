@@ -21,6 +21,35 @@ Transport = Callable[..., dict[str, Any]]
 PromptBuilder = Callable[..., str]
 
 
+def retry_after_seconds(exc: BaseException) -> float | None:
+    """Extract Retry-After seconds from an httpx 429/503 response, if present.
+
+    Accepts both delta-seconds (``"45"``) and HTTP-date forms. Returns None for
+    non-rate-limit errors or an unusable header so callers fall back to
+    fixed backoff.
+    """
+    response = getattr(exc, "response", None)
+    if response is None:
+        return None
+    status = getattr(response, "status_code", None)
+    if status not in (429, 503):
+        return None
+    raw = (getattr(response, "headers", None) or {}).get("Retry-After")
+    if not raw:
+        return None
+    text = str(raw).strip()
+    if text.isdigit():
+        return float(text)
+    try:
+        from email.utils import parsedate_to_datetime
+
+        when = parsedate_to_datetime(text)
+        delta = (when - datetime.now(timezone.utc)).total_seconds()
+        return max(0.0, delta)
+    except (TypeError, ValueError):
+        return None
+
+
 def default_transport(
     *,
     api_key: str,
@@ -97,6 +126,14 @@ class OpenAICompatibleGenerator(GeneratorPort):
         except AnswerGenerationError:
             raise
         except Exception as exc:
+            wait = retry_after_seconds(exc)
+            if wait is not None:
+                # Keep the seconds in the message so QaRuntimeError(str) —
+                # which drops attributes — still carries them to the replay
+                # backoff. Attribute is set for callers that hold the error.
+                raise AnswerGenerationError(
+                    f"LLM_RATE_LIMITED retry_after={int(wait)}", retry_after=wait
+                ) from exc
             raise AnswerGenerationError("LLM_CALL_FAILED") from exc
 
         try:
@@ -146,4 +183,9 @@ class OpenAICompatibleGenerator(GeneratorPort):
         )
 
 
-__all__ = ["OpenAICompatibleGenerator", "default_prompt_builder", "default_transport"]
+__all__ = [
+    "OpenAICompatibleGenerator",
+    "default_prompt_builder",
+    "default_transport",
+    "retry_after_seconds",
+]

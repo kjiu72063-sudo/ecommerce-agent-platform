@@ -622,6 +622,19 @@ def evaluate_end_to_end(
     }
 
 
+def _retry_delay_seconds(exc: BaseException, fallback: float) -> float:
+    """Pick the next backoff: server Retry-After when present, else ``fallback``.
+
+    QaRuntimeError only carries ``str(exc)``, so the seconds ride in the
+    message as ``retry_after=N`` (set by OpenAICompatibleGenerator on 429/503).
+    Capped at 120s to bound CI wall-clock even if the header is hostile.
+    """
+    match = re.search(r"retry_after=(\d+)", str(exc))
+    if match:
+        return float(min(int(match.group(1)), 120))
+    return fallback
+
+
 def evaluate_idempotency_replay(
     retriever: Any,
     *,
@@ -689,6 +702,9 @@ def evaluate_idempotency_replay(
         from ..runner import QaRuntimeError
 
         # 429/502 after a heavy e2e burst needs minute-scale backoff, not seconds.
+        # When the provider sent Retry-After (propagated as
+        # ``LLM_RATE_LIMITED retry_after=N``), honor it — capped at 120s so a
+        # hostile header cannot stall CI indefinitely.
         delays = (30, 60)
         last_error: QaRuntimeError | None = None
         for attempt in range(len(delays) + 1):
@@ -698,7 +714,7 @@ def evaluate_idempotency_replay(
                 last_error = exc
                 if attempt == len(delays):
                     raise
-                time.sleep(delays[attempt])
+                time.sleep(_retry_delay_seconds(exc, delays[attempt]))
         raise last_error if last_error else QaRuntimeError("REPLAY_ASK_FAILED")
 
     try:

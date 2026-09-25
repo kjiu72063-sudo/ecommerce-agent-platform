@@ -774,3 +774,23 @@ def test_cli_compare_batch_fail_on_regression(tmp_path):
     assert exc.value.code == 1
     assert csv_path.exists()
     assert "regressed" in csv_path.read_text(encoding="utf-8")
+
+
+def test_compare_batch_csv_leads_with_mode_source(tmp_path):
+    """C-4: compare-batch rows share the report_csv_row mode/source prefix."""
+    def _write(name, rank):
+        p = tmp_path / name
+        p.write_text(
+            json.dumps({"mode": "retrieval", "n": 1, "per_question": [{"query": "q", "rank": rank}]}),
+            encoding="utf-8",
+        )
+        return str(p)
+
+    base = _write("base.json", 1)
+    cur = _write("cur.json", 1)
+    csv_path = tmp_path / "cmp.csv"
+    rc = eval_main(["--compare-batch", f"{base}::{cur}", "--csv", str(csv_path)])
+    assert rc == 0
+    header = csv_path.read_text(encoding="utf-8").splitlines()[0]
+    assert header.startswith("mode,source,")
+    assert "regressed" in header
