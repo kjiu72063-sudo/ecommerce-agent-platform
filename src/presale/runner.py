@@ -117,6 +117,11 @@ class PresaleQaRunner:
         self._task_id = task_id
         self._agent_run_id = agent_run_id
 
+    @property
+    def retriever(self):
+        """The wired RetrievalPort (shared with the streaming demo endpoint)."""
+        return self._retriever
+
     @staticmethod
     def _escalation(retrieval: RetrievalResult, min_evidence: int) -> tuple[bool, str | None]:
         """Corrective-RAG policy: should this retrieval be routed to a human?

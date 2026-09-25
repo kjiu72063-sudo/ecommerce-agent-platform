@@ -297,6 +297,7 @@
   "use strict";
   var examples = null;
   var currentRunRef = null;
+  var currentSessionId = null;
   var $ = function (id) { return document.getElementById(id); };
 
   function badge(cls, text) {
@@ -347,6 +348,7 @@
     if (p) {
       renderChips(p.questions);
       $("question").placeholder = p.questions[0] || "";
+      currentSessionId = null; // switching product starts a fresh conversation
     }
   }
 
@@ -494,6 +496,59 @@
     } catch (e) { /* demo: ignore */ }
   }
 
+  function parseSseBlock(block) {
+    var event = "message";
+    var data = "";
+    block.split("\n").forEach(function (line) {
+      if (line.indexOf("event: ") === 0) event = line.slice(7).trim();
+      else if (line.indexOf("data: ") === 0) data += line.slice(6);
+    });
+    try { return { event: event, data: JSON.parse(data) }; } catch (e) { return null; }
+  }
+
+  function showStreamingSkeleton() {
+    $("result").hidden = false;
+    $("error").hidden = true;
+    var badges = $("badges");
+    badges.innerHTML = "";
+    badges.appendChild(badge("mute", "检索中…"));
+    $("answer").textContent = "";
+    $("evidence-block").hidden = true;
+    $("meta").innerHTML = "";
+  }
+
+  function renderStreamEvidence(data) {
+    var badges = $("badges");
+    badges.innerHTML = "";
+    if (data.retrieval_status === "matched") {
+      badges.appendChild(badge("ok", "检索命中 " + (data.evidence || []).length + " 条证据"));
+    } else {
+      badges.appendChild(badge("warn", "未命中商品知识"));
+    }
+    badges.appendChild(badge("mute", "生成中…"));
+    if (data.evidence && data.evidence.length) {
+      $("evidence-block").hidden = false;
+      renderEvidence(data.evidence);
+    }
+  }
+
+  async function askFallback(payload, t0) {
+    var resp = await fetch("/api/v1/presale/qa", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+    var seconds = ((performance.now() - t0) / 1000).toFixed(1);
+    if (!resp.ok) {
+      var detail = "";
+      try { detail = (await resp.json()).detail || ""; } catch (e) {}
+      renderError("请求失败（HTTP " + resp.status + "）" + (detail ? "：" + detail : ""));
+      return;
+    }
+    renderResult(await resp.json(), seconds);
+    loadHistory();
+  }
+
   async function ask() {
     var question = $("question").value.trim();
     if (!question) { renderError("请先输入问题（或点上面的示例问题）。"); return; }
@@ -502,28 +557,55 @@
     btn.disabled = true;
     btn.textContent = "思考中…";
     var t0 = performance.now();
+    var payload = {
+      question: question,
+      product_id: $("product").value,
+      tenant_id: examples.tenant_id,
+      idempotency_key: "demo-" + Date.now() + "-" + Math.random().toString(36).slice(2, 10),
+      session_id: currentSessionId
+    };
+    showStreamingSkeleton();
     try {
-      var resp = await fetch("/api/v1/presale/qa", {
+      var resp = await fetch("/api/v1/presale/qa/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          question: question,
-          product_id: $("product").value,
-          tenant_id: examples.tenant_id,
-          idempotency_key: "demo-" + Date.now() + "-" + Math.random().toString(36).slice(2, 10)
-        })
+        body: JSON.stringify(payload)
       });
-      var seconds = ((performance.now() - t0) / 1000).toFixed(1);
-      if (!resp.ok) {
-        var detail = "";
-        try { detail = (await resp.json()).detail || ""; } catch (e) {}
-        renderError("请求失败（HTTP " + resp.status + "）" + (detail ? "：" + detail : ""));
-        return;
+      if (!resp.ok || !resp.body) throw new Error("HTTP " + resp.status);
+      var reader = resp.body.getReader();
+      var decoder = new TextDecoder();
+      var buf = "";
+      var donePayload = null;
+      for (;;) {
+        var chunk = await reader.read();
+        if (chunk.done) break;
+        buf += decoder.decode(chunk.value, { stream: true });
+        var idx;
+        while ((idx = buf.indexOf("\n\n")) >= 0) {
+          var block = buf.slice(0, idx);
+          buf = buf.slice(idx + 2);
+          var msg = parseSseBlock(block);
+          if (!msg) continue;
+          if (msg.event === "evidence") renderStreamEvidence(msg.data);
+          else if (msg.event === "token") $("answer").textContent += msg.data.text;
+          else if (msg.event === "done") donePayload = msg.data;
+          else if (msg.event === "error") throw new Error(msg.data.detail || "stream error");
+        }
       }
-      renderResult(await resp.json(), seconds);
+      if (!donePayload) throw new Error("流结束但无 done 事件");
+      var seconds = ((performance.now() - t0) / 1000).toFixed(1);
+      currentSessionId = donePayload.session_id || currentSessionId;
+      renderResult(donePayload, seconds);
       loadHistory();
     } catch (e) {
-      renderError("网络错误：" + e.message);
+      // Streaming unavailable → single-shot fallback (same payload, no session).
+      try {
+        var copy = Object.assign({}, payload);
+        delete copy.session_id;
+        await askFallback(copy, t0);
+      } catch (e2) {
+        renderError("网络错误：" + e2.message);
+      }
     } finally {
       btn.disabled = false;
       btn.textContent = "提问";

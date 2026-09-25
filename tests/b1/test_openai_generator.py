@@ -216,3 +216,35 @@ def test_rate_limit_maps_to_answer_error_with_retry_after_in_message():
     assert _retry_delay_seconds(ValueError("LLM_RATE_LIMITED retry_after=999"), 30.0) == 120.0
     # No header → fixed backoff.
     assert _retry_delay_seconds(ValueError("LLM_CALL_FAILED"), 30.0) == 30.0
+
+
+def test_build_stream_prompt_without_history_is_base():
+    from presale.adapters.openai_generator import build_stream_prompt
+
+    prompt = build_stream_prompt(question(), matched_retrieval(), {})
+    assert "对话历史" not in prompt
+    assert "这款商品适合夏季使用吗" in prompt
+    assert "证据:" in prompt
+
+
+def test_build_stream_prompt_injects_history_but_keeps_evidence():
+    from presale.adapters.openai_generator import build_stream_prompt
+
+    history = [
+        {"question": "充电要多久", "answer": "约两小时充满"},
+        {"question": "那防水呢", "answer": "支持生活防水"},
+    ]
+    prompt = build_stream_prompt(question(), matched_retrieval(), {}, history=history)
+
+    # Follow-up context is prefixed for reference resolution...
+    assert prompt.index("对话历史") < prompt.index("用户问题")
+    assert "充电要多久" in prompt
+    assert "那防水呢" in prompt
+    # ...but the evidence block (the grounding source) stays intact.
+    assert "证据:" in prompt
+    assert "适合夏季使用" in prompt
+    # Only the last three turns are carried.
+    long_history = [{"question": f"q{i}", "answer": f"a{i}"} for i in range(6)]
+    prompt2 = build_stream_prompt(question(), matched_retrieval(), {}, history=long_history)
+    assert "q0" not in prompt2
+    assert "q5" in prompt2
