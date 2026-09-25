@@ -35,7 +35,7 @@ python scripts/check_baseline.py            # CI 强制：台账顶行 == pytest
 
 另有两个不阻塞语法门禁、但阻断合并的集成 job：
 
-- **检索回归**：Milvus job 用确定性嵌入跑 `presale-eval --mode retrieval`，再 `--compare --fail-on-regression` 对照 `tests/fixtures/retrieval_golden_snapshot.json`。排序或召回回退即失败。
+- **检索回归**：Milvus job 用确定性嵌入跑 `presale-eval --mode retrieval`，再 `--compare-batch tests/fixtures/retrieval_golden_snapshot.json::<current> --fail-on-regression --rank-tolerance 2` 对照快照。带内名次抖动（Δ≤2）不计回退（吸收 ANN/RRF 跨 run 噪声）；召回丢失（rank→None）仍必失败。回退时失败并上传 `eval-artifacts/`。
 - **PostgreSQL**：`postgres-integration` job 拉起 `postgres:15-alpine`，设置 `PRESALE_PG_DSN` 后跑 `tests/b1/test_postgres_integration.py`。未设置该变量时，这组测试在本地全量 pytest 中跳过。
 
 - **契约优先**：实现必须遵守 B0 契约模型、JSON Schema 与状态机。
