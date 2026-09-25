@@ -1,0 +1,13 @@
+{
+  "name": "ui-golden",
+  "private": true,
+  "type": "module",
+  "description": "Playwright golden-path acceptance for the Presale QA demo UI",
+  "scripts": {
+    "golden": "node golden.mjs"
+  },
+  "dependencies": {
+    "playwright": "1.63.0",
+    "playwright-core": "1.63.0"
+  }
+}

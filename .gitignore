@@ -59,3 +59,7 @@ logs/
 # 本地语义模型（bge-large-zh-v1.5，1.3GB），不进仓库
 models/
 .playwright-cli/
+
+# ---- UI 验收（scripts/ui-golden）----
+scripts/ui-golden/node_modules/
+output/
