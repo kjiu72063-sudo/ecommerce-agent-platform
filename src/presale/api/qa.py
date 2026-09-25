@@ -38,6 +38,7 @@ logger = logging.getLogger("presale.qa")
 
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
 _DEMO_EXAMPLES = Path(__file__).resolve().parent.parent / "data" / "demo_examples.json"
+_DEMO_CURATED = Path(__file__).resolve().parent.parent / "data" / "demo_curated.json"
 _HISTORY_LIMIT = 50
 
 app = FastAPI(
@@ -340,6 +341,33 @@ def _new_run_id() -> str:
     return f"run_{uuid.UUID(int=value)}"
 
 
+def _curated_answer(question_text: str, product_id: str) -> str | None:
+    """Pre-approved demo answer for a curated question (exact trimmed match)."""
+    try:
+        data = json.loads(_DEMO_CURATED.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    wanted = question_text.strip()
+    for item in data.get("items", []):
+        if item.get("question", "").strip() == wanted and item.get("product_id") == product_id:
+            answer = item.get("answer_text")
+            if answer:
+                return str(answer)
+    return None
+
+
+def _sentence_chunks(text: str):
+    """Split text into sentence-sized token chunks for the typewriter effect."""
+    buf = ""
+    for ch in text:
+        buf += ch
+        if ch in "。！？\n":
+            yield buf
+            buf = ""
+    if buf:
+        yield buf
+
+
 def _stream_draft(question: ProductQuestion, retrieval, run_id: str, text: str) -> AnswerDraft:
     """Assemble an AnswerDraft from streamed LLM text (mirrors generator rules)."""
     evidence_refs = [
@@ -436,7 +464,14 @@ def qa_stream(req: StreamRequest) -> StreamingResponse:
             },
         ]
         full_text = ""
-        generator = openai_generator_from_env()
+        curated_text = _curated_answer(question.question_text, question.product_id)
+        if curated_text:
+            # Demo curation: stream the pre-approved archive answer (retrieval
+            # above is still live, so evidence and timeline stay real).
+            full_text = curated_text
+            for piece in _sentence_chunks(full_text):
+                yield _sse("token", {"text": piece})
+        generator = None if curated_text else openai_generator_from_env()
         if generator is not None:
             import os as _os
 
@@ -461,15 +496,8 @@ def qa_stream(req: StreamRequest) -> StreamingResponse:
                 question, retrieval, run_ref=run_ref, configuration_refs={}
             )
             full_text = draft.answer_text
-            # Sentence-sized chunks keep the typewriter effect in fallback.
-            buf = ""
-            for ch in full_text:
-                buf += ch
-                if ch in "。！？\n":
-                    yield _sse("token", {"text": buf})
-                    buf = ""
-            if buf:
-                yield _sse("token", {"text": buf})
+            for piece in _sentence_chunks(full_text):
+                yield _sse("token", {"text": piece})
 
         draft = _stream_draft(question, retrieval, run_id, full_text)
         escalate, reason = PresaleQaRunner._escalation(retrieval, 1)
@@ -497,6 +525,7 @@ def qa_stream(req: StreamRequest) -> StreamingResponse:
             "evidence": evidence,
             "confidence_signal": draft.confidence_signal,
             "reason_codes": list(draft.reason_codes),
+            "curated": bool(curated_text),
             "timeline": timeline,
             "disposition": "pending",
             "configuration_refs": {},

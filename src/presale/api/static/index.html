@@ -551,6 +551,11 @@
     } else {
       badges.appendChild(badge("warn", "建议人工复核（" + terminal + "）"));
     }
+    if (body.curated) {
+      var curatedBadge = badge("mute", "演示精选 · 预审存档");
+      curatedBadge.title = "该答案为历史真实 LLM 运行的预审存档，检索与证据仍实时";
+      badges.appendChild(curatedBadge);
+    }
     var call = (body.steps || []).map(function (s) { return (s.tool_calls || [])[0]; }).filter(Boolean)[0];
     if (call) {
       if (call.status === "matched") {
