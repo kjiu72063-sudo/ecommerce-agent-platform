@@ -20,6 +20,8 @@
     --chip-bg: #eef2ff;
   }
   * { box-sizing: border-box; }
+  /* display:grid/flex on panels overrides the UA [hidden] rule — reassert it */
+  [hidden] { display: none !important; }
   body {
     margin: 0;
     font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
