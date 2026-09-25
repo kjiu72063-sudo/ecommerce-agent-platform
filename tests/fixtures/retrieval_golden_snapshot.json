@@ -27,7 +27,7 @@
     "expected": [
       "spec_battery"
     ],
-    "rank": 1
+    "rank": 4
   },
   "tenant-acme/product-101::遇上有坡的路段能爬上去吗": {
     "expected": [
@@ -87,13 +87,13 @@
     "expected": [
       "spec_capacity"
     ],
-    "rank": null
+    "rank": 6
   },
   "tenant-acme/product-103::睡两个人会不会挤": {
     "expected": [
       "spec_capacity"
     ],
-    "rank": 1
+    "rank": 3
   },
   "tenant-acme/product-103::赶上大暴雨，待在里头会淋湿吗": {
     "expected": [
@@ -129,7 +129,7 @@
     "expected": [
       "spec_capacity"
     ],
-    "rank": null
+    "rank": 6
   },
   "tenant-acme/product-105::彩色和深色的衣服会掉色吗": {
     "expected": [
@@ -279,13 +279,13 @@
     "expected": [
       "spec_season"
     ],
-    "rank": 3
+    "rank": 5
   },
   "tenant-demo/product-002::这羽绒服冬天穿抗冻不？里头塞的啥绒啊，厚实不？": {
     "expected": [
       "spec_fill"
     ],
-    "rank": 1
+    "rank": 2
   },
   "tenant-demo/product-003::刚下过雨的石板坡上走会不会滑": {
     "expected": [
@@ -298,13 +298,13 @@
     "expected": [
       "spec_material"
     ],
-    "rank": 1
+    "rank": 4
   },
   "tenant-demo/product-003::这鞋底儿防滑咋样啊？我上次下雨差点出溜倒了，心里阴影老大了。": {
     "expected": [
       "spec_sole"
     ],
-    "rank": 1
+    "rank": 3
   },
   "tenant-demo/product-003::鞋底够不够厚，踩石子路硌脚吗": {
     "expected": [
@@ -352,13 +352,13 @@
     "expected": [
       "spec_waterproof"
     ],
-    "rank": 5
+    "rank": null
   },
   "tenant-demo/product-005::太阳很刺眼的时候表盘看得清吗": {
     "expected": [
       "spec_screen"
     ],
-    "rank": 2
+    "rank": 4
   },
   "tenant-demo/product-005::想随时知道自己的心跳快慢": {
     "expected": [
@@ -376,7 +376,7 @@
     "expected": [
       "spec_heart"
     ],
-    "rank": 2
+    "rank": 3
   },
   "tenant-demo/product-006::奶泡能不能打得绵密，做拿铁行吗": {
     "expected": [
@@ -394,7 +394,7 @@
     "expected": [
       "spec_water"
     ],
-    "rank": 1
+    "rank": 2
   },
   "tenant-demo/product-006::用久了机器里面会不会结垢，怎么处理": {
     "expected": [
@@ -652,13 +652,13 @@
     "expected": [
       "spec_size"
     ],
-    "rank": 1
+    "rank": 2
   },
   "tenant-other/product-204::装满东西会不会很重不好搬": {
     "expected": [
       "spec_weight"
     ],
-    "rank": 1
+    "rank": 2
   },
   "tenant-other/product-204::这个箱子到底沉不沉啊？我一个人能搬得动不？": {
     "expected": [
