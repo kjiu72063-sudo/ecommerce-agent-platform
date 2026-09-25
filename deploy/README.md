@@ -76,6 +76,23 @@ presale-migrate-pg --sqlite ./presale.sqlite3 --dsn "$PRESALE_PG_DSN"
 > 3. 注意：这些修复是针对真实查询分布的词汇覆盖，不应把当前满分理解成终点；下一步应再生成一批**out-of-sample**真实查询验证，避免反向记忆 golden。当前 0.936 是本轮改进前最可信基线，1.0 是修复后基线。
 > 这印证方法论：**任何固定 golden 都可能被记忆；查询分布越真实，衡量越可信**。当前 112 条真实 golden 的 0.936 才是反映真实检索水平的上限，后续改进（更强 embedding/分块/多证据融合）以此为准对比。
 
+### Out-of-sample 验证（2026-09-25）
+
+上述「再生成一批 out-of-sample 查询」已执行：用真实 LLM（glm-5.3）对 22 个商品各生成 1 条新查询（`scripts/generate_realistic_golden.py --per-product 1`），与既有 112 条 golden **零重叠**，存于 `tests/fixtures/retrieval_oos_queries.json`。在 CI 同款 **deterministic embedding** + Hybrid（top_k=6, pool=15）下评估：
+
+| 指标 | OOS（n=22, deterministic） | 说明 |
+|---|---|---|
+| hit@1 | 0.3182 | 仅 7/22 首位命中 |
+| hit@3 | 0.6818 | |
+| hit@5 | **1.0** | 22/22 均在 top-5 召回，0 条 recall 失败 |
+| MRR | 0.5523 | |
+| prec@5 | 0.2000 | |
+
+**解读**：
+- **泛化召回健康**——OOS 全部 hit@5=1.0，没有「只能答背过的题」；BM25 租户过滤 + top_k=6 生效。
+- **hit@1 远低于 golden 的 1.0**——坐实了「golden 满分含记忆成分」；真实语义 embedding 下 hit@1 预期高于 deterministic 的 0.32（见上表 deterministic 管道验证行 ~0.55 MRR），但不会到 1.0。
+- **后继**：装 `embedding` extra 用 bge-large-zh 重跑同一 fixture 可得语义上限；该步未做（torch 体积大），fixture 已入库可直接复跑。
+
 | 管线 | hit@1 | hit@3 | hit@5 | MRR | prec@5 |
 |---|---|---|---|---|---|
 | 无重排（真实 bge） | 0.675 | 0.975 | 0.975 | 0.808 | 0.272 |
