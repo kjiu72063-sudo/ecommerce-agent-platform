@@ -15,6 +15,11 @@ from .knowledge import EvidenceItem, RetrievalResult, RetrievalStatus
 class AnswerGenerationError(ValueError):
     """Answer generation failed without producing a trustworthy draft."""
 
+    def __init__(self, message: str, *, retry_after: float | None = None):
+        super().__init__(message)
+        #: Seconds the server asked us to wait (from Retry-After), if any.
+        self.retry_after = retry_after
+
 
 class GeneratorPort(ABC):
     """Port that turns scoped evidence into a tenant-scoped AnswerDraft."""

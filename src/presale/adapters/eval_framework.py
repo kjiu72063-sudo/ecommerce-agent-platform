@@ -994,8 +994,12 @@ def compare_batch(
         result = compare_reports(baseline, current, rank_tolerance=rank_tolerance)
         summary = result["summary"]
         total_regressed += int(summary["regressed"])
+        # Lead with the same mode/source columns as report_csv_row so both
+        # CI CSVs share a stable prefix for generic consumers.
         rows.append(
             {
+                "mode": "compare",
+                "source": f"{base_s}::{cur_s}",
                 "baseline": base_s,
                 "current": cur_s,
                 "regressed": summary["regressed"],

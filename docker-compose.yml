@@ -74,6 +74,10 @@ services:
       POSTGRES_DB: presale
       POSTGRES_USER: presale
       POSTGRES_PASSWORD: ${PRESALE_PG_PASSWORD:-presale}
+      # Entrypoint guard reads these inside the container; without the
+      # passthrough, PRESALE_PG_PASSWORD is empty there and the production
+      # check rejects even a strong host-side password.
+      PRESALE_PG_PASSWORD: ${PRESALE_PG_PASSWORD:-presale}
       PRESALE_PG_PRODUCTION: ${PRESALE_PG_PRODUCTION:-0}
       # A second compose file (deploy/postgres.production.yml) sets this to 1.
     ports:
@@ -87,6 +91,10 @@ services:
             ""|presale) echo "production profile requires PRESALE_PG_PASSWORD" >&2; exit 1 ;;
           esac
         fi
+        # Named volume mounts over the image's /var/log/postgresql as root;
+        # the postgres process (uid 100) cannot write until we hand it over.
+        mkdir -p /var/log/postgresql
+        chown -R postgres:postgres /var/log/postgresql
         exec docker-entrypoint.sh postgres \
           -c logging_collector=on \
           -c log_directory=/var/log/postgresql \
